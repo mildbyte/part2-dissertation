@@ -1,37 +1,52 @@
 \documentclass[12pt,a4]{article}
-\usepackage{url}
+\usepackage{hyperref}
 \usepackage{color}
-%\usepackage{fullpage}
+\usepackage{fullpage}
 \begin{document}
 
 \vfil
 
-\centerline{\large Project Proposal}
+
+\begin{flushright}
+\large{A. I\v{s}kovs}\\
+\texttt{ai280}\\
+Trinity College
+\end{flushright}
+
 \vspace{0.3in}
-\centerline{\large Computer Science Tripos, Part II}
+\begin{center}{\large Computer Science Tripos, Part II Project Proposal}
+
 \vspace{0.3in}
-\centerline{\Large Predicting drug-pathway interactions using the Correlated Topic Model}
+\textbf{\center{\Large Predicting drug-pathway interactions using the Correlated Topic Model}}
+
 \vspace{0.4in}
-\centerline{\large A. I\v{s}kovs (\texttt{ai280}), Trinity College}
-\vspace{0.3in}
-\centerline{\large Originator: N. Pratanwanich}
-\vspace{0.3in}
 \centerline{\large \today}
+\end{center}
 
 \vfil
 
+\noindent{\bf Project Originator:} N. Pratanwanich
+\vspace{0.4in}
 
 \noindent
-{\bf Project Supervisor:} N. Pratanwanich
+{\bf Project Supervisor:} N. Pratanwanich\\
+
+\noindent
+{\bf Signature:}
 \vspace{0.2in}
 
 \noindent
-{\bf Director of Studies:} Dr A. C. Norman
-\vspace{0.2in}
+{\bf Director of Studies:} Dr A. C. Norman\\
+
 \noindent
+{\bf Signature:}
+\vspace{0.2in}
  
 \noindent
-{\bf Project Overseers:} Dr~A.~V.~S.~Madhavapeddy  \& Dr~S.~H.~Teuffel
+{\bf Project Overseers:} Dr~A.~V.~S.~Madhavapeddy  \& Dr~S.~H.~Teuffel\\
+
+\noindent
+{\bf Signatures:}
 
 \pagebreak
 
@@ -47,7 +62,7 @@ A problem with Latent Dirichlet Allocation and hence this approach is that it as
 
 The Correlated Topic Model\cite{2007} addresses this issue by modelling the topic selection as drawn from a multivariate normal distribution with a certain covariance matrix (which defines the correlations). Unfortunately, this makes the stochastic Gibbs sampling approach to train the model used in LDA intractable. Hence, an approach called Variational Inference has to be used, which is deterministic and biased (the resultant posterior distribution has systematic errors). Despite that, the Correlated Topic Model fit the sample corpus (a set of articles from {\em Science}) better than LDA\cite{2007}. It is hence expected that a model based on the CTM will be able to infer pathway crosstalks and so will bring an improvement in predictive power for drug-pathway relationships.
 
-The aim of this project is to implement and test such a model. In addition to reusing the Bayesian network from the CTM, the model will be augmented with a prior distribution of known gene-pathway relationships. A method called Variational EM will be used to train this model. Since the original CTM paper does not mention how the trained model can perform inference, an inference algorithm will have to be developed. The model will be evaluated first on a synthetic corpus of drug gene expression data (split into training and test sets) and then on publically available datasets (CMAP for gene expression data and KEGG for pathway data).
+The aim of this project is to implement and test such a model. In addition to reusing the Bayesian network from the CTM, the model will be augmented with a prior distribution of known gene-pathway relationships. A method called Variational EM will be used to train this model. Since the original CTM paper does not mention how the trained model can perform inference, an inference algorithm will have to be developed. The model will be evaluated first on a synthetic corpus of drug gene expression data (split into training and test sets) and then on publically available datasets (CMAP\cite{CMap} for gene expression data and KEGG\cite{KEGG} for pathway data).
 
 \section*{Starting Point}
 
@@ -121,7 +136,7 @@ Implement the model.
 
 \item {\bf Lent weeks 0-2} 
 
-Generate a synthetic dataset and verify the implementation. Write the progress report. 
+Generate a synthetic dataset and verify the implementation. Write the progress report. Rehearse and deliver a presentation to the overseeing group.
 
 \textbf{Milestone:} a working implementation of the model.
 
@@ -137,13 +152,17 @@ Use the datasets to train the model and evaluate it against the performance of t
 
 If there is time, work on the extensions to the project. Start writing the dissertation.
 
-\item {\bf Easter term weeks 0-2} Finish writing the dissertation. 
+\item {\bf Easter term weeks 0-2}
 
-\item {\bf Easter term week 3} Proofreading and submission of the dissertation.
+Finish writing a draft dissertation. Submit to the Director of Studies and the Supervisor for review.
+
+\item {\bf Easter term week 3}
+
+Incorporate comments from the reviews. Submit the dissertation.
 
 \end{enumerate}
 
-\bibliographystyle{plain}
+\bibliographystyle{unsrt}
 \bibliography{bibliography}
 
 \end{document}
