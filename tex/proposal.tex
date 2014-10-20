@@ -58,11 +58,13 @@ Latent Dirichlet Allocation\cite{Blei} is a bag-of-words topic modelling algorit
 
 The 2014 paper\cite{Pratanwanich2014} by Naruemon Pratanwanich and Pietro Lio describes a model based on this algorithm to predict drug-pathway relationships:  drugs are treated as documents, pathways as topics and genes as words. The model had to be augmented with priors: the pathway-gene relationships for some pathways are already known. In the end, this method provided better predictive results of pathways activated by a certain drug than the state-of-the art methods.
 
-A problem with Latent Dirichlet Allocation and hence this approach is that it assumes that the topics (or pathways) are uncorrelated. This assumption is usually not true: a document about Computer Science is more likely to be about Mathematics than, say, Geology. 
+A problem with Latent Dirichlet Allocation and hence this approach is that it assumes that the topics (or pathways) are uncorrelated. This assumption is usually not true: a document about Computer Science is more likely to be about Mathematics than, say, Geology. The fact that incorporating pathway correlation, or crosstalk, into the model described in\cite{C4MB00014E} improved the performance of the model is evidence that pathways are also correlated.
 
-The Correlated Topic Model\cite{2007} addresses this issue by modelling the topic selection as drawn from a multivariate normal distribution with a certain covariance matrix (which defines the correlations). Unfortunately, this makes the stochastic Gibbs sampling approach to train the model used in LDA intractable. Hence, an approach called Variational Inference has to be used, which is deterministic and biased (the resultant posterior distribution has systematic errors). Despite that, the Correlated Topic Model fit the sample corpus (a set of articles from {\em Science}) better than LDA\cite{2007}. It is hence expected that a model based on the CTM will be able to infer pathway crosstalks and so will bring an improvement in predictive power for drug-pathway relationships.
+The Correlated Topic Model\cite{2007} addresses this issue with LDA by modelling the topic selection as drawn from a multivariate normal distribution with a certain covariance matrix (which defines the correlations). Unfortunately, this makes the stochastic Gibbs sampling approach to train the model used in LDA intractable. Hence, an approach called Variational EM (Expectation Maximization) has to be used, which is deterministic and biased (the resultant posterior distribution has systematic errors). Despite that, the Correlated Topic Model fit the sample corpus (a set of articles from {\em Science}) better than LDA\cite{2007}.
 
-The aim of this project is to implement and test such a model. In addition to reusing the Bayesian network from the CTM, the model will be augmented with a prior distribution of known gene-pathway relationships. A method called Variational EM will be used to train this model. Since the original CTM paper does not mention how the trained model can perform inference, an inference algorithm will have to be developed. The model will be evaluated first on a synthetic corpus of drug gene expression data (split into training and test sets) and then on publically available datasets (CMAP\cite{CMap} for gene expression data and KEGG\cite{KEGG} for pathway data).
+Since incorporating correlations into \cite{C4MB00014E} resulted in better performance than without them and the LDA approach resulted in yet better performance, it is suspected that a model based on the CTM that will be able to take into account pathway crosstalks will bring another improvement in predictive power for drug-pathway relationships.
+
+The aim of this project is to implement and test such a model. In addition to reusing the Bayesian network from the CTM, the model will be augmented with a prior distribution of known gene-pathway relationships. The equations for training the model will be derived, based on the CTM equations for Variational EM. The model will be tested on a synthetic corpus of drug gene expression data and then on publically available datasets (CMAP\cite{CMap} for gene expression data and KEGG\cite{KEGG} for pathway data). 
 
 \section*{Starting Point}
 
@@ -70,7 +72,7 @@ I know Python and have some experience in working with the SciPy stack. Python h
 
 Since this project uses some concepts from the Artificial Intelligence II course (see Key Concepts), I will have to familiarise myself with the course before it begins.
 
-There exists an R package for the Correlated Topic Model, as well as a C implementation of the Model written by the authors of the original paper (\url{https://www.cs.princeton.edu/~blei/ctm-c/}). I will however only be able to use those as a reference at most: adding priors to the model will change its implementation. In addition, the implementations also don't have a way to use the fitted models for inference.
+There exists an R package for the Correlated Topic Model, as well as a C implementation of the Model written by the authors of the original paper (\url{https://www.cs.princeton.edu/~blei/ctm-c/}). I will however only be able to use those as a reference at most: adding priors to the model will change its implementation. In addition, the implementations also don't have a way to use the fitted models for prediction.
 
 \section*{Substance and Structure of the Project}
 
@@ -85,34 +87,40 @@ This involves familiarizing myself with the Bayesian Networks using the Artifici
 
 \subsubsection*{Developing a model}
 
-Define the Variational EM equations behind the training of the model and come up with an inference algorithm for the fitted model.
+Understand and modify the existing Variational EM equations used to fit the CTM to a corpus so that the model can incorporate prior information.
 
 \subsubsection*{Implementation and testing}
 
-Implement the software to handle the datasets: reading the CMAP/KEGG data, generating test datasets. The CMAP is a raw dataset taken from cell lines and so will also need to be preprocessed. At this stage, the actual training and classification procedures for the model will be implemented in Python. 
+Implement the software to generate and read datasets. At this stage, the actual training and procedures for the model will be implemented in Python.
 
-During development, the model will be tested using a synthetic corpus of drug gene expression data, whereas the final evaluation will consist of running the model on the publically available drug gene expression data (CMAP) and comparing the results with the LDA approach (see Evaluation and Success Criteria).
+During development, the model will be tested using toy datasets of synthetic gene expression data (see Evaluation and Success Criteria).
 
 \subsubsection*{Extensions}
+The original CTM paper does not mention how the CTM can be used to calculate the topic proportions for a new document. One extension would hence involve performing that, in which case it will be possible to compare the performance of the model with the LDA approach.
+
 There are multiple other priors that can be incorporated into the model to improve predictive power, for example, the correlation between drugs: the molecular structure of a drug can be treated as a set of functional groups and so drugs with similar sets of functional groups are likely to have similar effects.
 
-In addition, the Variational EM approach only gives a maximum likelihood estimate of the hidden variables. The model could be given a full Bayesian treatment by using Hierarchical Bayesian modelling.
+In addition, the Variational EM approach only gives a maximum likelihood estimate of the model parameters. The model could be given a full Bayesian treatment by using Hierarchical Bayesian modelling.
+
+\subsubsection*{Fallback plan}
+In case I fail to incorporate priors into the Correlated Topic Model, I will use one of the available libraries for fitting the CTM and instead work on processing the gene data into a drug "document" that can be understood by the library, as well as developing a way to predict pathway distributions for a previously unseen drug. The evaluation procedure in that case will have to be changed, since not having priors in the model will mean that the pathways will be completely arbitrary and will not correspond to real drug data.
 
 \section*{Evaluation and Success Criteria}
 
 The main criterion for success is a working implementation of the model as per its specification. This will be evaluated as follows:
 \begin{itemize} 
-\item Generate a set of random pathways, pathway-gene memberships (a probability distribution over genes) and drug-pathway interactions (a probability distribution over pathways)
-\item Use that to generate a corpus of gene expression data as per how the Correlated Topic Model assumes it's generated. Split the gene expression data into a training and a test set.
-\item Train the model using the training set and a random subset of pathway-gene memberships to serve as a prior.
-\item Test the model: use it to predict the pathway distribution for each drug in the test set and compare these distribution with the reference distributions.
+\item Generate a toy dataset of random pathways, pathway-gene memberships (a probability distribution over genes) and drug-pathway interactions (a probability distribution over pathways)
+\item Use that to generate a corpus of gene expression data as per how the Correlated Topic Model assumes it's generated.
+\item Together with a random subset of the pathway-gene membership data to serve as a prior, use the model to infer the latent variables and compare them with the ones that generated the dataset.
 \end{itemize}
 
 Note that the successful achievement of this objective does not imply the model has any predictive power for real drug data. It only verifies that the model works as expected and there are no errors in the implementation.
 
+The comparison with the LDA method will be performed in case the main objective is achieved. Then a method for predicting pathways activated by a certain drug will developed as an extension. The model will be tested on reference data (known drug-pathway relationships) by performing the predictions for known drugs and then using the pathway ranking metric described in\cite{Pratanwanich2014}, in which case the performance of the two models can be compared.
+
 \section*{Resource Declaration}
 
-The data for pathways will be taken from the KEGG database and the drug gene expression data will be taken from CMAP, which are publically available.
+The data for pathways will be taken from the KEGG\cite{KEGG} database and the drug gene expression data will be taken from CMAP\cite{CMap}, which are publically available.
 
 I will be using my own laptop for main development, a quad-core machine with Windows and ArchLinux on it. The source code will be kept in a Git repository which will be regularly pushed to GitHub, as well as to my MCS filespace. As the KEGG and CMAP data is publically available, and the code used to read and prepare it for processing will be backed up, I do not expect to require to make backups of the actual datasets.
 
@@ -122,41 +130,47 @@ Planned starting date is 27/10/2014.
 
 \begin{enumerate}
 
-\item {\bf Michaelmas weeks 2-4} 
+\item {\bf 27/10/2014 -- 09/11/2014} 
 
-Perform required reading and research.
+Perform required reading and research (Graphical Models and inference in them, LDA, generative models, CTM). Set up the outline for the dissertation.
 
-\item {\bf Michaelmas weeks 5-7} 
+\item {\bf 10/11/2014 -- 23/11/2014} 
 
-Design the model and define the equations used for inference and classification.
+Design the model and adapt the equations used for inference to incorporate priors. Start writing the Method section of the dissertation.
 
-\item {\bf Michaelmas week 8-vacation} 
+\item {\bf 24/11/2014 -- 11/01/2015} 
 
-Implement the model.
+Implement the model in Python. Generate a small toy dataset to verify the implementation. Debug the code.
 
-\item {\bf Lent weeks 0-2} 
+\item {\bf 12/01/2015 -- 25/01/2015}
 
-Generate a synthetic dataset and verify the implementation. Write the progress report. Rehearse and deliver a presentation to the overseeing group.
+Work on optimizing and debugging the code so that it can run in reasonable time on a large toy dataset. Write the progress report. 
 
-\textbf{Milestone:} a working implementation of the model.
+\textbf{Milestone:} a working implementation of the model. 
 
-\item {\bf Lent weeks 3-5} 
+\item {\bf 26/01/2015 -- 08/02/2015} 
 
-Obtain and explore the KEGG and the CMAP datasets, perform preprocessing of the data.
+Submit the progress report. Rehearse and deliver a presentation to the overseeing group.
 
-\item {\bf Lent weeks 6-8}
+Obtain and explore the KEGG and the CMAP datasets. Preprocess the data into a suitable format for the model.
 
-Use the datasets to train the model and evaluate it against the performance of the LDA model.
+\item {\bf 09/02/2015 -- 22/02/2015}
 
-\item {\bf Easter vacation} 
+Derive the equations required for prediction of pathways that are perturbed by a drug (extension 1).
 
-If there is time, work on the extensions to the project. Start writing the dissertation.
+\item {\bf 23/02/2015 -- 08/03/2015}
 
-\item {\bf Easter term weeks 0-2}
+Use the CMAP/KEGG datasets to train the model and evaluate it against the performance of the LDA model.
 
-Finish writing a draft dissertation. Submit to the Director of Studies and the Supervisor for review.
+\item {\bf 08/04/2015 -- 19/04/2015}
 
-\item {\bf Easter term week 3}
+Work on the extensions to the project (if there is time) and continue writing the dissertation.
+
+\item {\bf 20/04/2015 -- 03/05/2015}
+
+Finish writing a draft dissertation. Submit to the Director of Studies and the Supervisor for review, allowing 2 weeks to read the draft.
+
+\item {\bf 04/05/2015 -- 10/05/2015}
 
 Incorporate comments from the reviews. Submit the dissertation.
 
