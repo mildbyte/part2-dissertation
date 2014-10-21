@@ -58,7 +58,7 @@ Latent Dirichlet Allocation\cite{Blei} is a bag-of-words topic modelling algorit
 
 The 2014 paper\cite{Pratanwanich2014} by Naruemon Pratanwanich and Pietro Lio describes a model based on this algorithm to predict drug-pathway relationships: differential gene expression profiles of drug treatments are treated as documents, pathways where genes are functionally grouped as topics and genes as words. The model had to be augmented with priors: the pathway-gene relationships for some pathways are already known. In the end, this method provided better predictive results of pathways activated by certain drugs than the state-of-the art methods.
 
-A problem with Latent Dirichlet Allocation and hence this approach is that it assumes that the topics (or pathways) are uncorrelated. This assumption is usually not true: a document about Computer Science is more likely to be about Mathematics than, say, Geology. Another 2014 paper\cite{C4MB00014E} by Naruemon Pratanwanich and Pietro Lio presents a model that assumes pathway crosstalk (correlation). It uses matrix factorisation together with this assumption to predict pathway responsiveness for drugs that affect multiple pathways and finds using the correlation assumption results in a better fit to the gene expression data.
+A problem with Latent Dirichlet Allocation and hence this approach is that it assumes that the topics (or pathways) are uncorrelated. This assumption is usually not true: a document about Computer Science is more likely to be about Mathematics than, say, Geology. Another 2014 paper\cite{C4MB00014E} by Naruemon Pratanwanich and Pietro Lio presents a model that assumes pathway crosstalk (correlation). It uses matrix factorisation together with this assumption to predict pathway responsiveness for drugs that affect multiple pathways and finds that using the correlation assumption results in a better fit to the gene expression data.
 
 The Correlated Topic Model\cite{2007} was proposed as an improvement on the Latent Dirichlet Allocation: instead of using the Dirichlet distribution to model the relative proportions of topics in a document, it uses the logistic normal distribution. The parameters of the distribution are the mean and the covariance matrix, which allows for modelling correlations between topics. The original paper\cite{2007} uses a deterministic approach called Variational EM (Expectation Maximization) to train this model (due to the non-conjugacy of the logistic normal, the Markov Chain Monte Carlo approach with Gibbs Sampling is intractable). The Correlated Topic Model fit the sample corpus (a set of articles from \textit{Science}) better than LDA\cite{2007}.
 
@@ -80,31 +80,48 @@ There exists an R package for the Correlated Topic Model, as well as a C impleme
 
 The key concepts in this project are drawn from the Artificial Intelligence II course, including topics such as Bayesian Networks and inference, methods for training and evaluating classifiers and probability distribution transformation. This project, however, will go beyond the scope of the course, since the Markov Chain Monte Carlo approach for inference in Bayesian networks is intractable for the Correlated Topic Model and Variational Expectation Maximization has to be used.
 
-\subsection*{Major work items}
+\subsection*{Major Work Items}
 
 \subsubsection*{Required reading and research}
-This involves familiarizing myself with the Bayesian Networks using the Artificial Intelligence II lecture notes, understanding the Bayesian Network training methods that are used in Latent Dirichlet Allocation (Gibbs Sampling and Markov Chain Monte Carlo) and the Correlated Topic Model (Variational EM). I will also need to get a better understanding of the biological context around the project, including topics such as genes, pathways, how the drug gene expression data is obtained using microarrays and how it has to be preprocessed.
+
+\begin{itemize}
+\item Artificial Intelligence II Lecture notes: introduction to Bayesian networks and inference
+\item Chapters 9 and 10 of Christopher Bishop's book\cite{Bishop:2006:PRM:1162264} on computer vision models: Mixture models (of which LDA and CTM are variations) and the Expectation Maximization algorithm, as well as Variational Inference.
+\item "Build, Compute, Critique, Repeat: Data Analysis with Latent Variable Models"\cite{doi:10.1146/annurev-statistics-022513-115657} , an introduction to latent variable models.
+\item The original LDA\cite{Blei} and CTM\cite{2007} papers to understand how the Bayesian network theory is applied to train these models
+\item Naruemon Pratanwanich and Pietro Lio's paper\cite{Pratanwanich2014}  on adapting LDA in order to familiarize myself with how microarray data is preprocessed into a pseudo-drug "document" and the ranking method used to evaluate the performance of the model.
+
+I will also need to get a better understanding of the biological context around the project, including topics such as genes, pathways, how the drug gene expression data is obtained using microarrays and how it has to be preprocessed.
+
+\end{itemize}
 
 \subsubsection*{Developing a model}
 
-Understand and modify the existing Variational EM equations used to fit the CTM to a corpus so that the model can incorporate prior information.
+The classic Expectation Maximization algorithm consists of two steps:
 
-\subsubsection*{Implementation and testing}
+\begin{itemize}
+\item \textbf{E}: Calculate the expected value of the log likelihood of seeing the latent variables given the observed variables and the model parameters.
+\item \textbf{M}: Maximize this function by varying the model parameters.
+\end{itemize}
+
+The CTM paper\cite{2007} fits an approximation to the distributions of latent variables in the \textbf{E} step using Variational Inference and performs coordinate ascent in the \textbf{M} step. The resultant algorithm is called Variational EM.
+
+I have to understand and alter this algorithm in order add prior information on gene-pathway memberships to the model.
+
+\subsubsection*{Implementation and Testing}
 
 Implement the software to generate synthetic data for model verification and preprocess real datasets. At this stage, the actual training procedures for the model will be implemented in Python.
 
-During development, the model will be tested using toy datasets of synthetic gene expression and pathway data (see Evaluation and Success Criteria).
+During development, the model will be tested using toy datasets of synthetic gene expression and pathway data. It will then be also compared against the LDA method (see Evaluation and Success Criteria).
 
 \subsubsection*{Extensions}
-The original CTM paper does not mention how the CTM can be used to calculate the topic proportions for a new document. One extension would hence involve performing that, in which case it will be possible to compare the performance of the model with the LDA approach.
-
-\textit{Note that without this, we are still able to compare with LDA by the inferred latent variable (topic-document distribution).}
+The original CTM paper does not mention how the CTM can be used to calculate the topic proportions for a new document. One extension would hence involve performing that, in which case it will be possible to better compare the performance of the model with the LDA approach using the ranking method described in the paper\cite{Pratanwanich2014} (without this extension, we can still compare the results by considering the latent variables that both models inferred from the data).
 
 There are multiple other priors that can be incorporated into the model to improve predictive power, for example, the correlation between drugs: the molecular structure of a drug can be treated as a set of functional groups and so drugs with similar sets of functional groups are likely to have similar effects.
 
 In addition, the Variational EM approach only gives a maximum likelihood estimate of the model parameters. The model could be given a full Bayesian treatment by using hierarchical Bayesian modelling. \textbf{todo}
 
-\subsubsection*{Fallback plan}
+\subsubsection*{Fallback Plan}
 In case I fail to incorporate priors into the Correlated Topic Model, I will use one of the available libraries for fitting the CTM and instead work on processing the gene data into a drug "document" that can be understood by the library, as well as developing a way to predict pathway distributions for a previously unseen drug. The evaluation procedure in that case will have to be changed, since not having priors in the model will mean that the pathways will be completely arbitrary and will not correspond to real drug data.
 
 \section*{Evaluation and Success Criteria}
@@ -118,7 +135,11 @@ The main criterion for success is a working implementation of the model as per i
 
 Note that the successful achievement of this objective does not imply the model has any predictive power for real drug data. It only verifies that the model works as expected and there are no errors in the implementation.
 
-The comparison with the LDA method will be performed in case the main objective is achieved. \textbf{discussion, compare with LDA on reference data} Then a method for predicting pathways activated by a certain drug will developed as an extension. The model will be tested on reference data (known drug-pathway relationships) by performing the predictions for known drugs and then using the pathway ranking metric described in\cite{Pratanwanich2014}, in which case the performance of the two models can be compared.
+The comparison with the LDA method can be performed in two ways. Firstly, the model can be run on the CMAP/KEGG datasets and infer the latent variables. They can then be compared with the latent variables inferred by the LDA method.
+
+Secondly, in case the extension goal of having a method for predicting pathways activated by certain drugs has been reached, the model will be tested on reference data (known drug-pathway relationships). This will be done by performing the predictions for known drugs and then using the pathway ranking metric described in\cite{Pratanwanich2014}, in which case the performance of the two models can be compared better.
+
+It is possible that the developed model will perform better on some drugs than LDA and worse on others. This will be investigated in order to know which types of drugs it's better to use one model over another.
 
 \section*{Resource Declaration}
 
@@ -134,11 +155,11 @@ Planned starting date is 27/10/2014.
 
 \item {\bf 27/10/2014 -- 09/11/2014} 
 
-Perform required reading and research (Graphical Models and inference in them, LDA, generative models, CTM). Set up the outline for the dissertation.
+Perform required reading and research (as per the Major Work Items section) Set up the outline for the dissertation.
 
 \item {\bf 10/11/2014 -- 23/11/2014} 
 
-Design the model and adapt the equations used for inference to incorporate priors. Start writing the Method section of the dissertation.
+Modify the model and adapt the equations used for inference to incorporate priors. Start writing the Method section of the dissertation.
 
 \item {\bf 24/11/2014 -- 11/01/2015} 
 
@@ -146,9 +167,9 @@ Implement the model in Python. Generate a small toy dataset to verify the implem
 
 \item {\bf 12/01/2015 -- 25/01/2015}
 
-Work on optimizing and debugging the code so that it can run in reasonable time on a large toy dataset. Write the progress report. Work on the Method and the Evaluation sections of the dissertation.
+Work on optimizing and debugging the code so that it can run in reasonable time on a large toy dataset. Write the progress report. Continue writing the Method and start writing the Evaluation sections of the dissertation.
 
-\textbf{Milestone:} a working implementation of the model. 
+\textbf{Milestone:} a working implementation of the modified model. 
 
 \item {\bf 26/01/2015 -- 08/02/2015} 
 
@@ -158,7 +179,7 @@ Obtain and explore the KEGG and the CMAP datasets. Preprocess the data into a su
 
 \item {\bf 09/02/2015 -- 22/02/2015}
 
-Derive the equations required for prediction of pathways that are perturbed by a drug (extension 1).
+Derive the equations required for prediction of pathways that are perturbed given a new drug (extension 1).
 
 \item {\bf 23/02/2015 -- 08/03/2015}
 
