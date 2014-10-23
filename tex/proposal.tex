@@ -20,7 +20,8 @@ Trinity College
 \textbf{\center{\Large Predicting drug-pathway interactions using the Correlated Topic Model}}
 
 \vspace{0.4in}
-\centerline{\large \today}
+%\today
+\centerline{\large October 24, 2014}
 \end{center}
 \vspace*{\fill}
 
@@ -64,7 +65,7 @@ A problem with Latent Dirichlet Allocation and hence this approach is that it as
 
 The Correlated Topic Model\cite{2007} was proposed as an improvement on the Latent Dirichlet Allocation: instead of using the Dirichlet distribution to model the relative proportions of topics in a document, it uses the logistic normal distribution. The parameters of the distribution are the mean and the covariance matrix, which allows for modelling correlations between topics. The original paper\cite{2007} uses a deterministic approach called Variational EM (Expectation Maximization) to train this model (due to the non-conjugacy of the logistic normal, the Markov Chain Monte Carlo approach with Gibbs Sampling is intractable). The Correlated Topic Model fit the sample corpus (a set of articles from \textit{Science}) better than LDA\cite{2007}.
 
-Since the matrix factorization model that assumed pathway correlation\cite{C4MB00014E} and the LDA method\cite{Pratanwanich2014} outperform matrix factorization without correlations, it is suspected that adapting the CTM to the problem of prediction of pathway responsiveness to drug treatment would yield another improvement in predictive power.
+Since the continuous matrix factorization model that assumed pathway correlation\cite{C4MB00014E} and the discrete LDA method\cite{Pratanwanich2014} outperform matrix factorization without correlations, it is suspected that adapting the CTM to the problem of prediction of pathway responsiveness to drug treatment would yield another improvement in predictive power.
 
 The aim of this project is to implement and test such a model. In addition to reusing the Bayesian network from the CTM, the model will be augmented with a prior distribution of known gene-pathway relationships. The equations for training the model will be derived, based on the existing CTM equations for Variational EM\cite{2007}. The model will be tested on a synthetic corpus of drug gene expression data for model verification and then on publically available datasets (CMAP\cite{CMap} for gene expression data and KEGG\cite{KEGG} for pathway data). The results will be compared with the latent variables inferred by the LDA approach. While it's not possible to guarantee that the model will perform better in every case, the results will be investigated to see in which cases the LDA approach performs better than CTM and vice versa.
 
@@ -124,7 +125,7 @@ During development, the model will be tested using toy datasets of synthetic gen
 \subsubsection*{Fallback Plan}
 In case I fail to incorporate priors into the Correlated Topic Model, I will use one of the available libraries for fitting the CTM and instead work on processing the gene data into a drug "document" that can be understood by the library, as well as developing a way to predict pathway distributions for a previously unseen drug. The evaluation procedure in that case will have to be changed, since not having priors in the model will mean that the pathways will be completely arbitrary and will not correspond to real drug data.
 
-Another option is using a less complicated algorithm such as Random Forests that has high predictive power on drug-pathway perturbations\cite{Riddick15012011}. In that case the setting will be that of supervised learning, where the training data are known pairs of drugs and pathways and the features are the differential gene expression data. However, in this case I won't be able to test the hypothesis of pathway correlation and how the data are generated as I would be able to by using the aforementioned generative probabilistic models.
+Another option is using a less complicated algorithm such as Random Forests\cite{Breiman:2001:RF:570181.570182} that has high predictive power on drug-pathway perturbations\cite{Riddick15012011}. In that case the setting will be that of supervised learning, where the training data are known pairs of drugs and pathways and the features are the differential gene expression data. However, in this case I won't be able to test the hypothesis of pathway correlation and how the data are generated as I would be able to by using the aforementioned generative probabilistic models.
 
 \section*{Evaluation and Success Criteria}
 
