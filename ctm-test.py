@@ -41,14 +41,15 @@ def likelihood_bound(v_params, m_params, doc):
 
     lambda_mu = v_params.lambd - m_params.mu
     
-    result -= (np.diag(v_params.nu ** 2) * inv_sigma).transpose() + lambda_mu * inv_sigma * lambda_mu.transpose()
-    result += v_params.phi * v_params.lambd - 1.0 / v_params.zeta * np.sum(np.exp(v_params.lambd + v_params.nu**2)) + 1 - np.log(v_params.zeta)
+    result -= 0.5 * (np.diag(v_params.nu ** 2) * inv_sigma).trace()
+    result -= 0.5 * lambda_mu.transpose() * inv_sigma * lambda_mu
+    result += np.sum(v_params.phi * v_params.lambd) - 1.0 / v_params.zeta * np.sum(np.exp(v_params.lambd + v_params.nu**2)) + 1 - np.log(v_params.zeta)
 
     for n in xrange(len(doc)):
         for i in xrange(len(m_params.beta)):
             result += np.exp(v_params.lambd[i]) * m_params.beta[i, doc[n]]
     
-    result += 0.5 * np.sum(np.log(v_params.nu^2) + np.log(2*np.pi) + 1)
+    result += 0.5 * np.sum(np.log(v_params.nu**2) + np.log(2*np.pi) + 1)
     result -= np.sum(v_params.phi*np.log(v_params.phi))
     
     return result
@@ -92,8 +93,9 @@ def inference(corpus, no_pathways, pathway_priors):
 
 def f(eta):
     return np.exp(eta) / np.sum(np.exp(eta))
-    
-corpus = [np.array([1, 1, 1, 1]), np.array([1,2])]
+
+#corpus is a list of word counts
+corpus = [np.array([0,1]), np.array([0,1])]
 no_pathways = 2
 pathway_priors = np.ones((2, 2))
 
