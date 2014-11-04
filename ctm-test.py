@@ -41,9 +41,9 @@ def likelihood_bound(v_params, m_params, doc):
 
     lambda_mu = v_params.lambd - m_params.mu
     
-    result -= 0.5 * (np.diag(v_params.nu ** 2) * inv_sigma).trace()
-    result -= 0.5 * lambda_mu.transpose() * inv_sigma * lambda_mu
-    result += np.sum(v_params.phi * v_params.lambd) - 1.0 / v_params.zeta * np.sum(np.exp(v_params.lambd + v_params.nu**2)) + 1 - np.log(v_params.zeta)
+    result -= 0.5 * (np.diag(v_params.nu ** 2).dot(inv_sigma)).trace()
+    result -= 0.5 * lambda_mu.dot(inv_sigma.dot(lambda_mu))
+    result += np.sum(v_params.phi.dot(v_params.lambd)) - 1.0 / v_params.zeta * np.sum(np.exp(v_params.lambd + v_params.nu**2)) + 1 - np.log(v_params.zeta)
 
     for n in xrange(len(doc)):
         for i in xrange(len(m_params.beta)):
