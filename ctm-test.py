@@ -17,6 +17,9 @@ class VariationalParams():
         self.phi = phi
         self.lambd = lambd
         self.nu_sq = nu_sq
+    def __str__(self):
+        return "zeta: " + str(self.zeta) + "; phi: " + str(self.phi) + \
+            "lambda: " + str(self.lambd) + "; nu_sq: " + str(self.nu_sq)
 
 class Model():
     def __init__(self, mu, sigma, beta):
@@ -29,131 +32,152 @@ class Model():
 #the derivative of the likelihood bound with respect to lambda,
 #passed to the conjugate gradient algorithm. Uses the first argument as lambda
 #(ignores the lambda in v_params since the scipy optimizer manipulates the first argument)
-def f_dlambda(lambd, v_params, m_params, doc):
-    return -np.linalg.inv(m_params.sigma).dot(m_params.mu - lambd) -np.sum(v_params.phi, axis=0) -\
-        (len(doc)/v_params.zeta) * np.exp(lambd + 0.5 * v_params.nu_sq)
+def f_dlambda(lambd, v_params, m_params, doc, counts):
+    N = sum(counts)
+    
+    return -(-np.linalg.inv(m_params.sigma).dot(lambd - m_params.mu) +\
+        np.sum([c * v_params.phi[n] for (n, c) in zip(xrange(len(doc)), counts)]) -\
+        (N/v_params.zeta) * np.exp(lambd + 0.5 * v_params.nu_sq))
 
 #the objective function used to optimize the likelihood bound with respect to lambda
-def f_lambda(lambd, v_params, m_params, doc):
+def f_lambda(lambd, v_params, m_params, doc, counts):
+    v_params.lambd = lambd
+    return -likelihood_bound(v_params, m_params, doc, counts)
+
+def f_nu_sq(nu_sq, v_params, m_params, doc, counts):
+    v_params.nu_sq = nu_sq
+    return -likelihood_bound(v_params, m_params, doc, counts)
+
+def f_dnu_sq(nu_sq, v_params, m_params, doc, counts):
+    N = sum(counts)    
+    
+    inv_sigma = np.linalg.inv(m_params.sigma)
+    result = 0.5 * np.diagonal(inv_sigma) + 0.5 * N / v_params.zeta * np.exp(v_params.lambd + 0.5 * nu_sq) - 0.5 / nu_sq
+    return result
+    
+def likelihood_bound(v_params, m_params, doc, counts):
     inv_sigma = np.linalg.inv(m_params.sigma)
     
-    lambda_mu = lambd - m_params.mu
-    result = lambd.dot(np.sum(v_params.phi, axis=0))
-    result -= 0.5 * lambda_mu.dot(inv_sigma.dot(lambda_mu))
-    result -= len(doc) * (1.0 / v_params.zeta * np.sum(np.exp(lambd + 0.5 * v_params.nu_sq)) - 1.0 + np.log(v_params.zeta))
+    N = sum(counts)
     
-    return -result
-
-def f_dnu_sq(nu_sq, i, v_params, m_params, doc):
-    inv_sigma = np.linalg.inv(m_params.sigma)
-    return -0.5 * inv_sigma[(i, i)] - 0.5 * len(doc) / v_params.zeta * np.exp(v_params.lambd[i] + 0.5 * nu_sq) + 0.5 / nu_sq
-
-def f_d2nu_sq(nu_sq, i, v_params, m_params, doc):
-    return -0.25 * len(doc) / v_params.zeta * np.exp(v_params.lambd[i] + 0.5 * nu_sq) - 0.5 / (nu_sq * nu_sq)
-
-def likelihood_bound(v_params, m_params, doc):
-    inv_sigma = np.linalg.inv(m_params.sigma)
-    
-    result = 0.5 * np.log(np.linalg.det(inv_sigma)) - 0.5 * len(m_params.beta) * np.log(2*np.pi)
-
-    lambda_mu = v_params.lambd - m_params.mu
-    
+    #E_q(logp(eta|mu,sigma))
+    result = 0.5 * np.log(np.linalg.det(inv_sigma))
     result -= 0.5 * (np.diag(v_params.nu_sq).dot(inv_sigma)).trace()
-    result -= 0.5 * lambda_mu.dot(inv_sigma.dot(lambda_mu))    
+    lambda_mu = v_params.lambd - m_params.mu
+    result -= 0.5 * lambda_mu.dot(inv_sigma.dot(lambda_mu))
     
-    result += np.sum(v_params.phi.dot(v_params.lambd)) + len(doc) * (-1.0 / v_params.zeta * np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq)) + 1 - np.log(v_params.zeta))
-
-    for n in xrange(len(doc)):
-        for i in xrange(len(m_params.beta)):
-            result += v_params.phi[n, i] * np.log(m_params.beta[i, doc[n]])
+    #E_q(logp(z|eta))
+    result += sum([c * v_params.lambd[i] * v_params.phi[n, i] for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
+    result -= N * (1.0 / v_params.zeta * np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq)) - 1 + np.log(v_params.zeta))
     
-    result += 0.5 * np.sum(np.log(v_params.nu_sq) + np.log(2*np.pi) + 1)
-    result -= np.sum(v_params.phi*np.log(v_params.phi))
+    #E_q(logp(w|mu,z,beta))
+    result += sum([c * v_params.phi[n, i] + np.log(m_params.beta[i, doc[n]]) for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
+    
+    #H(q)
+    result += np.sum(0.5 * (1 + np.log(v_params.nu_sq * 2 * np.pi)))
+    result -= np.sum([c * v_params.phi[n, i] * np.log(v_params.phi[n, i]) for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
     
     return result
     
 
 """Performs variational inference of the variational parameters on
 one document given the current model parameters. Returns a VariationalParams object"""
-def variational_inference(doc, m_params):
+def variational_inference(doc, counts, m_params):
     
     v_params = VariationalParams(
         zeta=10.0,\
         phi=np.zeros((len(doc), len(m_params.beta))) + 1.0/len(m_params.beta),\
-        lambd=np.ones(len(m_params.beta)),\
-        nu_sq=np.zeros(len(m_params.beta)) + 10.0)
+        lambd=np.zeros(len(m_params.beta)),\
+        nu_sq=np.ones(len(m_params.beta)))
     
-    old_l_bound = likelihood_bound(v_params, m_params, doc)
+    old_l_bound = likelihood_bound(v_params, m_params, doc, counts)
 
-    for _ in xrange(5):
+    while True:
+        #Maximize wrt zeta
+        v_params.zeta = np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq))
+        
+        #Maximize wrt lambda
+        v_params.lambd = scipy.optimize.fmin_cg(f_lambda, v_params.lambd, f_dlambda, args=(v_params, m_params, doc, counts))
+        #opt_result = scipy.optimize.minimize(f_lambda, v_params.lambd, method='BFGS', jac=f_dlambda, args=(v_params, m_params, doc, counts))        
+        #v_params.lambd = opt_result.x 
+        #print "max labdma: " + str(v_params.lambd)
+
+        #Maximize wrt zeta
+        v_params.zeta = np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq))                                        
+        
+        #Maximize wrt nu
+        nu_opt_result = scipy.optimize.fmin_l_bfgs_b(f_nu_sq, v_params.nu_sq, f_dnu_sq, args=(v_params, m_params, doc, counts), bounds = [(0, None) for _ in m_params.beta])
+        v_params.nu_sq = nu_opt_result[0]
         
         #Maximize wrt zeta
         v_params.zeta = np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq))
         
         #Maximize wrt phi
-        for n in xrange(len(doc)):
+        for (n, c) in zip(xrange(len(doc)), counts):
             sum_n = 0
             for i in xrange(len(m_params.beta)):
                 v_params.phi[n, i] = np.exp(v_params.lambd[i]) * m_params.beta[i, doc[n]]
-                sum_n += v_params.phi[n, i]
+                sum_n += c * v_params.phi[n, i]
             for i in xrange(len(m_params.beta)):
                 v_params.phi[n, i] /= sum_n
         
-        #Maximize wrt lambda
-        v_params.lambd = scipy.optimize.fmin_cg(f_lambda, v_params.lambd, f_dlambda, args=(v_params, m_params, doc))
-        #print "max labdma: " + str(v_params.lambd)
-                        
-        #Maximize wrt zeta
-        v_params.zeta = np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq))
+        new_l_bound = likelihood_bound(v_params, m_params, doc, counts)
+
+        delta = abs((new_l_bound - old_l_bound) / old_l_bound)
         
-        #Maximize wrt nu
-        #Use Newton's method on every item in nu on the derivative to find the maximum
-        for i in xrange(len(v_params.nu_sq)):
-            v_params.nu_sq[i] = scipy.optimize.newton(f_dnu_sq, 0.1, f_d2nu_sq, args=(i, v_params, m_params, doc))
-        #print "max nu_sq: " + str(v_params.nu_sq)
-        
-        new_l_bound = likelihood_bound(v_params, m_params, doc)
-        #print old_l_bound, new_l_bound
+        #print old_l_bound, new_l_bound, delta
         
         old_l_bound = new_l_bound
+        if (delta < 0.01):
+            print "STOPPING, bound " + str(new_l_bound)
+            break
         
         #print v_params.zeta, v_params.phi, v_params.lambd, v_params.nu_sq
     return v_params
-    
-def model_inference_step(m_params, corpus, word_counts):
-    params = [variational_inference(doc, m_params) for doc in corpus]
-    
-    mu = np.sum([p.lambd for p in params], axis=0) / len(corpus)
-    sigma = np.sum([np.diag(p.nu_sq) + np.outer(p.lambd - m_params.mu, p.lambd - m_params.mu) for p in params], axis=0) / len(corpus)
-    
-    beta = np.zeros(m_params.beta.shape)
-    for d in xrange(len(corpus)):
-        for w in xrange(len(corpus[d])):
-            word = corpus[d][w]
-            count = word_counts[d][w]
-            for i in xrange(len(m_params.beta)):
-                phi = params[d].phi
-                beta[i, word] += count * phi[w, i]
-    
-    for i in xrange(len(m_params.beta)):
-        m_params.beta[i] /= np.sum(m_params.beta[i])
-        
-    #for p in params:
-     #   print p.zeta, p.phi, p.lambd, p.nu_sq
-    
-    print "mu", m_params.mu, "sigma", m_params.sigma, "beta", m_params.beta
-    
-    return Model(mu, sigma, beta)
         
 """Populates self.mu, self.sigma and self.beta, the latent variables of the model"""
 def inference(corpus, word_counts, no_pathways, pathway_priors):
     #TODO loop until changes < threshold
     m_params = Model(np.zeros(no_pathways), np.identity(no_pathways), np.array(pathway_priors))
     
-    for _ in xrange(5):
-        m_params = model_inference_step(m_params, corpus, word_counts)
-        yield m_params
+    iteration = 0
     
+    while True:
+        print "Iteration: " + str(iteration)
+        
+        params = [variational_inference(doc, count, m_params) for doc, count in zip(corpus, word_counts)]
+        
+        old_l_bound = sum([likelihood_bound(p, m_params, d, c) for (p, d, c) in zip(params, corpus, word_counts)])
+        print "Old bound: " + str(old_l_bound)
+        
+        mu = np.sum([p.lambd for p in params], axis=0) / len(corpus)
+        sigma = np.sum([np.diag(p.nu_sq) + np.outer(p.lambd, p.lambd) for p in params], axis=0) + np.outer(mu, mu)
+        sigma /= len(corpus)
+        
+        beta = np.zeros(m_params.beta.shape)
+        for d in xrange(len(corpus)):
+            for w in xrange(len(corpus[d])):
+                word = corpus[d][w]
+                count = word_counts[d][w]
+                for i in xrange(len(beta)):
+                    beta[i, word] += count * params[d].phi[w, i]
+        
+        for i in xrange(len(beta)):
+            beta[i] /= np.sum(beta[i])
+        
+        m_params = Model(mu, sigma, beta)
+        
+        new_l_bound = sum([likelihood_bound(p, m_params, d, c) for (p, d, c) in zip(params, corpus, word_counts)])
+        print "New bound: " + str(new_l_bound)
+        iteration += 1
+
+        delta = abs((new_l_bound - old_l_bound)/old_l_bound)
+
+        yield m_params
+        
+        if (delta < 0.001):
+            break
+        
 
 def f(eta):
     return np.exp(eta) / np.sum(np.exp(eta))
@@ -193,13 +217,16 @@ def gendoc():
 
 result = [] 
 
-[result.append(gendoc()) for _ in xrange(100)]
+[result.append(gendoc()) for _ in xrange(10)]
 
 from collections import Counter
 doc_words = [list(Counter(d).iterkeys()) for d in result]
 doc_counts = [list(Counter(d).itervalues()) for d in result]
 
-ps = list(inference(doc_words, doc_counts, K, np.ones((K, 10))))
+#priors = np.ones((K, 10))
+priors = [np.random.uniform(0, 1, wlen) for _ in xrange(K)]
+priors = np.array([p / sum(p) for p in priors])
+ps = list(inference(doc_words, doc_counts, K, priors))
 
 
 print '\n'.join([str(p) for p in ps])
