@@ -36,7 +36,7 @@ def f_dlambda(lambd, v_params, m_params, doc, counts):
     N = sum(counts)
     
     return -(-np.linalg.inv(m_params.sigma).dot(lambd - m_params.mu) +\
-        np.sum([c * v_params.phi[n] for (n, c) in zip(xrange(len(doc)), counts)]) -\
+        np.sum([c * v_params.phi[n] for (n, c) in zip(xrange(len(doc)), counts)], axis=0) -\
         (N/v_params.zeta) * np.exp(lambd + 0.5 * v_params.nu_sq))
 
 #the objective function used to optimize the likelihood bound with respect to lambda
@@ -71,7 +71,7 @@ def likelihood_bound(v_params, m_params, doc, counts):
     result -= N * (1.0 / v_params.zeta * np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq)) - 1 + np.log(v_params.zeta))
     
     #E_q(logp(w|mu,z,beta))
-    result += sum([c * v_params.phi[n, i] + np.log(m_params.beta[i, doc[n]]) for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
+    result += sum([c * v_params.phi[n, i] * np.log(m_params.beta[i, doc[n]]) for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
     
     #H(q)
     result += np.sum(0.5 * (1 + np.log(v_params.nu_sq * 2 * np.pi)))
@@ -87,7 +87,7 @@ def variational_inference(doc, counts, m_params):
     v_params = VariationalParams(
         zeta=10.0,\
         phi=np.zeros((len(doc), len(m_params.beta))) + 1.0/len(m_params.beta),\
-        lambd=np.zeros(len(m_params.beta)),\
+        lambd=np.ones(len(m_params.beta)),\
         nu_sq=np.ones(len(m_params.beta)))
     
     old_l_bound = likelihood_bound(v_params, m_params, doc, counts)
@@ -97,9 +97,9 @@ def variational_inference(doc, counts, m_params):
         v_params.zeta = np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq))
         
         #Maximize wrt lambda
-        v_params.lambd = scipy.optimize.fmin_cg(f_lambda, v_params.lambd, f_dlambda, args=(v_params, m_params, doc, counts))
-        #opt_result = scipy.optimize.minimize(f_lambda, v_params.lambd, method='BFGS', jac=f_dlambda, args=(v_params, m_params, doc, counts))        
-        #v_params.lambd = opt_result.x 
+#        v_params.lambd = scipy.optimize.fmin_cg(f_lambda, v_params.lambd, f_dlambda, args=(v_params, m_params, doc, counts))
+        opt_result = scipy.optimize.minimize(f_lambda, v_params.lambd, method='BFGS', jac=f_dlambda, args=(v_params, m_params, doc, counts))        
+        v_params.lambd = opt_result.x 
         #print "max labdma: " + str(v_params.lambd)
 
         #Maximize wrt zeta
@@ -117,7 +117,7 @@ def variational_inference(doc, counts, m_params):
             sum_n = 0
             for i in xrange(len(m_params.beta)):
                 v_params.phi[n, i] = np.exp(v_params.lambd[i]) * m_params.beta[i, doc[n]]
-                sum_n += c * v_params.phi[n, i]
+                sum_n += v_params.phi[n, i]
             for i in xrange(len(m_params.beta)):
                 v_params.phi[n, i] /= sum_n
         
@@ -128,7 +128,7 @@ def variational_inference(doc, counts, m_params):
         #print old_l_bound, new_l_bound, delta
         
         old_l_bound = new_l_bound
-        if (delta < 0.01):
+        if (delta < 1e-5):
             print "STOPPING, bound " + str(new_l_bound)
             break
         
@@ -151,8 +151,7 @@ def inference(corpus, word_counts, no_pathways, pathway_priors):
         print "Old bound: " + str(old_l_bound)
         
         mu = np.sum([p.lambd for p in params], axis=0) / len(corpus)
-        sigma = np.sum([np.diag(p.nu_sq) + np.outer(p.lambd, p.lambd) for p in params], axis=0) + np.outer(mu, mu)
-        sigma /= len(corpus)
+        sigma = np.sum([np.diag(p.nu_sq) + np.outer(p.lambd - mu, p.lambd - mu) for p in params], axis=0) / len(corpus)
         
         beta = np.zeros(m_params.beta.shape)
         for d in xrange(len(corpus)):
@@ -173,9 +172,9 @@ def inference(corpus, word_counts, no_pathways, pathway_priors):
 
         delta = abs((new_l_bound - old_l_bound)/old_l_bound)
 
-        yield m_params
+        yield (m_params, new_l_bound)
         
-        if (delta < 0.001):
+        if (delta < 1e-5):
             break
         
 
@@ -193,7 +192,7 @@ def f(eta):
 wlen = 10 #vocabulary length
 vocabulary = xrange(wlen)
 
-K = 5
+K = 2
 mu = np.random.uniform(0, 1, K)
 sigma = np.identity(K)
 
@@ -202,13 +201,13 @@ beta = [b / sum(b) for b in beta]
 
 N_d = 100 #document length
 
-eta_d = np.random.multivariate_normal(mu, sigma)
-
 def gendoc():
     
-    document = []
+    eta_d = np.random.multivariate_normal(mu, sigma)
     
+    document = []    
     for n in xrange(N_d):
+        
         Z_dn = beta[np.flatnonzero(np.random.multinomial(1, f(eta_d)))[0]]
         W_dn = np.random.choice(xrange(len(Z_dn)), p=Z_dn)
         document.append(W_dn)
@@ -228,5 +227,6 @@ priors = [np.random.uniform(0, 1, wlen) for _ in xrange(K)]
 priors = np.array([p / sum(p) for p in priors])
 ps = list(inference(doc_words, doc_counts, K, priors))
 
+np.set_printoptions(precision=2)
 
 print '\n'.join([str(p) for p in ps])
