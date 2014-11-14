@@ -8,6 +8,8 @@ Created on Thu Oct 23 10:43:11 2014
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.optimize
+import scipy.stats
+import scipy.misc
 import warnings
 warnings.filterwarnings('ignore', 'Desired error not necessarily achieved due to precision loss')
 
@@ -137,7 +139,6 @@ def variational_inference(doc, counts, m_params):
         
 """Populates self.mu, self.sigma and self.beta, the latent variables of the model"""
 def inference(corpus, word_counts, no_pathways, pathway_priors):
-    #TODO loop until changes < threshold
     m_params = Model(np.zeros(no_pathways), np.identity(no_pathways), np.array(pathway_priors))
     
     iteration = 0
@@ -176,20 +177,61 @@ def inference(corpus, word_counts, no_pathways, pathway_priors):
         
         if (delta < 1e-5):
             break
-        
 
+"""Sampling of the likelihood based on the variational posterior"""
+def sample_term(v_params, m_params, doc, counts, eta):
+    inv_sigma = np.linalg.inv(m_params.sigma)
+    
+    t1 = 0.5 * np.log(np.linalg.det(inv_sigma))
+    t1 -= 0.5 * (np.diag(v_params.nu_sq).dot(inv_sigma)).trace()
+    lambda_mu = v_params.lambd - m_params.mu
+    t1 -= 0.5 * lambda_mu.dot(inv_sigma.dot(lambda_mu))
+    
+    theta = np.exp(eta)
+    theta /= sum(theta)
+    
+    for (n, c) in zip(xrange(len(doc)), counts):
+        t1 += c * np.log(np.sum(theta * m_params.beta[:, doc[n]]))
+        
+    t2 = np.sum(np.log(scipy.stats.multivariate_normal.pdf(eta - v_params.lambd, np.zeros(len(eta)), np.diag(np.sqrt(v_params.nu_sq)))))
+    
+    return t1 - t2
+
+def sample_lhood(v_params, m_params, doc, counts):
+    nsamples = 10000
+    
+    def terms():
+        for _ in xrange(nsamples):
+            eta = np.random.multivariate_normal(v_params.lambd, np.diag(np.sqrt(v_params.nu_sq)))
+            yield sample_term(v_params, m_params, doc, counts, eta)
+            
+    return scipy.misc.logsumexp(np.array(terms())) - np.log(nsamples)
+    
+def expected_theta(v_params, m_params, doc, counts):
+    nsamples = 100
+    
+    def terms():
+            
+        for _ in xrange(nsamples):
+            eta = np.random.multivariate_normal(v_params.lambd, np.diag(np.sqrt(v_params.nu_sq)))
+            
+            theta = np.exp(eta)
+            theta /= sum(theta)
+        
+            w = sample_term(v_params, m_params, doc, counts, eta)
+            
+            yield w + np.log(theta)
+    
+    samples = list(terms())
+
+    e_theta = scipy.misc.logsumexp(samples, axis=0) - np.log(nsamples)
+    norm = scipy.misc.logsumexp(e_theta)
+    return np.exp(e_theta - norm)
+        
 def f(eta):
     return np.exp(eta) / np.sum(np.exp(eta))
 
-#corpus is a list of word counts
-#corpus = [np.array([0,1,2]), np.array([2,3,4])]
-#no_pathways = 2
-#pathway_priors = np.ones((2, 5))
-#word_counts = [np.array([10, 10, 10]), np.array([10, 10, 10])]
-
-#
-
-wlen = 10 #vocabulary length
+wlen = 100 #vocabulary length
 vocabulary = xrange(wlen)
 
 K = 2
@@ -212,21 +254,30 @@ def gendoc():
         W_dn = np.random.choice(xrange(len(Z_dn)), p=Z_dn)
         document.append(W_dn)
 
-    return document
+    return document, eta_d
 
-result = [] 
+results = [gendoc() for _ in xrange(10)]
 
-[result.append(gendoc()) for _ in xrange(10)]
+docs = [r[0] for r in results]
+doc_thetas = [f(r[1]) for r in results]
 
 from collections import Counter
-doc_words = [list(Counter(d).iterkeys()) for d in result]
-doc_counts = [list(Counter(d).itervalues()) for d in result]
+doc_words = [list(Counter(d).iterkeys()) for d in docs]
+doc_counts = [list(Counter(d).itervalues()) for d in docs]
 
-#priors = np.ones((K, 10))
+#priors = np.ones((K, wlen))
 priors = [np.random.uniform(0, 1, wlen) for _ in xrange(K)]
+#priors[1][0] = 0
+#priors[1][1] = 0
 priors = np.array([p / sum(p) for p in priors])
+
 ps = list(inference(doc_words, doc_counts, K, priors))
 
 np.set_printoptions(precision=2)
 
-print '\n'.join([str(p) for p in ps])
+print ps[-1][0]
+
+m_params = ps[-1][0]
+v_params = variational_inference(doc_words[0], doc_counts[0], m_params)
+
+theta = expected_theta(v_params, m_params, doc_words[0], doc_counts[0])
