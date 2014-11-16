@@ -99,7 +99,7 @@ def variational_inference(doc, counts, m_params):
         v_params.zeta = np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq))
         
         #Maximize wrt lambda
-#        v_params.lambd = scipy.optimize.fmin_cg(f_lambda, v_params.lambd, f_dlambda, args=(v_params, m_params, doc, counts))
+   #     v_params.lambd = scipy.optimize.fmin_cg(f_lambda, v_params.lambd, f_dlambda, args=(v_params, m_params, doc, counts))
         opt_result = scipy.optimize.minimize(f_lambda, v_params.lambd, method='BFGS', jac=f_dlambda, args=(v_params, m_params, doc, counts))        
         v_params.lambd = opt_result.x 
         #print "max labdma: " + str(v_params.lambd)
@@ -231,10 +231,10 @@ def expected_theta(v_params, m_params, doc, counts):
 def f(eta):
     return np.exp(eta) / np.sum(np.exp(eta))
 
-wlen = 100 #vocabulary length
+wlen = 10 #vocabulary length
 vocabulary = xrange(wlen)
 
-K = 2
+K = 3
 mu = np.random.uniform(0, 1, K)
 sigma = np.identity(K)
 
@@ -256,10 +256,10 @@ def gendoc():
 
     return document, eta_d
 
-results = [gendoc() for _ in xrange(10)]
+results = [gendoc() for _ in xrange(1000)]
 
 docs = [r[0] for r in results]
-doc_thetas = [f(r[1]) for r in results]
+doc_thetas = np.array([f(r[1]) for r in results])
 
 from collections import Counter
 doc_words = [list(Counter(d).iterkeys()) for d in docs]
@@ -272,12 +272,31 @@ priors = [np.random.uniform(0, 1, wlen) for _ in xrange(K)]
 priors = np.array([p / sum(p) for p in priors])
 
 ps = list(inference(doc_words, doc_counts, K, priors))
-
 np.set_printoptions(precision=2)
 
-print ps[-1][0]
-
 m_params = ps[-1][0]
-v_params = variational_inference(doc_words[0], doc_counts[0], m_params)
 
-theta = expected_theta(v_params, m_params, doc_words[0], doc_counts[0])
+thetas = np.array([expected_theta(variational_inference(d, c, m_params), m_params, d, c) for (d, c) in zip(doc_words, doc_counts)])
+
+theta_differences = thetas - doc_thetas
+
+theta_diff_sizes = np.linalg.norm(theta_differences, axis=1)
+
+baseline = np.random.multivariate_normal(mu, sigma, size=1000)
+baseline = np.exp(baseline) / np.sum(np.exp(baseline), axis=1)[:, None]
+baseline_diff = baseline - doc_thetas
+baseline_diff_sizes = np.linalg.norm(baseline_diff, axis=1)
+
+
+def plot_cdf(arr):
+    counts, edges = np.histogram(arr, normed=True, bins=1000)
+    cdf = np.cumsum(counts)
+    cdf /= max(cdf)
+    plt.plot(edges[1:], cdf)
+
+plot_cdf(theta_diff_sizes)
+plot_cdf(baseline_diff_sizes)
+
+legend([r"Inferred $\theta$", r"Baseline $\theta$ (random)"])
+xlabel("Norm of $\\theta_{inf}$ - $\\theta_{ref}$")
+ylabel("Proportion of errors below a given norm (the CDF)")
