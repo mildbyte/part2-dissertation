@@ -10,8 +10,8 @@ import matplotlib.pyplot as plt
 import scipy.optimize
 import scipy.stats
 import scipy.misc
-import warnings
-warnings.filterwarnings('ignore', 'Desired error not necessarily achieved due to precision loss')
+from collections import Counter
+
 
 class VariationalParams():
     def __init__(self, zeta, phi, lambd, nu_sq):
@@ -102,8 +102,7 @@ def variational_inference(doc, counts, m_params):
    #     v_params.lambd = scipy.optimize.fmin_cg(f_lambda, v_params.lambd, f_dlambda, args=(v_params, m_params, doc, counts))
         opt_result = scipy.optimize.minimize(f_lambda, v_params.lambd, method='BFGS', jac=f_dlambda, args=(v_params, m_params, doc, counts))        
         v_params.lambd = opt_result.x 
-        #print "max labdma: " + str(v_params.lambd)
-
+        
         #Maximize wrt zeta
         v_params.zeta = np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq))                                        
         
@@ -127,14 +126,10 @@ def variational_inference(doc, counts, m_params):
 
         delta = abs((new_l_bound - old_l_bound) / old_l_bound)
         
-        #print old_l_bound, new_l_bound, delta
-        
         old_l_bound = new_l_bound
         if (delta < 1e-5):
-            print "STOPPING, bound " + str(new_l_bound)
             break
         
-        #print v_params.zeta, v_params.phi, v_params.lambd, v_params.nu_sq
     return v_params
         
 """Populates self.mu, self.sigma and self.beta, the latent variables of the model"""
@@ -230,45 +225,72 @@ def expected_theta(v_params, m_params, doc, counts):
         
 def f(eta):
     return np.exp(eta) / np.sum(np.exp(eta))
-
-wlen = 10 #vocabulary length
-vocabulary = xrange(wlen)
-
-K = 3
-mu = np.random.uniform(0, 1, K)
-sigma = np.identity(K)
-
-beta = [np.random.uniform(0, 1, wlen) for _ in xrange(K)]
-beta = [b / sum(b) for b in beta]
-
-N_d = 100 #document length
-
-def gendoc():
     
-    eta_d = np.random.multivariate_normal(mu, sigma)
-    
-    document = []    
-    for n in xrange(N_d):
+def generate_random_corpus(voc_len, K, N_d, no_docs):
+    def gendoc():
         
-        Z_dn = beta[np.flatnonzero(np.random.multinomial(1, f(eta_d)))[0]]
-        W_dn = np.random.choice(xrange(len(Z_dn)), p=Z_dn)
-        document.append(W_dn)
+        eta_d = np.random.multivariate_normal(mu, sigma)
+        
+        document = []    
+        for n in xrange(N_d):
+            
+            Z_dn = beta[np.flatnonzero(np.random.multinomial(1, f(eta_d)))[0]]
+            W_dn = np.random.choice(xrange(len(Z_dn)), p=Z_dn)
+            document.append(W_dn)
+    
+        return document, eta_d
+        
+    mu = np.random.uniform(0, 1, K)
+    sigma = np.identity(K)
+    
+    beta = [np.random.uniform(0, 1, wlen) for _ in xrange(K)]
+    beta = [b / sum(b) for b in beta]
+    
+    doc_words = []
+    doc_counts = []
+    doc_thetas = []
 
-    return document, eta_d
+    for _ in xrange(no_docs):
+        doc, eta_d = gendoc()
+        c = Counter(doc)
+        
+        doc_words.append(list(c.iterkeys()))
+        doc_counts.append(list(c.itervalues()))
+        doc_thetas.append(f(eta_d))
 
-results = [gendoc() for _ in xrange(1000)]
+    return doc_words, doc_counts, doc_thetas, mu, sigma, beta
 
-docs = [r[0] for r in results]
-doc_thetas = np.array([f(r[1]) for r in results])
+def error_measure(m_params, doc_words, doc_counts, doc_thetas):
+    thetas = np.array([expected_theta(variational_inference(d, c, m_params), m_params, d, c) for (d, c) in zip(doc_words, doc_counts)])
+    return np.mean(np.linalg.norm(thetas - doc_thetas, axis=1))
+    
+def validation():
+    corpus = zip(doc_words, doc_counts, doc_thetas)
+    np.random.shuffle(corpus)
+    
+    split = int(len(corpus)*0.8)
+    train_data = corpus[:split]
+    test_data = corpus[split:]
+    
+    (train_words, train_counts, train_thetas) = zip(*train_data)
 
-from collections import Counter
-doc_words = [list(Counter(d).iterkeys()) for d in docs]
-doc_counts = [list(Counter(d).itervalues()) for d in docs]
+    priors = [np.random.uniform(0, 1, voc_len) for _ in xrange(K)]
+    priors = np.array([p / sum(p) for p in priors])
+    
+    ps = list(inference(train_words, train_counts, K, priors))
+    m_params = ps[-1][0]
+    
+    (test_words, test_counts, test_thetas) = zip(*test_data)
+    
 
-#priors = np.ones((K, wlen))
-priors = [np.random.uniform(0, 1, wlen) for _ in xrange(K)]
-#priors[1][0] = 0
-#priors[1][1] = 0
+voc_len = 10
+K = 2
+N_d = 100
+no_docs = 100
+
+doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs)
+
+priors = [np.random.uniform(0, 1, voc_len) for _ in xrange(K)]
 priors = np.array([p / sum(p) for p in priors])
 
 ps = list(inference(doc_words, doc_counts, K, priors))
@@ -282,7 +304,7 @@ theta_differences = thetas - doc_thetas
 
 theta_diff_sizes = np.linalg.norm(theta_differences, axis=1)
 
-baseline = np.random.multivariate_normal(mu, sigma, size=1000)
+baseline = np.random.multivariate_normal(mu, sigma, size=no_docs)
 baseline = np.exp(baseline) / np.sum(np.exp(baseline), axis=1)[:, None]
 baseline_diff = baseline - doc_thetas
 baseline_diff_sizes = np.linalg.norm(baseline_diff, axis=1)
