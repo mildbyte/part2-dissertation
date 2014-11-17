@@ -33,9 +33,8 @@ class Model():
     def __str__(self):
         return "mu: " + str(self.mu) + "; sigma: " + str(self.sigma) + "; beta: " + str(self.beta)
 
-#the derivative of the likelihood bound with respect to lambda,
-#passed to the conjugate gradient algorithm. Uses the first argument as lambda
-#(ignores the lambda in v_params since the scipy optimizer manipulates the first argument)
+"""First derivative of f_lambda with respect to lambda.
+   Uses the first parameter (passed by the optimizer) as lambda."""
 def f_dlambda(lambd, v_params, m_params, doc, counts):
     N = sum(counts)
     
@@ -43,15 +42,38 @@ def f_dlambda(lambd, v_params, m_params, doc, counts):
         np.sum([c * v_params.phi[n] for (n, c) in zip(xrange(len(doc)), counts)], axis=0) -\
         (N/v_params.zeta) * np.exp(lambd + 0.5 * v_params.nu_sq))
 
-#the objective function used to optimize the likelihood bound with respect to lambda
+"""The objective function used to optimize the likelihood bound with respect to lambda.
+   Same as the negated likelihood bound with only lambda-dependent terms."""
 def f_lambda(lambd, v_params, m_params, doc, counts):
-    v_params.lambd = lambd
-    return -likelihood_bound(v_params, m_params, doc, counts)
+    N = sum(counts)
+    
+    #E_q(logp(eta|mu,sigma))
+    lambda_mu = lambd - m_params.mu
+    result = 0.5 * lambda_mu.dot(m_params.inv_sigma.dot(lambda_mu))
+    
+    #E_q(logp(z|eta))
+    result -= sum([c * lambd[i] * v_params.phi[n, i] for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
+    result += N / v_params.zeta * np.sum(np.exp(lambd + 0.5 * v_params.nu_sq))
+    
+    return result
 
+"""Objective function used to optimize the bound with respect to nu_sq.
+   Same as the negated likelihood bound with only the nu_sq terms."""
 def f_nu_sq(nu_sq, v_params, m_params, doc, counts):
-    v_params.nu_sq = nu_sq
-    return -likelihood_bound(v_params, m_params, doc, counts)
-
+    N = sum(counts)
+    
+    #E_q(logp(eta|mu,sigma))
+    result = 0.5 * (np.diag(nu_sq).dot(m_params.inv_sigma)).trace()
+    
+    #E_q(logp(z|eta))
+    result += N / v_params.zeta * np.sum(np.exp(v_params.lambd + 0.5 * nu_sq))
+    
+    #H(q)
+    result -= np.sum(0.5 * (1 + np.log(nu_sq * 2 * np.pi)))
+    
+    return result    
+    
+"""The first derivative of f_nu_sq"""
 def f_dnu_sq(nu_sq, v_params, m_params, doc, counts):
     N = sum(counts)    
     
