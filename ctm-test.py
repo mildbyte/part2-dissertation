@@ -64,6 +64,7 @@ def likelihood_bound(v_params, m_params, doc, counts):
     
     #E_q(logp(eta|mu,sigma))
     result = 0.5 * np.log(np.linalg.det(inv_sigma))
+    result -= 0.5 * np.log(2 * np.pi) * len(m_params.beta)
     result -= 0.5 * (np.diag(v_params.nu_sq).dot(inv_sigma)).trace()
     lambda_mu = v_params.lambd - m_params.mu
     result -= 0.5 * lambda_mu.dot(inv_sigma.dot(lambda_mu))
@@ -243,7 +244,7 @@ def generate_random_corpus(voc_len, K, N_d, no_docs):
     mu = np.random.uniform(0, 1, K)
     sigma = np.identity(K)
     
-    beta = [np.random.uniform(0, 1, wlen) for _ in xrange(K)]
+    beta = [np.random.uniform(0, 1, voc_len) for _ in xrange(K)]
     beta = [b / sum(b) for b in beta]
     
     doc_words = []
@@ -283,8 +284,8 @@ def validation():
     (test_words, test_counts, test_thetas) = zip(*test_data)
     
 
-voc_len = 10
-K = 2
+voc_len = 100
+K = 5
 N_d = 100
 no_docs = 100
 
@@ -319,6 +320,6 @@ def plot_cdf(arr):
 plot_cdf(theta_diff_sizes)
 plot_cdf(baseline_diff_sizes)
 
-legend([r"Inferred $\theta$", r"Baseline $\theta$ (random)"])
-xlabel("Norm of $\\theta_{inf}$ - $\\theta_{ref}$")
-ylabel("Proportion of errors below a given norm (the CDF)")
+plt.legend([r"Inferred $\theta$", r"Baseline $\theta$ (random)"])
+plt.xlabel("Norm of $\\theta_{inf}$ - $\\theta_{ref}$")
+plt.ylabel("Proportion of errors below a given norm (the CDF)")
