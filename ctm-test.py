@@ -28,6 +28,8 @@ class Model():
         self.mu = mu
         self.sigma = sigma
         self.beta = beta
+        
+        self.inv_sigma = np.linalg.inv(sigma)
     def __str__(self):
         return "mu: " + str(self.mu) + "; sigma: " + str(self.sigma) + "; beta: " + str(self.beta)
 
@@ -37,7 +39,7 @@ class Model():
 def f_dlambda(lambd, v_params, m_params, doc, counts):
     N = sum(counts)
     
-    return -(-np.linalg.inv(m_params.sigma).dot(lambd - m_params.mu) +\
+    return -(-m_params.inv_sigma.dot(lambd - m_params.mu) +\
         np.sum([c * v_params.phi[n] for (n, c) in zip(xrange(len(doc)), counts)], axis=0) -\
         (N/v_params.zeta) * np.exp(lambd + 0.5 * v_params.nu_sq))
 
@@ -53,21 +55,18 @@ def f_nu_sq(nu_sq, v_params, m_params, doc, counts):
 def f_dnu_sq(nu_sq, v_params, m_params, doc, counts):
     N = sum(counts)    
     
-    inv_sigma = np.linalg.inv(m_params.sigma)
-    result = 0.5 * np.diagonal(inv_sigma) + 0.5 * N / v_params.zeta * np.exp(v_params.lambd + 0.5 * nu_sq) - 0.5 / nu_sq
+    result = 0.5 * np.diagonal(m_params.inv_sigma) + 0.5 * N / v_params.zeta * np.exp(v_params.lambd + 0.5 * nu_sq) - 0.5 / nu_sq
     return result
     
 def likelihood_bound(v_params, m_params, doc, counts):
-    inv_sigma = np.linalg.inv(m_params.sigma)
-    
     N = sum(counts)
     
     #E_q(logp(eta|mu,sigma))
-    result = 0.5 * np.log(np.linalg.det(inv_sigma))
+    result = 0.5 * np.log(np.linalg.det(m_params.inv_sigma))
     result -= 0.5 * np.log(2 * np.pi) * len(m_params.beta)
-    result -= 0.5 * (np.diag(v_params.nu_sq).dot(inv_sigma)).trace()
+    result -= 0.5 * (np.diag(v_params.nu_sq).dot(m_params.inv_sigma)).trace()
     lambda_mu = v_params.lambd - m_params.mu
-    result -= 0.5 * lambda_mu.dot(inv_sigma.dot(lambda_mu))
+    result -= 0.5 * lambda_mu.dot(m_params.inv_sigma.dot(lambda_mu))
     
     #E_q(logp(z|eta))
     result += sum([c * v_params.lambd[i] * v_params.phi[n, i] for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
@@ -176,12 +175,10 @@ def inference(corpus, word_counts, no_pathways, pathway_priors):
 
 """Sampling of the likelihood based on the variational posterior"""
 def sample_term(v_params, m_params, doc, counts, eta):
-    inv_sigma = np.linalg.inv(m_params.sigma)
-    
-    t1 = 0.5 * np.log(np.linalg.det(inv_sigma))
-    t1 -= 0.5 * (np.diag(v_params.nu_sq).dot(inv_sigma)).trace()
+    t1 = 0.5 * np.log(np.linalg.det(m_params.inv_sigma))
+    t1 -= 0.5 * (np.diag(v_params.nu_sq).dot(m_params.inv_sigma)).trace()
     lambda_mu = v_params.lambd - m_params.mu
-    t1 -= 0.5 * lambda_mu.dot(inv_sigma.dot(lambda_mu))
+    t1 -= 0.5 * lambda_mu.dot(m_params.inv_sigma.dot(lambda_mu))
     
     theta = np.exp(eta)
     theta /= sum(theta)
@@ -284,10 +281,10 @@ def validation():
     (test_words, test_counts, test_thetas) = zip(*test_data)
     
 
-voc_len = 100
-K = 5
+voc_len = 10
+K = 2
 N_d = 100
-no_docs = 100
+no_docs = 10
 
 doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs)
 
