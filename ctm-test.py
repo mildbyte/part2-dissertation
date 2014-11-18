@@ -11,7 +11,7 @@ import scipy.optimize
 import scipy.stats
 import scipy.misc
 from collections import Counter
-
+from multiprocessing import Pool
 
 class VariationalParams():
     def __init__(self, zeta, phi, lambd, nu_sq):
@@ -153,6 +153,13 @@ def variational_inference(doc, counts, m_params):
             break
         
     return v_params
+    
+class VIWorker:
+    def __init__(self, m_params):
+        self.m_params = m_params
+    def __call__(self, x):
+        return variational_inference(x[0], x[1], self.m_params)
+    
         
 """Populates self.mu, self.sigma and self.beta, the latent variables of the model"""
 def inference(corpus, word_counts, no_pathways, pathway_priors):
@@ -160,10 +167,12 @@ def inference(corpus, word_counts, no_pathways, pathway_priors):
     
     iteration = 0
     
+    pool = Pool(processes=8)
+    
     while True:
         print "Iteration: " + str(iteration)
-        
-        params = [variational_inference(doc, count, m_params) for doc, count in zip(corpus, word_counts)]
+    
+        params = pool.map(VIWorker(m_params), zip(corpus, word_counts))
         
         old_l_bound = sum([likelihood_bound(p, m_params, d, c) for (p, d, c) in zip(params, corpus, word_counts)])
         print "Old bound: " + str(old_l_bound)
@@ -194,6 +203,8 @@ def inference(corpus, word_counts, no_pathways, pathway_priors):
         
         if (delta < 1e-5):
             break
+    
+    pool.close()
 
 """Sampling of the likelihood based on the variational posterior"""
 def sample_term(v_params, m_params, doc, counts, eta):
@@ -302,43 +313,43 @@ def validation():
     
     (test_words, test_counts, test_thetas) = zip(*test_data)
     
-
-voc_len = 10
-K = 2
-N_d = 100
-no_docs = 10
-
-doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs)
-
-priors = [np.random.uniform(0, 1, voc_len) for _ in xrange(K)]
-priors = np.array([p / sum(p) for p in priors])
-
-ps = list(inference(doc_words, doc_counts, K, priors))
-np.set_printoptions(precision=2)
-
-m_params = ps[-1][0]
-
-thetas = np.array([expected_theta(variational_inference(d, c, m_params), m_params, d, c) for (d, c) in zip(doc_words, doc_counts)])
-
-theta_differences = thetas - doc_thetas
-
-theta_diff_sizes = np.linalg.norm(theta_differences, axis=1)
-
-baseline = np.random.multivariate_normal(mu, sigma, size=no_docs)
-baseline = np.exp(baseline) / np.sum(np.exp(baseline), axis=1)[:, None]
-baseline_diff = baseline - doc_thetas
-baseline_diff_sizes = np.linalg.norm(baseline_diff, axis=1)
-
-
-def plot_cdf(arr):
-    counts, edges = np.histogram(arr, normed=True, bins=1000)
-    cdf = np.cumsum(counts)
-    cdf /= max(cdf)
-    plt.plot(edges[1:], cdf)
-
-plot_cdf(theta_diff_sizes)
-plot_cdf(baseline_diff_sizes)
-
-plt.legend([r"Inferred $\theta$", r"Baseline $\theta$ (random)"])
-plt.xlabel("Norm of $\\theta_{inf}$ - $\\theta_{ref}$")
-plt.ylabel("Proportion of errors below a given norm (the CDF)")
+if __name__ == "__main__":
+    voc_len = 200
+    K = 5
+    N_d = 1000
+    no_docs = 70
+    
+    doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs)
+    
+    priors = [np.random.uniform(0, 1, voc_len) for _ in xrange(K)]
+    priors = np.array([p / sum(p) for p in priors])
+    
+    ps = list(inference(doc_words, doc_counts, K, priors))
+    np.set_printoptions(precision=2)
+    
+    m_params = ps[-1][0]
+    
+    thetas = np.array([expected_theta(variational_inference(d, c, m_params), m_params, d, c) for (d, c) in zip(doc_words, doc_counts)])
+    
+    theta_differences = thetas - doc_thetas
+    
+    theta_diff_sizes = np.linalg.norm(theta_differences, axis=1)
+    
+    baseline = np.random.multivariate_normal(mu, sigma, size=no_docs)
+    baseline = np.exp(baseline) / np.sum(np.exp(baseline), axis=1)[:, None]
+    baseline_diff = baseline - doc_thetas
+    baseline_diff_sizes = np.linalg.norm(baseline_diff, axis=1)
+    
+    
+    def plot_cdf(arr):
+        counts, edges = np.histogram(arr, normed=True, bins=1000)
+        cdf = np.cumsum(counts)
+        cdf /= max(cdf)
+        plt.plot(edges[1:], cdf)
+    
+    plot_cdf(theta_diff_sizes)
+    plot_cdf(baseline_diff_sizes)
+    
+    plt.legend([r"Inferred $\theta$", r"Baseline $\theta$ (random)"])
+    plt.xlabel("Norm of $\\theta_{inf}$ - $\\theta_{ref}$")
+    plt.ylabel("Proportion of errors below a given norm (the CDF)")
