@@ -136,7 +136,7 @@ def variational_inference(doc, counts, m_params):
         v_params.zeta = np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq))
         
         #Maximize wrt phi
-        for (n, c) in zip(xrange(len(doc)), counts):
+        for n in xrange(len(doc)):
             sum_n = 0
             for i in xrange(len(m_params.beta)):
                 v_params.phi[n, i] = np.exp(v_params.lambd[i]) * m_params.beta[i, doc[n]]
@@ -314,10 +314,13 @@ def validation():
     (test_words, test_counts, test_thetas) = zip(*test_data)
     
 if __name__ == "__main__":
-    voc_len = 200
+    #Final data: 6101 drugs (documents), 22283 genes (words), 260 pathways (topics)
+        
+    
+    voc_len = 10
     K = 5
-    N_d = 1000
-    no_docs = 70
+    N_d = 10
+    no_docs = 8
     
     doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs)
     
