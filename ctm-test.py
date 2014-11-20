@@ -318,9 +318,18 @@ def validation():
 if __name__ == "__main__":
     #Final data: 6101 drugs (documents), 22283 genes (words), 260 pathways (topics)
         
-    
-    voc_len = 300
-    K = 10
+#TODO:
+#doc similarity matrix
+#manually assign the parameters (sigma, mu)
+#topic covariances
+#K-1 instead of k
+#gibbs sampling for logistic normal topic models with graph-based priors
+#compare sigma, mu by drawing many etas, normalizing them and comparing to the reference etas, t-test!
+#find a way to evaluate sigma/mu (multinomial statistics?)
+
+        
+    voc_len = 10
+    K = 3
     N_d = 1000
     no_docs = 128
     
