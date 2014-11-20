@@ -162,7 +162,7 @@ class VIWorker:
     
         
 """Populates self.mu, self.sigma and self.beta, the latent variables of the model"""
-def inference(corpus, word_counts, no_pathways, pathway_priors):
+def inference(corpus, word_counts, no_pathways, pathway_priors, max_iterations=100):
     m_params = Model(np.zeros(no_pathways), np.identity(no_pathways), np.array(pathway_priors))
     
     iteration = 0
@@ -178,7 +178,9 @@ def inference(corpus, word_counts, no_pathways, pathway_priors):
         print "Old bound: " + str(old_l_bound)
         
         mu = np.sum([p.lambd for p in params], axis=0) / len(corpus)
-        sigma = np.sum([np.diag(p.nu_sq) + np.outer(p.lambd - mu, p.lambd - mu) for p in params], axis=0) / len(corpus)
+        sigma = np.sum([np.diag(p.nu_sq) + np.outer(p.lambd, p.lambd) for p in params], axis=0)
+        sigma /= len(corpus)
+        sigma -= np.outer(mu, mu)
         
         beta = np.zeros(m_params.beta.shape)
         for d in xrange(len(corpus)):
@@ -201,7 +203,7 @@ def inference(corpus, word_counts, no_pathways, pathway_priors):
 
         yield (m_params, new_l_bound)
         
-        if (delta < 1e-5):
+        if (delta < 1e-5 or iteration >= max_iterations):
             break
     
     pool.close()
@@ -317,10 +319,10 @@ if __name__ == "__main__":
     #Final data: 6101 drugs (documents), 22283 genes (words), 260 pathways (topics)
         
     
-    voc_len = 10
-    K = 5
-    N_d = 10
-    no_docs = 8
+    voc_len = 300
+    K = 10
+    N_d = 1000
+    no_docs = 128
     
     doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs)
     
@@ -332,9 +334,30 @@ if __name__ == "__main__":
     
     m_params = ps[-1][0]
     
-    thetas = np.array([expected_theta(variational_inference(d, c, m_params), m_params, d, c) for (d, c) in zip(doc_words, doc_counts)])
     
-    theta_differences = thetas - doc_thetas
+    diff = np.zeros((K, K))
+    for i in xrange(K):
+        for j in xrange(K):
+            diff[i, j] = np.linalg.norm(beta[i] - m_params.beta[j])
+            
+    corr = np.zeros((K, K))
+    for i in xrange(K):
+        for j in xrange(K):
+            corr[i, j] = scipy.stats.pearsonr(beta[i], m_params.beta[j])[0]
+    
+    
+    betamap = np.argmax(corr, axis=0) #betamap[i] : inferred topic id that's most similar to the actual topic i
+    if (len(np.unique(betamap)) < len(betamap)):
+        print "Warning: could not infer the topic mapping, topics not far enough apart"
+        print diff
+    
+    thetas = np.array([expected_theta(variational_inference(d, c, m_params), m_params, d, c) for (d, c) in zip(doc_words, doc_counts)])
+    permuted_thetas = np.array(thetas)
+    for d in xrange(len(thetas)):
+        for i in xrange(len(betamap)):
+            permuted_thetas[d, betamap[i]] = thetas[d, i]
+    
+    theta_differences = permuted_thetas - doc_thetas
     
     theta_diff_sizes = np.linalg.norm(theta_differences, axis=1)
     
@@ -356,3 +379,4 @@ if __name__ == "__main__":
     plt.legend([r"Inferred $\theta$", r"Baseline $\theta$ (random)"])
     plt.xlabel("Norm of $\\theta_{inf}$ - $\\theta_{ref}$")
     plt.ylabel("Proportion of errors below a given norm (the CDF)")
+    
