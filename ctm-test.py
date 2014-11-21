@@ -12,6 +12,7 @@ import scipy.stats
 import scipy.misc
 from collections import Counter
 from multiprocessing import Pool
+np.set_printoptions(precision=2, linewidth=120)
 
 class VariationalParams():
     def __init__(self, zeta, phi, lambd, nu_sq):
@@ -32,6 +33,12 @@ class Model():
         self.inv_sigma = np.linalg.inv(sigma)
     def __str__(self):
         return "mu: " + str(self.mu) + "; sigma: " + str(self.sigma) + "; beta: " + str(self.beta)
+
+def plot_cdf(arr):
+    counts, edges = np.histogram(arr, normed=True, bins=1000)
+    cdf = np.cumsum(counts)
+    cdf /= max(cdf)
+    plt.plot(edges[1:], cdf)
 
 """First derivative of f_lambda with respect to lambda.
    Uses the first parameter (passed by the optimizer) as lambda."""
@@ -260,11 +267,11 @@ def f(eta):
     return np.exp(eta) / np.sum(np.exp(eta))
     
 def generate_random_corpus(voc_len, K, N_d, no_docs):
-    def gendoc():
+    def gendoc(mu, sigma, beta):
         
         eta_d = np.random.multivariate_normal(mu, sigma)
         
-        document = []    
+        document = []
         for n in xrange(N_d):
             
             Z_dn = beta[np.flatnonzero(np.random.multinomial(1, f(eta_d)))[0]]
@@ -284,7 +291,7 @@ def generate_random_corpus(voc_len, K, N_d, no_docs):
     doc_thetas = []
 
     for _ in xrange(no_docs):
-        doc, eta_d = gendoc()
+        doc, eta_d = gendoc(mu, sigma, beta)
         c = Counter(doc)
         
         doc_words.append(list(c.iterkeys()))
@@ -296,8 +303,16 @@ def generate_random_corpus(voc_len, K, N_d, no_docs):
 def error_measure(m_params, doc_words, doc_counts, doc_thetas):
     thetas = np.array([expected_theta(variational_inference(d, c, m_params), m_params, d, c) for (d, c) in zip(doc_words, doc_counts)])
     return np.mean(np.linalg.norm(thetas - doc_thetas, axis=1))
+
+def document_similarity_matrix(thetas):    
+    M = np.zeros((len(thetas), len(thetas)))
+    for i in xrange(len(thetas)):
+        for j in xrange(len(thetas)):
+            M[i, j] = scipy.stats.pearsonr(thetas[i], thetas[j])[0]
+            
+    return M
     
-def validation():
+def validation(doc_words, doc_counts, doc_thetas):
     corpus = zip(doc_words, doc_counts, doc_thetas)
     np.random.shuffle(corpus)
     
@@ -314,12 +329,29 @@ def validation():
     m_params = ps[-1][0]
     
     (test_words, test_counts, test_thetas) = zip(*test_data)
+    priors = [np.random.uniform(0, 1, voc_len) for _ in xrange(K)]
+    priors = np.array([p / sum(p) for p in priors])
+        
+    train_inf_thetas = np.array([expected_theta(variational_inference(d, c, m_params), m_params, d, c) for (d, c) in zip(train_words, train_counts)])
+    test_inf_thetas = np.array([expected_theta(variational_inference(d, c, m_params), m_params, d, c) for (d, c) in zip(test_words, test_counts)])
+    
+    test_reference = document_similarity_matrix(test_thetas)
+    test_inferred = document_similarity_matrix(test_inf_thetas)
+    
+    train_reference = document_similarity_matrix(train_thetas)
+    train_inferred = document_similarity_matrix(train_inf_thetas)
+    
+    
+    RMSE = np.sqrt(np.sum(np.square(train_inferred-train_reference)) / train_reference.size)
+    print "Reference-inferred RMSE on the train set: %f" % RMSE
+    
+    RMSE = np.sqrt(np.sum(np.square(test_inferred-test_reference)) / test_reference.size)
+    print "Reference-inferred RMSE on the test set: %f" % RMSE
     
 if __name__ == "__main__":
     #Final data: 6101 drugs (documents), 22283 genes (words), 260 pathways (topics)
         
 #TODO:
-#doc similarity matrix
 #manually assign the parameters (sigma, mu)
 #topic covariances
 #K-1 instead of k
@@ -335,11 +367,12 @@ if __name__ == "__main__":
     
     doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs)
     
+    validation(doc_words, doc_counts, doc_thetas)
+    
+    
     priors = [np.random.uniform(0, 1, voc_len) for _ in xrange(K)]
     priors = np.array([p / sum(p) for p in priors])
-    
     ps = list(inference(doc_words, doc_counts, K, priors))
-    np.set_printoptions(precision=2)
     
     m_params = ps[-1][0]
     
@@ -367,7 +400,6 @@ if __name__ == "__main__":
             permuted_thetas[d, betamap[i]] = thetas[d, i]
     
     theta_differences = permuted_thetas - doc_thetas
-    
     theta_diff_sizes = np.linalg.norm(theta_differences, axis=1)
     
     baseline = np.random.multivariate_normal(mu, sigma, size=no_docs)
@@ -375,17 +407,18 @@ if __name__ == "__main__":
     baseline_diff = baseline - doc_thetas
     baseline_diff_sizes = np.linalg.norm(baseline_diff, axis=1)
     
-    
-    def plot_cdf(arr):
-        counts, edges = np.histogram(arr, normed=True, bins=1000)
-        cdf = np.cumsum(counts)
-        cdf /= max(cdf)
-        plt.plot(edges[1:], cdf)
-    
     plot_cdf(theta_diff_sizes)
     plot_cdf(baseline_diff_sizes)
     
     plt.legend([r"Inferred $\theta$", r"Baseline $\theta$ (random)"])
     plt.xlabel("Norm of $\\theta_{inf}$ - $\\theta_{ref}$")
     plt.ylabel("Proportion of errors below a given norm (the CDF)")
+    
+        
+    reference = document_similarity_matrix(doc_thetas)
+    inferred = document_similarity_matrix(thetas)
+    
+    RMSE = np.sqrt(np.sum(np.square(inferred-reference)) / reference.size)
+    
+    print "RMSE between inferred document correlations and the reference: %f" % RMSE
     
