@@ -33,6 +33,9 @@ class Model():
         self.inv_sigma = np.linalg.inv(sigma)
     def __str__(self):
         return "mu: " + str(self.mu) + "; sigma: " + str(self.sigma) + "; beta: " + str(self.beta)
+        
+def safe_log(x):
+    return np.log(np.clip(x, a_min=1e-6, a_max=np.max(x)))
 
 def plot_cdf(arr):
     counts, edges = np.histogram(arr, normed=True, bins=1000)
@@ -76,7 +79,7 @@ def f_nu_sq(nu_sq, v_params, m_params, doc, counts):
     result += N / v_params.zeta * np.sum(np.exp(v_params.lambd + 0.5 * nu_sq))
     
     #H(q)
-    result -= np.sum(0.5 * (1 + np.log(nu_sq * 2 * np.pi)))
+    result -= np.sum(0.5 * (1 + safe_log(nu_sq * 2 * np.pi)))
     
     return result    
     
@@ -91,29 +94,29 @@ def likelihood_bound(v_params, m_params, doc, counts):
     N = sum(counts)
     
     #E_q(logp(eta|mu,sigma))
-    result = 0.5 * np.log(np.linalg.det(m_params.inv_sigma))
-    result -= 0.5 * np.log(2 * np.pi) * len(m_params.beta)
+    result = 0.5 * safe_log(np.linalg.det(m_params.inv_sigma))
+    result -= 0.5 * safe_log(2 * np.pi) * len(m_params.beta)
     result -= 0.5 * (np.diag(v_params.nu_sq).dot(m_params.inv_sigma)).trace()
     lambda_mu = v_params.lambd - m_params.mu
     result -= 0.5 * lambda_mu.dot(m_params.inv_sigma.dot(lambda_mu))
     
     #E_q(logp(z|eta))
     result += sum([c * v_params.lambd[i] * v_params.phi[n, i] for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
-    result -= N * (1.0 / v_params.zeta * np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq)) - 1 + np.log(v_params.zeta))
+    result -= N * (1.0 / v_params.zeta * np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq)) - 1 + safe_log(v_params.zeta))
     
     #E_q(logp(w|mu,z,beta))
-    result += sum([c * v_params.phi[n, i] * np.log(m_params.beta[i, doc[n]]) for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
+    result += sum([c * v_params.phi[n, i] * safe_log(m_params.beta[i, doc[n]]) for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
     
     #H(q)
-    result += np.sum(0.5 * (1 + np.log(v_params.nu_sq * 2 * np.pi)))
-    result -= np.sum([c * v_params.phi[n, i] * np.log(v_params.phi[n, i]) for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
+    result += np.sum(0.5 * (1 + safe_log(v_params.nu_sq * 2 * np.pi)))
+    result -= np.sum([c * v_params.phi[n, i] * safe_log(v_params.phi[n, i]) for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
     
     return result
     
 
 """Performs variational inference of the variational parameters on
 one document given the current model parameters. Returns a VariationalParams object"""
-def variational_inference(doc, counts, m_params):
+def variational_inference(doc, counts, m_params, max_iterations=100):
     
     v_params = VariationalParams(
         zeta=10.0,\
@@ -122,8 +125,11 @@ def variational_inference(doc, counts, m_params):
         nu_sq=np.ones(len(m_params.beta)))
     
     old_l_bound = likelihood_bound(v_params, m_params, doc, counts)
+    iteration = 0
 
     while True:
+        iteration += 1        
+        
         #Maximize wrt zeta
         v_params.zeta = np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq))
         
@@ -156,7 +162,7 @@ def variational_inference(doc, counts, m_params):
         delta = abs((new_l_bound - old_l_bound) / old_l_bound)
         
         old_l_bound = new_l_bound
-        if (delta < 1e-5):
+        if (delta < 1e-5 or iteration >= max_iterations):
             break
         
     return v_params
@@ -180,6 +186,7 @@ def inference(corpus, word_counts, no_pathways, pathway_priors, max_iterations=1
         print "Iteration: " + str(iteration)
     
         params = pool.map(VIWorker(m_params), zip(corpus, word_counts))
+        #params = map(VIWorker(m_params), zip(corpus, word_counts))
         
         old_l_bound = sum([likelihood_bound(p, m_params, d, c) for (p, d, c) in zip(params, corpus, word_counts)])
         print "Old bound: " + str(old_l_bound)
@@ -217,7 +224,7 @@ def inference(corpus, word_counts, no_pathways, pathway_priors, max_iterations=1
 
 """Sampling of the likelihood based on the variational posterior"""
 def sample_term(v_params, m_params, doc, counts, eta):
-    t1 = 0.5 * np.log(np.linalg.det(m_params.inv_sigma))
+    t1 = 0.5 * safe_log(np.linalg.det(m_params.inv_sigma))
     t1 -= 0.5 * (np.diag(v_params.nu_sq).dot(m_params.inv_sigma)).trace()
     lambda_mu = v_params.lambd - m_params.mu
     t1 -= 0.5 * lambda_mu.dot(m_params.inv_sigma.dot(lambda_mu))
@@ -226,9 +233,9 @@ def sample_term(v_params, m_params, doc, counts, eta):
     theta /= sum(theta)
     
     for (n, c) in zip(xrange(len(doc)), counts):
-        t1 += c * np.log(np.sum(theta * m_params.beta[:, doc[n]]))
+        t1 += c * safe_log(np.sum(theta * m_params.beta[:, doc[n]]))
         
-    t2 = np.sum(np.log(scipy.stats.multivariate_normal.pdf(eta - v_params.lambd, np.zeros(len(eta)), np.diag(np.sqrt(v_params.nu_sq)))))
+    t2 = np.sum(safe_log(scipy.stats.multivariate_normal.pdf(eta - v_params.lambd, np.zeros(len(eta)), np.diag(np.sqrt(v_params.nu_sq)))))
     
     return t1 - t2
 
@@ -240,7 +247,7 @@ def sample_lhood(v_params, m_params, doc, counts):
             eta = np.random.multivariate_normal(v_params.lambd, np.diag(np.sqrt(v_params.nu_sq)))
             yield sample_term(v_params, m_params, doc, counts, eta)
             
-    return scipy.misc.logsumexp(np.array(terms())) - np.log(nsamples)
+    return scipy.misc.logsumexp(np.array(terms())) - safe_log(nsamples)
     
 def expected_theta(v_params, m_params, doc, counts):
     nsamples = 100
@@ -255,11 +262,11 @@ def expected_theta(v_params, m_params, doc, counts):
         
             w = sample_term(v_params, m_params, doc, counts, eta)
             
-            yield w + np.log(theta)
+            yield w + safe_log(theta)
     
     samples = list(terms())
 
-    e_theta = scipy.misc.logsumexp(samples, axis=0) - np.log(nsamples)
+    e_theta = scipy.misc.logsumexp(samples, axis=0) - safe_log(nsamples)
     norm = scipy.misc.logsumexp(e_theta)
     return np.exp(e_theta - norm)
         
@@ -284,6 +291,8 @@ def generate_random_corpus(voc_len, K, N_d, no_docs):
     sigma = np.identity(K)
     
     beta = [np.random.uniform(0, 1, voc_len) for _ in xrange(K)]
+    for i in xrange(K):
+        beta[i][i] = 0
     beta = [b / sum(b) for b in beta]
     
     doc_words = []
@@ -362,15 +371,18 @@ if __name__ == "__main__":
         
     voc_len = 10
     K = 3
-    N_d = 1000
+    N_d = 100
     no_docs = 128
     
     doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs)
     
-    validation(doc_words, doc_counts, doc_thetas)
+#    validation(doc_words, doc_counts, doc_thetas)
     
     
     priors = [np.random.uniform(0, 1, voc_len) for _ in xrange(K)]
+    for i in xrange(K):
+        priors[i][i] = 0
+    
     priors = np.array([p / sum(p) for p in priors])
     ps = list(inference(doc_words, doc_counts, K, priors))
     
