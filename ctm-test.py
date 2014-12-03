@@ -321,6 +321,22 @@ def document_similarity_matrix(thetas):
             
     return M
     
+def cor_mat(sigma):
+    inv_sigma = np.linalg.inv(sigma)
+    result = np.zeros(sigma.shape)
+    for i in xrange(inv_sigma.shape[0]):
+        for j in xrange(inv_sigma.shape[1]):
+            result[i, j] = np.abs(inv_sigma[i, j])/np.sqrt(inv_sigma[i,i]*inv_sigma[j,j])
+    return result
+
+def dsm_rmse(inf, ref):
+    return np.sqrt(np.sum(np.square(inf-ref)) / ref.size) / (np.max(ref) - np.min(ref))
+
+def normalize_mu_sigma(mu, sigma):    
+    n_samples = 10000
+    samples = np.array([f(s) for s in np.random.multivariate_normal(mu, sigma, n_samples)])
+    return (np.mean(samples, axis=0), np.cov(samples.T))
+    
 def validation(doc_words, doc_counts, doc_thetas):
     corpus = zip(doc_words, doc_counts, doc_thetas)
     np.random.shuffle(corpus)
@@ -351,11 +367,9 @@ def validation(doc_words, doc_counts, doc_thetas):
     train_inferred = document_similarity_matrix(train_inf_thetas)
     
     
-    RMSE = np.sqrt(np.sum(np.square(train_inferred-train_reference)) / train_reference.size)
-    print "Reference-inferred RMSE on the train set: %f" % RMSE
+    print "Reference-inferred RMSE on the train set: %f" % dsm_rmse(train_inferred, train_reference)
     
-    RMSE = np.sqrt(np.sum(np.square(test_inferred-test_reference)) / test_reference.size)
-    print "Reference-inferred RMSE on the test set: %f" % RMSE
+    print "Reference-inferred RMSE on the test set: %f" % dsm_rmse(test_inferred, test_reference)
     
 if __name__ == "__main__":
     #Final data: 6101 drugs (documents), 22283 genes (words), 260 pathways (topics)
@@ -367,12 +381,17 @@ if __name__ == "__main__":
 #gibbs sampling for logistic normal topic models with graph-based priors
 #compare sigma, mu by drawing many etas, normalizing them and comparing to the reference etas, t-test!
 #find a way to evaluate sigma/mu (multinomial statistics?)
-
-        
+#wishart to get sigma + generate from an adjacency matrix for a graph
+    
+#Evaluation: RMSE for theta, beta, corr mat, visual graph (threshold for corr)
+    #vary K, sparsity of beta(how many zeros in each topic)/topic graph
+    #see the GMRF paper for toy dataset generation
+    #check out bdgraph
+    
     voc_len = 10
     K = 3
     N_d = 100
-    no_docs = 128
+    no_docs = 512
     
     doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs)
     
@@ -430,7 +449,5 @@ if __name__ == "__main__":
     reference = document_similarity_matrix(doc_thetas)
     inferred = document_similarity_matrix(thetas)
     
-    RMSE = np.sqrt(np.sum(np.square(inferred-reference)) / reference.size)
-    
-    print "RMSE between inferred document correlations and the reference: %f" % RMSE
+    print "RMSE between inferred document correlations and the reference: %f" % dsm_rmse(inferred, reference)
     
