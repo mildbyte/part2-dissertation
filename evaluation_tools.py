@@ -11,6 +11,7 @@ from variational_inference import variational_inference
 from expectation_maximization import expectation_maximization
 from inference import expected_theta
 from collections import Counter
+import random
      
 def f(eta):
     return np.exp(eta) / np.sum(np.exp(eta))
@@ -30,7 +31,7 @@ def generate_random_corpus(voc_len, K, N_d, no_docs):
         return document, eta_d
         
     mu = np.random.uniform(0, 1, K)
-    sigma = np.identity(K)
+    sigma = sample_wishart(10, np.identity(K))
     
     beta = [np.random.uniform(0, 1, voc_len) for _ in xrange(K)]
     for i in xrange(K):
@@ -71,6 +72,17 @@ def cor_mat(sigma):
             result[i, j] = np.abs(inv_sigma[i, j])/np.sqrt(inv_sigma[i,i]*inv_sigma[j,j])
     return result
 
+def sample_wishart(dof, scale):
+    cholesky = np.linalg.cholesky(scale)
+    
+    d = scale.shape[0]
+    a = np.zeros((d, d))
+    for r in xrange(d):
+        if r!=0:
+            a[r, :r] = np.random.normal(size=(r,))
+        a[r,r] = np.sqrt(random.gammavariate(0.5 * (dof - d + 1), 2.0))
+    return cholesky.dot(a).dot(a.T).dot(cholesky.T)
+    
 def dsm_rmse(inf, ref):
     return np.sqrt(np.sum(np.square(inf-ref)) / ref.size) / (np.max(ref) - np.min(ref))
 
