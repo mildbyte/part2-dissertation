@@ -23,35 +23,36 @@ def plot_cdf(arr):
     plt.plot(edges[1:], cdf)
     
 if __name__ == "__main__":
-    drug_gene = np.loadtxt("D:\\diss-data\\gene_expression_matrix_X.txt").T
-    gene_pathway = np.loadtxt("D:\\diss-data\\gene_pathway_matrix_K.txt")
+    drug_prune = 10
+    gene_prune = 10
+    pathway_prune = 10
     
+    drug_gene = np.loadtxt("D:\\diss-data\\gene_expression_matrix_X.txt").T    
     drug_gene = np.round(np.abs(drug_gene*100)).astype('int')
+    drug_gene = drug_gene[::drug_prune,::gene_prune]        
     
     doc_words = [d.nonzero()[0] for d in drug_gene]
     doc_counts = [d[d.nonzero()[0]] for d in drug_gene]
+
+    pathway_gene = np.loadtxt("D:\\diss-data\\gene_pathway_matrix_K.txt")[::pathway_prune,::gene_prune]
+    #priors = np.multiply(np.random.uniform(size=pathway_gene.shape), pathway_gene)
+    priors = np.random.uniform(size=pathway_gene.shape)
+    #priors = priors[:,::100]
     
-    priors = np.multiply(np.random.uniform(size=gene_pathway.shape), gene_pathway)
+    print "Drugs: %d, pathways: %d, genes: %d" % (drug_gene.shape[0], pathway_gene.shape[0], drug_gene.shape[1])
+    
     priors = np.array([p / sum(p) for p in priors])
-    
-    doc_words = doc_words[::1000]
-    doc_counts = doc_counts[::1000]
     
     ps = list(expectation_maximization(doc_words, doc_counts, len(priors), priors))
 
         
 #TODO:
 #manually assign the parameters (sigma, mu)
-#topic covariances
-#K-1 instead of k
-#gibbs sampling for logistic normal topic models with graph-based priors
-#compare sigma, mu by drawing many etas, normalizing them and comparing to the reference etas, t-test!
-#find a way to evaluate sigma/mu (multinomial statistics?)
-    
+#gibbs sampling for logistic normal topic models with graph-based priors    
 #Evaluation: RMSE for theta, beta, corr mat, visual graph (threshold for corr)
-    #vary K, sparsity of beta(how many zeros in each topic)/topic graph
-    #see the GMRF paper for toy dataset generation
-    #check out bdgraph
+#vary K, sparsity of beta(how many zeros in each topic)/topic graph
+#see the GMRF paper for toy dataset generation
+#check out bdgraph
     
 #    voc_len = 3000
 #    K = 260

@@ -31,7 +31,7 @@ def generate_random_corpus(voc_len, K, N_d, no_docs):
         return document, eta_d
         
     mu = np.random.uniform(0, 1, K)
-    sigma = sample_wishart(10, np.identity(K))
+    sigma = sample_wishart(1000, np.identity(K))
     
     beta = [np.random.uniform(0, 1, voc_len) for _ in xrange(K)]
     for i in xrange(K):
