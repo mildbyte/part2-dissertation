@@ -63,14 +63,6 @@ def document_similarity_matrix(thetas):
             M[i, j] = scipy.stats.pearsonr(thetas[i], thetas[j])[0]
             
     return M
-    
-def cor_mat(sigma):
-    inv_sigma = np.linalg.inv(sigma)
-    result = np.zeros(sigma.shape)
-    for i in xrange(inv_sigma.shape[0]):
-        for j in xrange(inv_sigma.shape[1]):
-            result[i, j] = np.abs(inv_sigma[i, j])/np.sqrt(inv_sigma[i,i]*inv_sigma[j,j])
-    return result
 
 def sample_wishart(dof, scale):
     cholesky = np.linalg.cholesky(scale)
