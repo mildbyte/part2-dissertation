@@ -31,16 +31,23 @@ class VIWorker:
 def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, max_iterations=10):
     m_params = Model(np.zeros(no_pathways), np.identity(no_pathways), np.array(pathway_priors))
     
+    
+    expanded_counts = []
+    for w, c in zip(corpus, word_counts):
+        exp_count = np.zeros(pathway_priors.shape[1])
+        exp_count[w] = c
+        expanded_counts.append(exp_count)
+    
     iteration = 0
     
-    #pool = Pool(processes=8)
+    pool = Pool(processes=8)
     
     while True:
         print "Iteration: " + str(iteration)
             
         print "Performing variational inference..."
 
-        #params = pool.map(VIWorker(m_params), zip(corpus, word_counts))
+        params = pool.map(VIWorker(m_params), zip(corpus, word_counts))
         params = map(VIWorker(m_params), zip(corpus, word_counts))
         
         old_l_bound = sum([likelihood_bound(p, m_params, d, c, sum(c)) for (p, d, c) in zip(params, corpus, word_counts)])
@@ -49,20 +56,28 @@ def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, m
         mu = np.sum([p.lambd for p in params], axis=0) / len(corpus)
         sigma = np.sum([np.diag(p.nu_sq) + np.outer(p.lambd, p.lambd) for p in params], axis=0)
         sigma /= len(corpus)
-        sigma -= np.outer(mu, mu)
-        
+        sigma -= np.outer(mu, mu)        
         sigma += np.eye(len(sigma)) * 0.01 #Ridge on the principal diagonal to avoid singular matrices
         
-        beta = np.zeros(m_params.beta.shape)
-        for d in xrange(len(corpus)):
-            for w in xrange(len(corpus[d])):
-                word = corpus[d][w]
-                count = word_counts[d][w]
-                for i in xrange(len(beta)):
-                    beta[i, word] += count * params[d].phi[w, i]
+        expanded_phis = [] #Sparse phi s.t. exp_phi[w, i] = phi[doc^-1[w], i] or 0 if doc^-1 is undefined at w
+        for param, words in zip(params, corpus):
+            exp_phi = np.zeros(pathway_priors.shape).T
+            exp_phi[words] = param.phi
+            expanded_phis.append(exp_phi)
         
-        for i in xrange(len(beta)):
-            beta[i] /= np.sum(beta[i])
+        beta = sum([np.multiply(c, phi.T) for c, phi in zip(expanded_counts, expanded_phis)])
+        beta /= np.sum(beta, axis=1)[:, np.newaxis]
+#        
+#        beta = np.zeros(m_params.beta.shape)
+#        for d in xrange(len(corpus)):
+#            for w in xrange(len(corpus[d])):
+#                word = corpus[d][w]
+#                count = word_counts[d][w]
+#                for i in xrange(len(beta)):
+#                    beta[i, word] += count * params[d].phi[w, i]
+#        
+#        for i in xrange(len(beta)):
+#            beta[i] /= np.sum(beta[i])
         
         m_params = Model(mu, sigma, beta)
         print m_params
@@ -78,4 +93,4 @@ def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, m
         if (delta < 1e-5 or iteration >= max_iterations):
             break
     
-    #pool.close()
+    pool.close()
