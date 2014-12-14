@@ -33,17 +33,20 @@ if __name__ == "__main__":
     
     doc_words = [d.nonzero()[0] for d in drug_gene]
     doc_counts = [d[d.nonzero()[0]] for d in drug_gene]
-
-    pathway_gene = np.loadtxt("D:\\diss-data\\gene_pathway_matrix_K.txt")[::pathway_prune,::gene_prune]
-    #priors = np.multiply(np.random.uniform(size=pathway_gene.shape), pathway_gene)
-    priors = np.random.uniform(size=pathway_gene.shape)
-    #priors = priors[:,::100]
-    
-    print "Drugs: %d, pathways: %d, genes: %d" % (drug_gene.shape[0], pathway_gene.shape[0], drug_gene.shape[1])
-    
-    priors = np.array([p / sum(p) for p in priors])
+#
+#    pathway_gene = np.loadtxt("D:\\diss-data\\gene_pathway_matrix_K.txt")[::pathway_prune,::gene_prune]
+#    priors = np.multiply(np.random.uniform(size=pathway_gene.shape), pathway_gene)
+#    #priors = np.random.uniform(size=pathway_gene.shape)
+#    #priors[priors > 0.5] = 0
+#    #priors /= 0.5
+#    
+#    print "Drugs: %d, pathways: %d, genes: %d" % (drug_gene.shape[0], pathway_gene.shape[0], drug_gene.shape[1])
+#    priors = np.array([p / sum(p) for p in priors])
+#    
+#    m_params, v_params = expectation_maximization(doc_words, doc_counts, len(priors), priors)
     
     ps = list(expectation_maximization(doc_words, doc_counts, len(priors), priors))
+    t = expected_theta(v_params[0], m_params, doc_words[0], doc_counts[0])
 
         
 #TODO:

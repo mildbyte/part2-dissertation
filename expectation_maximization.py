@@ -48,7 +48,7 @@ def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, m
         print "Performing variational inference..."
 
         params = pool.map(VIWorker(m_params), zip(corpus, word_counts))
-        params = map(VIWorker(m_params), zip(corpus, word_counts))
+ #       params = map(VIWorker(m_params), zip(corpus, word_counts))
         
         old_l_bound = sum([likelihood_bound(p, m_params, d, c, sum(c)) for (p, d, c) in zip(params, corpus, word_counts)])
         print "Old bound: " + str(old_l_bound)
@@ -88,9 +88,9 @@ def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, m
 
         delta = abs((new_l_bound - old_l_bound)/old_l_bound)
 
-        yield (m_params, new_l_bound)
-        
         if (delta < 1e-5 or iteration >= max_iterations):
             break
     
     pool.close()
+    
+    return m_params, params
