@@ -46,8 +46,8 @@ def generate_random_corpus(voc_len, K, N_d, no_docs):
         doc, eta_d = gendoc(mu, sigma, beta)
         c = Counter(doc)
         
-        doc_words.append(list(c.iterkeys()))
-        doc_counts.append(list(c.itervalues()))
+        doc_words.append(np.array(list(c.iterkeys())))
+        doc_counts.append(np.array(list(c.itervalues())))
         doc_thetas.append(f(eta_d))
 
     return doc_words, doc_counts, doc_thetas, mu, sigma, beta
