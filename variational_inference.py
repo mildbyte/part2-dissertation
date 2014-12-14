@@ -30,7 +30,8 @@ def f_dlambda(lambd, v_params, m_params, doc, counts, N):
     return -(-m_params.inv_sigma.dot(lambd - m_params.mu) +\
         #np.sum([c * v_params.phi[n] for (n, c) in zip(xrange(len(doc)), counts)], axis=0) -\
         v_params.weighted_sum_phi -\
-        (N/v_params.zeta) * np.exp(lambd + 0.5 * v_params.nu_sq))
+        N * np.exp(lambd + 0.5 * v_params.nu_sq - np.log(v_params.zeta)))
+        #shift zeta inside to make exp overflow happen less often
 
 """The objective function used to optimize the likelihood bound with respect to lambda.
    Same as the negated likelihood bound with only lambda-dependent terms."""
@@ -42,7 +43,8 @@ def f_lambda(lambd, v_params, m_params, doc, counts, N):
     #E_q(logp(z|eta))
     #result -= sum([c * lambd[i] * v_params.phi[n, i] for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
     result -= v_params.weighted_sum_phi.dot(lambd)
-    result += N / v_params.zeta * np.sum(np.exp(lambd + 0.5 * v_params.nu_sq))
+    result += N * np.sum(np.exp(lambd + 0.5 * v_params.nu_sq - np.log(v_params.zeta)))
+    #shift zeta inside to make exp overflow happen less often
     
     return result
 
@@ -53,7 +55,7 @@ def f_nu_sq(nu_sq, v_params, m_params, doc, counts, N):
     result = 0.5 * (np.diag(nu_sq).dot(m_params.inv_sigma)).trace()
     
     #E_q(logp(z|eta))
-    result += N / v_params.zeta * np.sum(np.exp(v_params.lambd + 0.5 * nu_sq))
+    result += N * np.sum(np.exp(v_params.lambd + 0.5 * nu_sq - np.log(v_params.zeta)))
     
     #H(q)
     result -= np.sum(0.5 * (1 + safe_log(nu_sq * 2 * np.pi)))
@@ -62,12 +64,13 @@ def f_nu_sq(nu_sq, v_params, m_params, doc, counts, N):
     
 """The first derivative of f_nu_sq"""
 def f_dnu_sq(nu_sq, v_params, m_params, doc, counts, N):
-    result = 0.5 * np.diagonal(m_params.inv_sigma) + 0.5 * N / v_params.zeta * np.exp(v_params.lambd + 0.5 * nu_sq) - 0.5 / nu_sq
+    result = 0.5 * np.diagonal(m_params.inv_sigma) +\
+        0.5 * N * np.exp(v_params.lambd + 0.5 * nu_sq - np.log(v_params.zeta)) - 0.5 / nu_sq
     return result
     
 def likelihood_bound(v_params, m_params, doc, counts, N):
     #E_q(logp(eta|mu,sigma))
-    result = 0.5 * safe_log(np.linalg.det(m_params.inv_sigma))
+    result = 0.5 * np.linalg.slogdet(m_params.inv_sigma)[1] #logdet avoids overflow (as opposed to log(det(inv_sigma)))
     result -= 0.5 * safe_log(2 * np.pi) * len(m_params.beta)
     result -= 0.5 * (np.diag(v_params.nu_sq).dot(m_params.inv_sigma)).trace()
     lambda_mu = v_params.lambd - m_params.mu
@@ -76,7 +79,8 @@ def likelihood_bound(v_params, m_params, doc, counts, N):
     #E_q(logp(z|eta))
     #result += sum([c * v_params.lambd[i] * v_params.phi[n, i] for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
     result += v_params.weighted_sum_phi.dot(v_params.lambd)
-    result -= N * (1.0 / v_params.zeta * np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq)) - 1 + safe_log(v_params.zeta))
+    result -= N * np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq - np.log(v_params.zeta)) -\
+        1 + safe_log(v_params.zeta))
     
     #E_q(logp(w|mu,z,beta))
     #result += sum([c * v_params.phi[n, i] * safe_log(m_params.beta[i, doc[n]]) for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
@@ -121,7 +125,7 @@ def variational_inference(doc, counts, m_params, max_iterations=100):
         v_params.zeta = np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq))                                        
         
         #Maximize wrt nu
-        nu_opt_result = scipy.optimize.fmin_l_bfgs_b(f_nu_sq, v_params.nu_sq, f_dnu_sq, args=(v_params, m_params, doc, counts, N), bounds = [(0, None) for _ in m_params.beta])
+        nu_opt_result = scipy.optimize.fmin_l_bfgs_b(f_nu_sq, v_params.nu_sq, f_dnu_sq, args=(v_params, m_params, doc, counts, N), bounds = [(0.001, None) for _ in m_params.beta])
         v_params.nu_sq = nu_opt_result[0]
         
         #Maximize wrt zeta
