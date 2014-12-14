@@ -9,12 +9,27 @@ from variational_inference import variational_inference
 from expectation_maximization import expectation_maximization
 from inference import expected_theta
 from evaluation_tools import generate_random_corpus, document_similarity_matrix, dsm_rmse
+from math_utils import cor_mat
 
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.stats
 import scipy.misc
+import networkx as nx
 np.set_printoptions(precision=2, linewidth=120)
+
+def plot_correlations(sigma, threshold=0.1):
+    corr = cor_mat(sigma)
+    K = corr.shape[0]
+    
+    G = nx.Graph()
+    G.add_nodes_from(xrange(K))
+    G.add_weighted_edges_from([(a, b, 1.0/corr[a, b]) for a in xrange(K) for b in xrange(K) if a != b and corr[a, b] > threshold])
+    
+    pos = nx.fruchterman_reingold_layout(G)
+    nx.draw(G, pos, with_labels=True, edge_cmap=plt.get_cmap("Blues"), alpha=0.7, node_size=500, width=5.0, labels={i: i for i in xrange(K)})
+    labels={(u,v,) : "%.2f" % (1.0/d['weight']) for u, v, d in G.edges(data=True)}
+    nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
 
 def plot_cdf(arr):
     counts, edges = np.histogram(arr, normed=True, bins=1000)
