@@ -81,21 +81,24 @@ if __name__ == "__main__":
 # 
 #    m_params, v_params = expectation_maximization(doc_words, doc_counts, len(priors), priors, max_iterations=10)
     
-    import cPickle
-    m_params, v_params = cPickle.load(open("D:\\data-every-10th-drug.dat", 'rb'))
-    thetas = cPickle.load(open("D:\\thetas-every-10th-drug.dat", 'rb'))
+    data = np.load("D:\\data-every-10th-drug.npz")
+    m_params = data['arr_0']
+    v_params = data['arr_1']
+    
+    data = np.load("D:\\thetas-every-10th-drug.npz")
+    thetas = data['arr_0']
         
     pathway_ids = [int(p[:-1]) for p in open("D:\\diss-data\\pathway_id.txt").readlines()][::pathway_prune]
     drug_names = [d[:-1] for d in open("D:\\diss-data\\drug_name.txt").readlines()][1::drug_prune]
     
     
-#    f = open("D:\\data-every-" + str(drug_prune) + "th-drug.dat", 'wb')
-#    cPickle.dump((m_params, v_params), f)
+#    f = open("D:\\data-every-" + str(drug_prune) + "th-drug.npz", 'wb')
+#    np.savez(f, m_params, v_params)
 #    f.close()
 #    
+#    f = open("D:\\thetas-every-" + str(drug_prune) + "th-drug.npz", 'wb')
 #    thetas = [expected_theta(v, m_params, d, c) for v, d, c in zip(v_params, doc_words, doc_counts)]
-#    f = open("D:\\thetas-every-" + str(drug_prune) + "th-drug.dat", 'wb')
-#    cPickle.dump(thetas, f)
+#    np.savez(f, thetas)
 #    f.close()
 #    
     
