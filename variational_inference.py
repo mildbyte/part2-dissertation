@@ -79,7 +79,7 @@ def likelihood_bound(v_params, m_params, doc, counts, N):
     #E_q(logp(z|eta))
     #result += sum([c * v_params.lambd[i] * v_params.phi[n, i] for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
     result += v_params.weighted_sum_phi.dot(v_params.lambd)
-    result -= N * np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq - np.log(v_params.zeta)) -\
+    result -= N * (np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq - np.log(v_params.zeta))) -\
         1 + safe_log(v_params.zeta))
     
     #E_q(logp(w|mu,z,beta))
