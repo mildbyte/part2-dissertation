@@ -58,40 +58,40 @@ def plot_rank(theta, pathway_labels=None, prune_top=None):
     plt.xticks(range(prune_top), pathway_labels, rotation='vertical')
     
 if __name__ == "__main__":
-    drug_prune = 10
-    gene_prune = 1
-    pathway_prune = 1
-
-    
-    drug_gene = np.loadtxt("D:\\diss-data\\gene_expression_matrix_X.txt").T    
-    drug_gene = np.round(np.abs(drug_gene*100)).astype('int')
-    drug_gene = drug_gene[::drug_prune,::gene_prune]     
-    
-    doc_words = [d.nonzero()[0] for d in drug_gene]
-    doc_counts = [d[d.nonzero()[0]] for d in drug_gene]
-
-    pathway_gene = np.loadtxt("D:\\diss-data\\gene_pathway_matrix_K.txt")[::pathway_prune,::gene_prune]
-    priors = np.multiply(np.random.uniform(size=pathway_gene.shape), pathway_gene)
-    #priors = np.random.uniform(size=pathway_gene.shape)
-    #priors[priors > 0.5] = 0
-    #priors /= 0.5
+#    drug_prune = 10
+#    gene_prune = 1
+#    pathway_prune = 1
+#
 #    
-    priors = np.array([p / sum(p) for p in priors])
-    print "Drugs: %d, pathways: %d, genes: %d" % (drug_gene.shape[0], pathway_gene.shape[0], drug_gene.shape[1])
-# 
-#    m_params, v_params = expectation_maximization(doc_words, doc_counts, len(priors), priors, max_iterations=10)
-    
-    data = np.load("D:\\data-every-10th-drug.npz")
-    m_params = data['arr_0']
-    v_params = data['arr_1']
-    
-    data = np.load("D:\\thetas-every-10th-drug.npz")
-    thetas = data['arr_0']
-        
-    pathway_ids = [int(p[:-1]) for p in open("D:\\diss-data\\pathway_id.txt").readlines()][::pathway_prune]
-    drug_names = [d[:-1] for d in open("D:\\diss-data\\drug_name.txt").readlines()][1::drug_prune]
-    
-    
+#    drug_gene = np.loadtxt("D:\\diss-data\\gene_expression_matrix_X.txt").T    
+#    drug_gene = np.round(np.abs(drug_gene*100)).astype('int')
+#    drug_gene = drug_gene[::drug_prune,::gene_prune]     
+#    
+#    doc_words = [d.nonzero()[0] for d in drug_gene]
+#    doc_counts = [d[d.nonzero()[0]] for d in drug_gene]
+#
+#    pathway_gene = np.loadtxt("D:\\diss-data\\gene_pathway_matrix_K.txt")[::pathway_prune,::gene_prune]
+#    priors = np.multiply(np.random.uniform(size=pathway_gene.shape), pathway_gene)
+#    #priors = np.random.uniform(size=pathway_gene.shape)
+#    #priors[priors > 0.5] = 0
+#    #priors /= 0.5
+##    
+#    priors = np.array([p / sum(p) for p in priors])
+#    print "Drugs: %d, pathways: %d, genes: %d" % (drug_gene.shape[0], pathway_gene.shape[0], drug_gene.shape[1])
+## 
+##    m_params, v_params = expectation_maximization(doc_words, doc_counts, len(priors), priors, max_iterations=10)
+#    
+#    data = np.load("D:\\data-every-10th-drug.npz")
+#    m_params = data['arr_0']
+#    v_params = data['arr_1']
+#    
+#    data = np.load("D:\\thetas-every-10th-drug.npz")
+#    thetas = data['arr_0']
+#        
+#    pathway_ids = [int(p[:-1]) for p in open("D:\\diss-data\\pathway_id.txt").readlines()][::pathway_prune]
+#    drug_names = [d[:-1] for d in open("D:\\diss-data\\drug_name.txt").readlines()][1::drug_prune]
+#    
+#    
 #    f = open("D:\\data-every-" + str(drug_prune) + "th-drug.npz", 'wb')
 #    np.savez(f, m_params, v_params)
 #    f.close()
@@ -111,69 +111,77 @@ if __name__ == "__main__":
 #see the GMRF paper for toy dataset generation
 #check out bdgraph
     
-#    voc_len = 3000
-#    K = 260
-#    N_d = 10
-#    no_docs = 1200
-#    
-#    print "Generating a random corpus..."
-#    doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs)
-#    
-##    validation(doc_words, doc_counts, doc_thetas)
-#    
-#    
-#    priors = [np.random.uniform(0, 1, voc_len) for _ in xrange(K)]
-#    for i in xrange(K):
-#        priors[i][i] = 0
-#
-#    print "Performing expectation maximization..."    
-#    priors = np.array([p / sum(p) for p in priors])
-#    ps = list(expectation_maximization(doc_words, doc_counts, K, priors))
-#    
-#    m_params = ps[-1][0]
-#    
-#    
-#    diff = np.zeros((K, K))
-#    for i in xrange(K):
-#        for j in xrange(K):
-#            diff[i, j] = np.linalg.norm(beta[i] - m_params.beta[j])
-#            
-#    corr = np.zeros((K, K))
-#    for i in xrange(K):
-#        for j in xrange(K):
-#            corr[i, j] = scipy.stats.pearsonr(beta[i], m_params.beta[j])[0]
-#            
-##    Setting diagonal entries to 0 in the prior for identifiability
-##       => don't need to permute the results
-##    
-##    betamap = np.argmax(corr, axis=0) #betamap[i] : inferred topic id that's most similar to the actual topic i
-##    if (len(np.unique(betamap)) < len(betamap)):
-##        print "Warning: could not infer the topic mapping, topics not far enough apart"
-##        print diff
-##    
-#    print "Evaluating by classifying the training dataset..."
-#    thetas = np.array([expected_theta(variational_inference(d, c, m_params), m_params, d, c) for (d, c) in zip(doc_words, doc_counts)])
-##    permuted_thetas = np.array(thetas)
-##    for d in xrange(len(thetas)):
-##        for i in xrange(len(betamap)):
-##            permuted_thetas[d, betamap[i]] = thetas[d, i]
-#    
-#    theta_diff_sizes = [dsm_rmse(inf, ref) for inf, ref in zip(thetas, doc_thetas)]
-#    
-#    baseline = np.random.multivariate_normal(mu, sigma, size=no_docs)
-#    baseline = np.exp(baseline) / np.sum(np.exp(baseline), axis=1)[:, None]
-#    baseline_diff_sizes = [dsm_rmse(inf, ref) for inf, ref in zip(baseline, doc_thetas)]
-#    
-#    plot_cdf(theta_diff_sizes)
-#    plot_cdf(baseline_diff_sizes)
-#    
-#    plt.legend([r"Inferred $\theta$", r"Baseline $\theta$ (random)"])
-#    plt.xlabel("RMSE $\\theta_{inf}$ from $\\theta_{ref}$")
-#    plt.ylabel("Proportion of errors below a given RMSE (the CDF)")
-#        
-#    reference = document_similarity_matrix(doc_thetas)
-#    inferred = document_similarity_matrix(thetas)
-#    
-#    print "RMSE between inferred document correlations and the reference: %f" % dsm_rmse(inferred, reference)
-#    
+    voc_len = 100
+    K = 5
+    N_d = 1000
+    no_docs = 1000
+    
+    print "Generating a random corpus..."
+    doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs)
+    
+#    validation(doc_words, doc_counts, doc_thetas)
+    
+    priors = [np.random.uniform(0, 1, voc_len) for _ in xrange(K)]
+    for i in xrange(K):
+        priors[i][i] = 0
+
+    print "Performing expectation maximization..."    
+    priors = np.array([p / sum(p) for p in priors])
+    m_params, v = expectation_maximization(doc_words, doc_counts, K, priors, max_iterations=100)
+    
+    corr = np.zeros((K, K))
+    
+    for i in xrange(K):
+        for j in xrange(K):
+            corr[i,j] = scipy.stats.pearsonr(beta[i], m_params.beta[j])[0]
+            
+    print "Reference-inferred beta correlation matrix (for topic identifiability):"
+    print corr
+
+    betamap = np.argmax(corr, axis=0) #betamap[i] : inferred topic id that's most similar to the actual topic i
+    if (len(np.unique(betamap)) < len(betamap)):
+        print "Warning: could not infer the topic mapping, topics not far enough apart"
+    
+    print "Evaluating by classifying the training dataset..."
+    thetas = np.array(parallel_expected_theta(v, m_params, doc_words, doc_counts))
+    
+    permuted_thetas = np.array(thetas)
+    for d in xrange(len(thetas)):
+        for i in xrange(len(betamap)):
+            permuted_thetas[d, betamap[i]] = thetas[d, i]
+    
+    permuted_mu = np.array(m_params.mu)
+    for i in xrange(len(mu)):
+        permuted_mu[betamap[i]] = m_params.mu[i]
+    
+    permuted_sigma = np.array(m_params.sigma)
+    for i in xrange(K):
+        for j in xrange(K):
+            permuted_sigma[betamap[i], betamap[j]] = m_params.sigma[i, j]
+    
+    permuted_beta = np.array(m_params.beta)
+    for i in xrange(K):
+        permuted_beta[betamap[i]] = m_params.beta[i]
+    
+    theta_diff_sizes = [dsm_rmse(inf, ref) for inf, ref in zip(permuted_thetas, doc_thetas)]
+    
+    baseline = np.random.multivariate_normal(mu, sigma, size=no_docs)
+    baseline = np.exp(baseline) / np.sum(np.exp(baseline), axis=1)[:, None]
+    baseline_diff_sizes = [dsm_rmse(inf, ref) for inf, ref in zip(baseline, doc_thetas)]
+    
+    plot_cdf(theta_diff_sizes)
+    plot_cdf(baseline_diff_sizes)
+    
+    plt.legend([r"Inferred $\theta$", r"Baseline $\theta$ (random)"])
+    plt.xlabel("RMSE $\\theta_{inf}$ from $\\theta_{ref}$")
+    plt.ylabel("Proportion of errors below a given RMSE (the CDF)")
+        
+    reference = document_similarity_matrix(doc_thetas)
+    inferred = document_similarity_matrix(thetas)
+    
+    print "RMSE between inferred document correlations and the reference: %f" % dsm_rmse(inferred, reference)
+    print "RMSE between inferred beta and the reference: %f" % dsm_rmse(np.array(permuted_beta), np.array(beta))
+    print "RMSE between inferred topic correlations and the reference: %f" % dsm_rmse(cor_mat(permuted_sigma), cor_mat(sigma))
+        
+    
     

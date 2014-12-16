@@ -54,7 +54,7 @@ def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, m
         print "Performing variational inference..."
 
         params = pool.map(VIWorker(m_params), zip(corpus, word_counts))
-        params = map(VIWorker(m_params), zip(corpus, word_counts))
+#        params = map(VIWorker(m_params), zip(corpus, word_counts))
         
         old_l_bound = sum([likelihood_bound(p, m_params, d, c, sum(c)) for (p, d, c) in zip(params, corpus, word_counts)])
         print "Old bound: " + str(old_l_bound)
@@ -87,8 +87,6 @@ def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, m
         
         m_params = Model(mu, sigma, beta)
         print m_params
-        print "RMSE between inferred beta and the reference: %f" % dsm_rmse(np.array(m_params.beta), np.array(actual_beta))
-        print "RMSE between inferred topic correlations and the reference: %f" % dsm_rmse(cor_mat(m_params.sigma), cor_mat(actual_sigma))
         
         new_l_bound = sum([likelihood_bound(p, m_params, d, c, sum(c)) for (p, d, c) in zip(params, corpus, word_counts)])
         print "New bound: " + str(new_l_bound)
