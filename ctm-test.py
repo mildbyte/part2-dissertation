@@ -8,7 +8,7 @@ Created on Thu Oct 23 10:43:11 2014
 from variational_inference import variational_inference
 from expectation_maximization import expectation_maximization
 from inference import parallel_expected_theta
-from evaluation_tools import generate_random_corpus, document_similarity_matrix, dsm_rmse
+from evaluation_tools import generate_random_corpus, document_similarity_matrix, dsm_rmse, normalize_mu_sigma
 from math_utils import cor_mat
 
 import numpy as np
@@ -58,49 +58,54 @@ def plot_rank(theta, pathway_labels=None, prune_top=None):
     plt.xticks(range(prune_top), pathway_labels, rotation='vertical')
     
 if __name__ == "__main__":
-#    drug_prune = 10
-#    gene_prune = 1
-#    pathway_prune = 1
-#
+    drug_prune = 10
+    gene_prune = 1
+    pathway_prune = 1
+
+    
+    drug_gene = np.loadtxt("D:\\diss-data\\gene_expression_matrix_X.txt").T    
+    drug_gene = np.round(np.abs(drug_gene*100)).astype('int')
+    drug_gene = drug_gene[::drug_prune,::gene_prune]     
+    
+    doc_words = [d.nonzero()[0] for d in drug_gene]
+    doc_counts = [d[d.nonzero()[0]] for d in drug_gene]
+
+    pathway_gene = np.loadtxt("D:\\diss-data\\gene_pathway_matrix_K.txt")[::pathway_prune,::gene_prune]
+    priors = np.multiply(np.random.uniform(size=pathway_gene.shape), pathway_gene)
+    #priors = np.random.uniform(size=pathway_gene.shape)
+    #priors[priors > 0.5] = 0
+    #priors /= 0.5
 #    
-#    drug_gene = np.loadtxt("D:\\diss-data\\gene_expression_matrix_X.txt").T    
-#    drug_gene = np.round(np.abs(drug_gene*100)).astype('int')
-#    drug_gene = drug_gene[::drug_prune,::gene_prune]     
+    priors = np.array([p / sum(p) for p in priors])
+    print "Drugs: %d, pathways: %d, genes: %d" % (drug_gene.shape[0], pathway_gene.shape[0], drug_gene.shape[1])
+# 
+#    m_params, v_params = expectation_maximization(doc_words, doc_counts, len(priors), priors, max_iterations=100)
+#    thetas = parallel_expected_theta(v_params, m_params, doc_words, doc_counts)
 #    
-#    doc_words = [d.nonzero()[0] for d in drug_gene]
-#    doc_counts = [d[d.nonzero()[0]] for d in drug_gene]
-#
-#    pathway_gene = np.loadtxt("D:\\diss-data\\gene_pathway_matrix_K.txt")[::pathway_prune,::gene_prune]
-#    priors = np.multiply(np.random.uniform(size=pathway_gene.shape), pathway_gene)
-#    #priors = np.random.uniform(size=pathway_gene.shape)
-#    #priors[priors > 0.5] = 0
-#    #priors /= 0.5
-##    
-#    priors = np.array([p / sum(p) for p in priors])
-#    print "Drugs: %d, pathways: %d, genes: %d" % (drug_gene.shape[0], pathway_gene.shape[0], drug_gene.shape[1])
-## 
-##    m_params, v_params = expectation_maximization(doc_words, doc_counts, len(priors), priors, max_iterations=10)
+#    mu_n, sigma_n = normalize_mu_sigma(m_params.mu, m_params.sigma)
 #    
-#    data = np.load("D:\\data-every-10th-drug.npz")
-#    m_params = data['arr_0']
-#    v_params = data['arr_1']
+#    thetas_norm = [(t - mu_n)/np.sqrt(s) for t, s in zip(thetas, sigma_n.diagonal())]
 #    
-#    data = np.load("D:\\thetas-every-10th-drug.npz")
-#    thetas = data['arr_0']
-#        
-#    pathway_ids = [int(p[:-1]) for p in open("D:\\diss-data\\pathway_id.txt").readlines()][::pathway_prune]
-#    drug_names = [d[:-1] for d in open("D:\\diss-data\\drug_name.txt").readlines()][1::drug_prune]
-#    
+    
+
+    
+    data = np.load("D:\\data-every-10th-drug.npz")
+    m_params = data['arr_0'].item()
+    v_params = data['arr_1']
+    
+    data = np.load("D:\\thetas-every-10th-drug.npz")
+    thetas = data['arr_0']
+        
+    pathway_ids = [int(p[:-1]) for p in open("D:\\diss-data\\pathway_id.txt").readlines()][::pathway_prune]
+    drug_names = [d[:-1] for d in open("D:\\diss-data\\drug_name.txt").readlines()][1::drug_prune]
 #    
 #    f = open("D:\\data-every-" + str(drug_prune) + "th-drug.npz", 'wb')
 #    np.savez(f, m_params, v_params)
 #    f.close()
 #    
 #    f = open("D:\\thetas-every-" + str(drug_prune) + "th-drug.npz", 'wb')
-#    thetas = [expected_theta(v, m_params, d, c) for v, d, c in zip(v_params, doc_words, doc_counts)]
 #    np.savez(f, thetas)
 #    f.close()
-#    
     
         
 #TODO:
@@ -110,11 +115,11 @@ if __name__ == "__main__":
 #vary K, sparsity of beta(how many zeros in each topic)/topic graph
 #see the GMRF paper for toy dataset generation
 #check out bdgraph
-    
+def generated_corpus_evaluation():
     voc_len = 100
     K = 5
-    N_d = 1000
-    no_docs = 1000
+    N_d = 100
+    no_docs = 10
     
     print "Generating a random corpus..."
     doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs)
