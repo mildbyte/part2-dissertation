@@ -17,6 +17,7 @@ import scipy.stats
 import scipy.misc
 import networkx as nx
 np.set_printoptions(precision=2, linewidth=120)
+plt.style.use('fivethirtyeight')
 
 def plot_correlations(sigma, threshold=0.1, sigma_labels=None):
     K = sigma.shape[0]
@@ -42,7 +43,7 @@ def plot_cdf(arr):
     cdf /= max(cdf)
     plt.plot(edges[1:], cdf)
 
-def plot_rank(theta, pathway_labels=None, prune_top=None):
+def plot_rank(theta, pathway_labels=None, prune_top=None, drug_name=None):
     if prune_top is None:
         prune_top = len(theta)
     
@@ -54,8 +55,40 @@ def plot_rank(theta, pathway_labels=None, prune_top=None):
     else:
         pathway_labels = np.array(pathway_labels)[sorted_pathways[:prune_top]]
     
-    plt.bar(range(prune_top), theta[sorted_pathways[:prune_top]])
-    plt.xticks(range(prune_top), pathway_labels, rotation='vertical')
+    patches = plt.barh(range(prune_top), theta[sorted_pathways[:prune_top]])
+    [plt.text(p.xy[0] + 0.5 * p.get_width(), p.xy[1] + 0.5 * p.get_height(), l, ha='center', va='center') for p, l in zip(patches, pathway_labels)]
+    plt.yticks(np.arange(prune_top), np.arange(prune_top), va='center')
+    
+    if drug_name is not None:
+        plt.title(drug_name)
+    
+    plt.ylabel("Pathway rank")    
+    plt.xlabel("Pathway proportion, $\\sigma$s from the mean")
+    
+def load_evaluation_dataset(supported_pathways):
+    from collections import defaultdict
+
+    result = defaultdict(list)    
+    
+    with open("D:\\diss-data\\CTD_chem_pathways_enriched_for_validation.txt", 'r') as f:
+        for line in f.readlines()[1:]:
+            tokens = line.strip().lower().split('\t')
+            
+            drug = tokens[0].replace('"', '')
+            pathway = int(tokens[1])
+            
+            if pathway in supported_pathways:
+                result[drug].append(pathway)
+    
+    return result
+
+def evaluate_drug_theta(theta, pathway_labels, reference_pathways):
+    sorted_pathways = range(len(theta))
+    sorted_pathways.sort(key=lambda p: theta[p], reverse=True)
+    sorted_pathways = np.array(pathway_labels)[sorted_pathways]
+    
+    #Return the rank of each of the pathways that this drug actually has
+    return [np.where(sorted_pathways == p)[0][0] for p in reference_pathways]
     
 if __name__ == "__main__":
     drug_prune = 10
@@ -81,12 +114,6 @@ if __name__ == "__main__":
 # 
 #    m_params, v_params = expectation_maximization(doc_words, doc_counts, len(priors), priors, max_iterations=100)
 #    thetas = parallel_expected_theta(v_params, m_params, doc_words, doc_counts)
-#    
-#    mu_n, sigma_n = normalize_mu_sigma(m_params.mu, m_params.sigma)
-#    
-#    thetas_norm = [(t - mu_n)/np.sqrt(s) for t, s in zip(thetas, sigma_n.diagonal())]
-#    
-    
 
     
     data = np.load("D:\\data-every-10th-drug.npz")
@@ -97,7 +124,14 @@ if __name__ == "__main__":
     thetas = data['arr_0']
         
     pathway_ids = [int(p[:-1]) for p in open("D:\\diss-data\\pathway_id.txt").readlines()][::pathway_prune]
+    pathway_names = [p[:-1] for p in open("D:\\diss-data\\pathway_names_used.txt").readlines()][::pathway_prune]
     drug_names = [d[:-1] for d in open("D:\\diss-data\\drug_name.txt").readlines()][1::drug_prune]
+    eval_data = load_evaluation_dataset(set(pathway_ids))
+    
+    mu_n, sigma_n = normalize_mu_sigma(m_params.mu, m_params.sigma)
+    thetas_norm = [(t - mu_n)/np.sqrt(s) for t, s in zip(thetas, sigma_n.diagonal())]
+    
+    
 #    
 #    f = open("D:\\data-every-" + str(drug_prune) + "th-drug.npz", 'wb')
 #    np.savez(f, m_params, v_params)
