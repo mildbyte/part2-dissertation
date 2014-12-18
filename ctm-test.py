@@ -17,25 +17,27 @@ import scipy.stats
 import scipy.misc
 import networkx as nx
 np.set_printoptions(precision=2, linewidth=120)
-plt.style.use('fivethirtyeight')
+plt.style.use('ggplot')
 
-def plot_correlations(sigma, threshold=0.1, sigma_labels=None):
-    K = sigma.shape[0]
-    if sigma_labels is None:
-        labels = {i: i for i in xrange(K)}
-    else:
-        labels = {i: sigma_labels[i] for i in xrange(K)}
-    
-    corr = cor_mat(sigma)
+def plot_correlations(corr, threshold=0.1, sigma_labels=None):
+    K = corr.shape[0]
     
     G = nx.Graph()
     G.add_nodes_from(xrange(K))
     G.add_weighted_edges_from([(a, b, 1.0/corr[a, b]) for a in xrange(K) for b in xrange(K) if a != b and corr[a, b] > threshold])
     
-    pos = nx.fruchterman_reingold_layout(G)
-    nx.draw(G, pos, with_labels=True, edge_cmap=plt.get_cmap("Blues"), alpha=0.7, node_size=1000, width=3.0, labels=labels)
+    degree = G.degree()
+    G.remove_nodes_from([n for n in degree if degree[n] == 0])
+
+    if sigma_labels is None:
+        labels = {i: i for i in G.nodes()}
+    else:
+        labels = {i: sigma_labels[i] for i in G.nodes()}
+        
+    pos = nx.spring_layout(G)
+    nx.draw(G, pos, with_labels=True, edge_cmap=plt.get_cmap("Blues"), alpha=0.7, node_size=1000, width=3.0, labels=labels, font_size=9)
     labels={(u,v,) : "%.2f" % (1.0/d['weight']) for u, v, d in G.edges(data=True)}
-    nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
+    nx.draw_networkx_edge_labels(G, pos, edge_labels=labels, font_size=9)
 
 def plot_cdf(arr):
     counts, edges = np.histogram(arr, normed=True, bins=1000)
