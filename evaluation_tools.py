@@ -56,11 +56,14 @@ def error_measure(m_params, doc_words, doc_counts, doc_thetas):
     thetas = np.array([expected_theta(variational_inference(d, c, m_params), m_params, d, c) for (d, c) in zip(doc_words, doc_counts)])
     return np.mean(np.linalg.norm(thetas - doc_thetas, axis=1))
 
+def cosine_similarity(a, b):
+    return a.dot(b) / np.linalg.norm(a) / np.linalg.norm(b)
+
 def document_similarity_matrix(thetas):    
     M = np.zeros((len(thetas), len(thetas)))
     for i in xrange(len(thetas)):
         for j in xrange(len(thetas)):
-            M[i, j] = scipy.stats.pearsonr(thetas[i], thetas[j])[0]
+            M[i, j] = cosine_similarity(thetas[i], thetas[j])[0]
             
     return M
 

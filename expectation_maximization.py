@@ -57,7 +57,7 @@ def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, m
 #        params = map(VIWorker(m_params), zip(corpus, word_counts))
         
         old_l_bound = sum([likelihood_bound(p, m_params, d, c, sum(c)) for (p, d, c) in zip(params, corpus, word_counts)])
-        print "Old bound: " + str(old_l_bound)
+        print "Old bound: %.2f" % old_l_bound
         
         mu = np.sum([p.lambd for p in params], axis=0) / len(corpus)
         sigma = np.sum([np.diag(p.nu_sq) + np.outer(p.lambd, p.lambd) for p in params], axis=0)
@@ -86,14 +86,13 @@ def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, m
 #            beta[i] /= np.sum(beta[i])
         
         m_params = Model(mu, sigma, beta)
-        print m_params
-        
-        new_l_bound = sum([likelihood_bound(p, m_params, d, c, sum(c)) for (p, d, c) in zip(params, corpus, word_counts)])
-        print "New bound: " + str(new_l_bound)
         iteration += 1
 
+        
+        new_l_bound = sum([likelihood_bound(p, m_params, d, c, sum(c)) for (p, d, c) in zip(params, corpus, word_counts)])
         delta = abs((new_l_bound - old_l_bound)/old_l_bound)
-
+        print "New bound: %.2f, difference: %.6f" % (new_l_bound, delta)
+        
         if (delta < 1e-5 or iteration >= max_iterations):
             break
     
