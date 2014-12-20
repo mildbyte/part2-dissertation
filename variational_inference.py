@@ -42,7 +42,7 @@ def f_lambda(lambd, v_params, m_params, doc, counts, N):
     
     #E_q(logp(z|eta))
     #result -= sum([c * lambd[i] * v_params.phi[n, i] for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
-    result -= v_params.weighted_sum_phi.dot(lambd)
+    result -= lambd.dot(v_params.weighted_sum_phi)
     result += N * np.sum(np.exp(lambd + 0.5 * v_params.nu_sq - np.log(v_params.zeta)))
     #shift zeta inside to make exp overflow happen less often
     
@@ -106,6 +106,7 @@ def variational_inference(doc, counts, m_params, max_iterations=100):
         doc_counts=counts)
         
     N = np.sum(counts)
+    bounds = [(0.001, None)] * len(m_params.beta)
     
     old_l_bound = likelihood_bound(v_params, m_params, doc, counts, N)
     iteration = 0
@@ -118,15 +119,15 @@ def variational_inference(doc, counts, m_params, max_iterations=100):
         
         #Maximize wrt lambda
    #     v_params.lambd = scipy.optimize.fmin_cg(f_lambda, v_params.lambd, f_dlambda, args=(v_params, m_params, doc, counts))
-        opt_result = scipy.optimize.minimize(f_lambda, v_params.lambd, method='BFGS', jac=f_dlambda, args=(v_params, m_params, doc, counts, N))
+        opt_result = scipy.optimize.minimize(f_lambda, v_params.lambd, method='CG', jac=f_dlambda, args=(v_params, m_params, doc, counts, N))
         v_params.lambd = opt_result.x 
         
         #Maximize wrt zeta
         v_params.zeta = np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq))                                        
         
         #Maximize wrt nu
-        nu_opt_result = scipy.optimize.fmin_l_bfgs_b(f_nu_sq, v_params.nu_sq, f_dnu_sq, args=(v_params, m_params, doc, counts, N), bounds = [(0.001, None) for _ in m_params.beta])
-        v_params.nu_sq = nu_opt_result[0]
+        nu_opt_result = scipy.optimize.minimize(f_nu_sq, v_params.nu_sq, method='L-BFGS-B', jac=f_dnu_sq, args=(v_params, m_params, doc, counts, N), bounds = bounds)
+        v_params.nu_sq = nu_opt_result.x
         
         #Maximize wrt zeta
         v_params.zeta = np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq))
