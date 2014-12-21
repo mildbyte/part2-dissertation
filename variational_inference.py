@@ -143,15 +143,6 @@ def variational_inference(doc, counts, m_params, max_iterations=100, initial_v_p
         phi_norm = np.sum(v_params.phi, axis=1)
         v_params.phi /= phi_norm[:, np.newaxis]        
         v_params.update_ws_phi(counts)
-#        
-#        for n in xrange(len(doc)):
-#            sum_n = 0
-#            for i in xrange(len(m_params.beta)):
-#                v_params.phi[n, i] = np.exp(v_params.lambd[i]) * m_params.beta[i, doc[n]]
-#                sum_n += v_params.phi[n, i]
-#            for i in xrange(len(m_params.beta)):
-#                v_params.phi[n, i] /= sum_n
-        
         
         new_l_bound = likelihood_bound(v_params, m_params, doc, counts, N)
         delta = abs((new_l_bound - old_l_bound) / old_l_bound)
