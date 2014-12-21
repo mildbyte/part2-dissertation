@@ -7,7 +7,6 @@ Created on Sun Dec  7 18:02:06 2014
 
 import numpy as np
 from variational_inference import variational_inference, likelihood_bound
-from multiprocessing import Pool
 from math_utils import cor_mat
 
 def dsm_rmse(inf, ref):
@@ -23,16 +22,6 @@ class Model():
         self.inv_sigma = np.linalg.inv(sigma)
     def __str__(self):
         return "mu: " + str(self.mu) + "; sigma: " + str(self.sigma) + "; beta: " + str(self.beta)
-
-
-class VIWorker:
-    def __init__(self, m_params):
-        self.m_params = m_params
-    def __call__(self, x):
-        if len(x) == 2:
-            return variational_inference(x[0], x[1], self.m_params)   
-        else:   #did we get passed the initial v_params?
-            return variational_inference(x[0], x[1], self.m_params, x[2])
         
 """Trains the model on the corpus with given pathway priors and returns the MLE for sigma, mu and beta."""
 def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, max_iterations=5, initial_params=None):
@@ -49,14 +38,10 @@ def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, m
     
     iteration = 0
     
-#    pool = Pool(processes=8)
-    
     while True:
         print "Iteration: " + str(iteration)
             
         print "Performing variational inference..."
-
-#        params = pool.map(VIWorker(m_params), zip(corpus, word_counts))
 
         #This is to avoid writing a safe_log function that wastes
         #a lot of time because it clips all values in the array to > 0.0001.
@@ -65,13 +50,13 @@ def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, m
         #but since we reset these positions (updated from phi) to 1e-100 every
         #time, it shouldn't accumulate.
         m_params.beta[pathway_priors == 0] = 1e-100
+        
+        params = [None] * len(corpus)
 
         #Can pass previous v_params to speed up convergence
-        if iteration == 0:
-            params = map(VIWorker(m_params), zip(corpus, word_counts))
-        else:
-            params = map(VIWorker(m_params), zip(corpus, word_counts, params))
-            
+        for i, d, c in zip(xrange(len(corpus)), corpus, word_counts):
+            params[i] = variational_inference(d, c, m_params, params[i])
+        
         old_l_bound = sum([likelihood_bound(p, m_params, d, c, sum(c)) for (p, d, c) in zip(params, corpus, word_counts)])
         print "Old bound: %.2f" % old_l_bound
         
@@ -114,8 +99,6 @@ def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, m
         if (delta < 1e-5 or iteration >= max_iterations):
             break
         
-        m_params.beta[pathway_priors == 0] = 1e-100
-    
-#    pool.close()
+        m_params.beta[pathway_priors == 0] = 0
     
     return m_params, params

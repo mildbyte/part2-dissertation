@@ -11,6 +11,8 @@ import numexpr as ne
 
 log2pi = np.log(2 * np.pi)
 
+ne.set_vml_num_threads(16)
+
 
 class VariationalParams():
     def __init__(self, zeta, phi, lambd, nu_sq, doc_counts):
@@ -100,7 +102,7 @@ def likelihood_bound(v_params, m_params, doc, counts, N):
 
 """Performs variational inference of the variational parameters on
 one document given the current model parameters. Returns a VariationalParams object"""
-def variational_inference(doc, counts, m_params, max_iterations=100, initial_v_params=None):
+def variational_inference(doc, counts, m_params, initial_v_params=None, max_iterations=100):
     if initial_v_params:
         v_params = initial_v_params
     else:
@@ -146,6 +148,7 @@ def variational_inference(doc, counts, m_params, max_iterations=100, initial_v_p
         
         new_l_bound = likelihood_bound(v_params, m_params, doc, counts, N)
         delta = abs((new_l_bound - old_l_bound) / old_l_bound)
+        
         old_l_bound = new_l_bound
         if (delta < 1e-5 or iteration >= max_iterations):
             break
