@@ -8,7 +8,7 @@ Created on Sun Dec  7 17:52:56 2014
 import numpy as np
         
 def safe_log(x):
-    return np.log(np.clip(x, a_min=1e-6, a_max=np.max(x)))
+    return np.log(np.clip(x, a_min=1e-6, a_max=np.inf))
 
 def cor_mat(sigma):
     inv_sigma = np.linalg.inv(sigma)

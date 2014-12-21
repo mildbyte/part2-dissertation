@@ -58,7 +58,7 @@ def f_nu_sq(nu_sq, v_params, m_params, doc, counts, N):
     result += N * np.sum(np.exp(v_params.lambd + 0.5 * nu_sq - np.log(v_params.zeta)))
     
     #H(q)
-    result -= np.sum(0.5 * (1 + safe_log(nu_sq * 2 * np.pi)))
+    result -= np.sum(0.5 * (1 + np.log(nu_sq * 2 * np.pi)))
     
     return result    
     
@@ -71,7 +71,7 @@ def f_dnu_sq(nu_sq, v_params, m_params, doc, counts, N):
 def likelihood_bound(v_params, m_params, doc, counts, N):
     #E_q(logp(eta|mu,sigma))
     result = 0.5 * np.linalg.slogdet(m_params.inv_sigma)[1] #logdet avoids overflow (as opposed to log(det(inv_sigma)))
-    result -= 0.5 * safe_log(2 * np.pi) * len(m_params.beta)
+    result -= 0.5 * np.log(2 * np.pi) * len(m_params.beta)
     result -= 0.5 * (np.diag(v_params.nu_sq).dot(m_params.inv_sigma)).trace()
     lambda_mu = v_params.lambd - m_params.mu
     result -= 0.5 * lambda_mu.dot(m_params.inv_sigma.dot(lambda_mu))
@@ -80,16 +80,16 @@ def likelihood_bound(v_params, m_params, doc, counts, N):
     #result += sum([c * v_params.lambd[i] * v_params.phi[n, i] for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
     result += v_params.weighted_sum_phi.dot(v_params.lambd)
     result -= N * (np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq - np.log(v_params.zeta))) -\
-        1 + safe_log(v_params.zeta))
+        1 + np.log(v_params.zeta))
     
     #E_q(logp(w|mu,z,beta))
     #result += sum([c * v_params.phi[n, i] * safe_log(m_params.beta[i, doc[n]]) for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
-    result += np.sum(np.dot(counts, np.multiply(v_params.phi, safe_log(m_params.beta.T[doc]))))
+    result += np.sum(np.dot(counts, np.multiply(v_params.phi, np.log(m_params.beta.T[doc]))))
     
     #H(q)
-    result += np.sum(0.5 * (1 + safe_log(v_params.nu_sq * 2 * np.pi)))
+    result += np.sum(0.5 * (1 + np.log(v_params.nu_sq * 2 * np.pi)))
     #result -= np.sum([c * v_params.phi[n, i] * safe_log(v_params.phi[n, i]) for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
-    result -= np.sum(np.dot(counts, np.multiply(v_params.phi, safe_log(v_params.phi))))
+    result -= np.sum(np.dot(counts, np.multiply(v_params.phi, np.log(v_params.phi))))
     
     return result
     

@@ -49,7 +49,7 @@ def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, m
     
     iteration = 0
     
-    pool = Pool(processes=8)
+#    pool = Pool(processes=8)
     
     while True:
         print "Iteration: " + str(iteration)
@@ -58,11 +58,19 @@ def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, m
 
 #        params = pool.map(VIWorker(m_params), zip(corpus, word_counts))
 
+        #This is to avoid writing a safe_log function that wastes
+        #a lot of time because it clips all values in the array to > 0.0001.
+        #Has the same effect: log values can't be negative infinity anymore.
+        #Could introduce a negligible bias (because VI gets phi from beta),
+        #but since we reset these positions (updated from phi) to 1e-100 every
+        #time, it shouldn't accumulate.
+        m_params.beta[pathway_priors == 0] = 1e-100
+
         #Can pass previous v_params to speed up convergence
         if iteration == 0:
-            params = pool.map(VIWorker(m_params), zip(corpus, word_counts))
+            params = map(VIWorker(m_params), zip(corpus, word_counts))
         else:
-            params = pool.map(VIWorker(m_params), zip(corpus, word_counts, params))
+            params = map(VIWorker(m_params), zip(corpus, word_counts, params))
             
         old_l_bound = sum([likelihood_bound(p, m_params, d, c, sum(c)) for (p, d, c) in zip(params, corpus, word_counts)])
         print "Old bound: %.2f" % old_l_bound
@@ -93,6 +101,8 @@ def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, m
 #        for i in xrange(len(beta)):
 #            beta[i] /= np.sum(beta[i])
         
+        
+        
         m_params = Model(mu, sigma, beta)
         iteration += 1
 
@@ -103,7 +113,9 @@ def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, m
         
         if (delta < 1e-5 or iteration >= max_iterations):
             break
+        
+        m_params.beta[pathway_priors == 0] = 1e-100
     
-    pool.close()
+#    pool.close()
     
     return m_params, params
