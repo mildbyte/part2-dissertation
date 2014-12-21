@@ -29,7 +29,10 @@ class VIWorker:
     def __init__(self, m_params):
         self.m_params = m_params
     def __call__(self, x):
-        return variational_inference(x[0], x[1], self.m_params)   
+        if len(x) == 2:
+            return variational_inference(x[0], x[1], self.m_params)   
+        else:   #did we get passed the initial v_params?
+            return variational_inference(x[0], x[1], self.m_params, x[2])
         
 """Trains the model on the corpus with given pathway priors and returns the MLE for sigma, mu and beta."""
 def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, max_iterations=5, initial_params=None):
@@ -53,9 +56,14 @@ def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, m
             
         print "Performing variational inference..."
 
-        params = pool.map(VIWorker(m_params), zip(corpus, word_counts))
-#        params = map(VIWorker(m_params), zip(corpus, word_counts))
-        
+#        params = pool.map(VIWorker(m_params), zip(corpus, word_counts))
+
+        #Can pass previous v_params to speed up convergence
+        if iteration == 0:
+            params = pool.map(VIWorker(m_params), zip(corpus, word_counts))
+        else:
+            params = pool.map(VIWorker(m_params), zip(corpus, word_counts, params))
+            
         old_l_bound = sum([likelihood_bound(p, m_params, d, c, sum(c)) for (p, d, c) in zip(params, corpus, word_counts)])
         print "Old bound: %.2f" % old_l_bound
         

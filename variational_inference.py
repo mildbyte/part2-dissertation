@@ -96,15 +96,17 @@ def likelihood_bound(v_params, m_params, doc, counts, N):
 
 """Performs variational inference of the variational parameters on
 one document given the current model parameters. Returns a VariationalParams object"""
-def variational_inference(doc, counts, m_params, max_iterations=100):
-    
-    v_params = VariationalParams(
-        zeta=10.0,\
-        phi=np.zeros((len(doc), len(m_params.beta))) + 1.0/len(m_params.beta),\
-        lambd=np.ones(len(m_params.beta)),\
-        nu_sq=np.ones(len(m_params.beta)),\
-        doc_counts=counts)
-        
+def variational_inference(doc, counts, m_params, max_iterations=100, initial_v_params=None):
+    if initial_v_params:
+        v_params = initial_v_params
+    else:
+        v_params = VariationalParams(
+            zeta=10.0,\
+            phi=np.zeros((len(doc), len(m_params.beta))) + 1.0/len(m_params.beta),\
+            lambd=np.ones(len(m_params.beta)),\
+            nu_sq=np.ones(len(m_params.beta)),\
+            doc_counts=counts)
+            
     N = np.sum(counts)
     bounds = [(0.001, None)] * len(m_params.beta)
     
