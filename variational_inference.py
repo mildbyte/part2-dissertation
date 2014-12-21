@@ -29,23 +29,30 @@ class VariationalParams():
 """First derivative of f_lambda with respect to lambda.
    Uses the first parameter (passed by the optimizer) as lambda."""
 def f_dlambda(lambd, v_params, m_params, doc, counts, N):
-    return -(-m_params.inv_sigma.dot(lambd - m_params.mu) +\
-        #np.sum([c * v_params.phi[n] for (n, c) in zip(xrange(len(doc)), counts)], axis=0) -\
-        v_params.weighted_sum_phi -\
-        N * np.exp(lambd + 0.5 * v_params.nu_sq - np.log(v_params.zeta)))
+    mu=m_params.mu
+    nu_sq=v_params.nu_sq
+    zeta=v_params.zeta
+    ws_phi=v_params.weighted_sum_phi
+    
+    lambda_mu = ne.evaluate("lambd - mu")
+    term1 = -m_params.inv_sigma.dot(lambda_mu)
+    term3 = ne.evaluate("N * exp(lambd + 0.5 * nu_sq - log(zeta))")
+    return ne.evaluate("-(term1 + ws_phi - term3)")
         #shift zeta inside to make exp overflow happen less often
 
 """The objective function used to optimize the likelihood bound with respect to lambda.
    Same as the negated likelihood bound with only lambda-dependent terms."""
 def f_lambda(lambd, v_params, m_params, doc, counts, N):
     #E_q(logp(eta|mu,sigma))
-    lambda_mu = lambd - m_params.mu
+    mu = m_params.mu
+    lambda_mu = ne.evaluate("lambd - mu")
     result = 0.5 * lambda_mu.dot(m_params.inv_sigma.dot(lambda_mu))
     
     #E_q(logp(z|eta))
-    #result -= sum([c * lambd[i] * v_params.phi[n, i] for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
     result -= lambd.dot(v_params.weighted_sum_phi)
-    result += N * np.sum(np.exp(lambd + 0.5 * v_params.nu_sq - np.log(v_params.zeta)))
+    nu_sq = v_params.nu_sq
+    zeta = v_params.zeta
+    result += N * ne.evaluate("sum(exp(lambd + 0.5 * nu_sq - log(zeta)))")
     #shift zeta inside to make exp overflow happen less often
     
     return result
@@ -57,17 +64,22 @@ def f_nu_sq(nu_sq, v_params, m_params, doc, counts, N):
     result = 0.5 * (np.diag(nu_sq).dot(m_params.inv_sigma)).trace()
     
     #E_q(logp(z|eta))
-    result += N * np.sum(np.exp(v_params.lambd + 0.5 * nu_sq - np.log(v_params.zeta)))
+    lambd = v_params.lambd
+    zeta = v_params.zeta
+    result += N * ne.evaluate("sum(exp(lambd + 0.5 * nu_sq - log(zeta)))")
     
     #H(q)
-    result -= np.sum(0.5 * (1 + np.log(nu_sq * 2 * np.pi)))
+    result -= ne.evaluate("sum(0.5 * (1 + log2pi + log(nu_sq)))")
     
     return result    
     
 """The first derivative of f_nu_sq"""
 def f_dnu_sq(nu_sq, v_params, m_params, doc, counts, N):
-    result = 0.5 * np.diagonal(m_params.inv_sigma) +\
-        0.5 * N * np.exp(v_params.lambd + 0.5 * nu_sq - np.log(v_params.zeta)) - 0.5 / nu_sq
+    term1 = np.diagonal(m_params.inv_sigma)
+    lambd = v_params.lambd
+    zeta = v_params.zeta
+    result = ne.evaluate("0.5 * term1 + 0.5 * N * exp(lambd + 0.5 * nu_sq - log(zeta)) - 0.5 / nu_sq")
+    
     return result
     
 def likelihood_bound(v_params, m_params, doc, counts, N):
@@ -96,7 +108,11 @@ def likelihood_bound(v_params, m_params, doc, counts, N):
     result -= np.sum(np.dot(counts, ne.evaluate("phi * log(phi)")))
     
     return result
-    
+
+def maximize_zeta(v_params):
+    lambd = v_params.lambd
+    nu_sq = v_params.nu_sq
+    return ne.evaluate("sum(exp(lambd + 0.5 * nu_sq))")
 
 """Performs variational inference of the variational parameters on
 one document given the current model parameters. Returns a VariationalParams object"""
@@ -121,7 +137,7 @@ def variational_inference(doc, counts, m_params, max_iterations=100, initial_v_p
         iteration += 1        
         
         #Maximize wrt zeta
-        v_params.zeta = np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq))
+        v_params.zeta = maximize_zeta(v_params)
         
         #Maximize wrt lambda
    #     v_params.lambd = scipy.optimize.fmin_cg(f_lambda, v_params.lambd, f_dlambda, args=(v_params, m_params, doc, counts))
@@ -129,17 +145,19 @@ def variational_inference(doc, counts, m_params, max_iterations=100, initial_v_p
         v_params.lambd = opt_result.x 
         
         #Maximize wrt zeta
-        v_params.zeta = np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq))                                        
+        v_params.zeta = maximize_zeta(v_params)
         
         #Maximize wrt nu
         nu_opt_result = scipy.optimize.minimize(f_nu_sq, v_params.nu_sq, method='L-BFGS-B', jac=f_dnu_sq, args=(v_params, m_params, doc, counts, N), bounds = bounds)
         v_params.nu_sq = nu_opt_result.x
         
         #Maximize wrt zeta
-        v_params.zeta = np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq))
+        v_params.zeta = maximize_zeta(v_params)
         
         #Maximize wrt phi
-        v_params.phi = np.multiply(np.exp(v_params.lambd), m_params.beta.T[doc])
+        betaTdoc = m_params.beta.T[doc]
+        lambd = v_params.lambd
+        v_params.phi = ne.evaluate("exp(lambd) * betaTdoc")
         phi_norm = np.sum(v_params.phi, axis=1)
         v_params.phi /= phi_norm[:, np.newaxis]        
         v_params.update_ws_phi(counts)
