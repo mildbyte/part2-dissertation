@@ -6,8 +6,10 @@ Created on Sun Dec  7 17:47:36 2014
 """
 
 import numpy as np
-from math_utils import safe_log
 import scipy.optimize
+import numexpr as ne
+
+log2pi = np.log(2 * np.pi)
 
 
 class VariationalParams():
@@ -71,25 +73,27 @@ def f_dnu_sq(nu_sq, v_params, m_params, doc, counts, N):
 def likelihood_bound(v_params, m_params, doc, counts, N):
     #E_q(logp(eta|mu,sigma))
     result = 0.5 * np.linalg.slogdet(m_params.inv_sigma)[1] #logdet avoids overflow (as opposed to log(det(inv_sigma)))
-    result -= 0.5 * np.log(2 * np.pi) * len(m_params.beta)
+    result -= 0.5 * log2pi * len(m_params.beta)
     result -= 0.5 * (np.diag(v_params.nu_sq).dot(m_params.inv_sigma)).trace()
-    lambda_mu = v_params.lambd - m_params.mu
+    lambd = v_params.lambd
+    mu = m_params.mu
+    lambda_mu = ne.evaluate("lambd - mu")
     result -= 0.5 * lambda_mu.dot(m_params.inv_sigma.dot(lambda_mu))
     
     #E_q(logp(z|eta))
-    #result += sum([c * v_params.lambd[i] * v_params.phi[n, i] for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
     result += v_params.weighted_sum_phi.dot(v_params.lambd)
-    result -= N * (np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq - np.log(v_params.zeta))) -\
-        1 + np.log(v_params.zeta))
+    nu_sq = v_params.nu_sq
+    zeta = v_params.zeta
+    result -= N * (ne.evaluate("sum(exp(lambd + 0.5 * nu_sq - log(zeta)))") - 1 + np.log(v_params.zeta))
     
     #E_q(logp(w|mu,z,beta))
-    #result += sum([c * v_params.phi[n, i] * safe_log(m_params.beta[i, doc[n]]) for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
-    result += np.sum(np.dot(counts, np.multiply(v_params.phi, np.log(m_params.beta.T[doc]))))
+    phi = v_params.phi
+    betaTdoc = m_params.beta.T[doc]
+    result += np.sum(np.dot(counts, ne.evaluate("phi * log(betaTdoc)")))
     
     #H(q)
-    result += np.sum(0.5 * (1 + np.log(v_params.nu_sq * 2 * np.pi)))
-    #result -= np.sum([c * v_params.phi[n, i] * safe_log(v_params.phi[n, i]) for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
-    result -= np.sum(np.dot(counts, np.multiply(v_params.phi, np.log(v_params.phi))))
+    result += ne.evaluate("sum(0.5 * (1 + log2pi + log(nu_sq)))")
+    result -= np.sum(np.dot(counts, ne.evaluate("phi * log(phi)")))
     
     return result
     
