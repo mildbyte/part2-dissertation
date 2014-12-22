@@ -31,30 +31,23 @@ class VariationalParams():
 """First derivative of f_lambda with respect to lambda.
    Uses the first parameter (passed by the optimizer) as lambda."""
 def f_dlambda(lambd, v_params, m_params, doc, counts, N):
-    mu=m_params.mu
-    nu_sq=v_params.nu_sq
-    zeta=v_params.zeta
-    ws_phi=v_params.weighted_sum_phi
-    
-    lambda_mu = ne.evaluate("lambd - mu")
-    term1 = -m_params.inv_sigma.dot(lambda_mu)
-    term3 = ne.evaluate("N * exp(lambd + 0.5 * nu_sq - log(zeta))")
-    return ne.evaluate("-(term1 + ws_phi - term3)")
+    return -(-m_params.inv_sigma.dot(lambd - m_params.mu) +\
+        #np.sum([c * v_params.phi[n] for (n, c) in zip(xrange(len(doc)), counts)], axis=0) -\
+        v_params.weighted_sum_phi -\
+        N * np.exp(lambd + 0.5 * v_params.nu_sq - np.log(v_params.zeta)))
         #shift zeta inside to make exp overflow happen less often
 
 """The objective function used to optimize the likelihood bound with respect to lambda.
    Same as the negated likelihood bound with only lambda-dependent terms."""
 def f_lambda(lambd, v_params, m_params, doc, counts, N):
     #E_q(logp(eta|mu,sigma))
-    mu = m_params.mu
-    lambda_mu = ne.evaluate("lambd - mu")
+    lambda_mu = lambd - m_params.mu
     result = 0.5 * lambda_mu.dot(m_params.inv_sigma.dot(lambda_mu))
     
     #E_q(logp(z|eta))
+    #result -= sum([c * lambd[i] * v_params.phi[n, i] for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
     result -= lambd.dot(v_params.weighted_sum_phi)
-    nu_sq = v_params.nu_sq
-    zeta = v_params.zeta
-    result += N * ne.evaluate("sum(exp(lambd + 0.5 * nu_sq - log(zeta)))")
+    result += N * np.sum(np.exp(lambd + 0.5 * v_params.nu_sq - np.log(v_params.zeta)))
     #shift zeta inside to make exp overflow happen less often
     
     return result
@@ -66,22 +59,17 @@ def f_nu_sq(nu_sq, v_params, m_params, doc, counts, N):
     result = 0.5 * (np.diag(nu_sq).dot(m_params.inv_sigma)).trace()
     
     #E_q(logp(z|eta))
-    lambd = v_params.lambd
-    zeta = v_params.zeta
-    result += N * ne.evaluate("sum(exp(lambd + 0.5 * nu_sq - log(zeta)))")
+    result += N * np.sum(np.exp(v_params.lambd + 0.5 * nu_sq - np.log(v_params.zeta)))
     
     #H(q)
-    result -= ne.evaluate("sum(0.5 * (1 + log2pi + log(nu_sq)))")
+    result -= np.sum(0.5 * (1 + np.log(nu_sq * 2 * np.pi)))
     
     return result    
     
 """The first derivative of f_nu_sq"""
 def f_dnu_sq(nu_sq, v_params, m_params, doc, counts, N):
-    term1 = np.diagonal(m_params.inv_sigma)
-    lambd = v_params.lambd
-    zeta = v_params.zeta
-    result = ne.evaluate("0.5 * term1 + 0.5 * N * exp(lambd + 0.5 * nu_sq - log(zeta)) - 0.5 / nu_sq")
-    
+    result = 0.5 * np.diagonal(m_params.inv_sigma) +\
+        0.5 * N * np.exp(v_params.lambd + 0.5 * nu_sq - np.log(v_params.zeta)) - 0.5 / nu_sq
     return result
     
 def likelihood_bound(v_params, m_params, doc, counts, N):
