@@ -67,13 +67,13 @@ def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, m
         sigma -= np.outer(mu, mu)        
         sigma += np.eye(len(sigma)) * 0.00001 #Ridge on the principal diagonal to avoid singular matrices
         
-        expanded_phis = [] #Sparse phi s.t. exp_phi[w, i] = phi[doc^-1[w], i] or 0 if doc^-1 is undefined at w
-        for param, words in zip(params, corpus):
-            exp_phi = np.zeros(pathway_priors.shape).T
-            exp_phi[words] = param.phi
-            expanded_phis.append(exp_phi)
+        beta = np.zeros(m_params.beta.shape)
         
-        beta = sum([np.multiply(c, phi.T) for c, phi in zip(expanded_counts, expanded_phis)])
+        for param, words, count in zip(params, corpus, expanded_counts):
+            exp_phi = np.zeros(pathway_priors.shape).T
+            exp_phi[words] = param.phi #Sparse phi s.t. exp_phi[w, i] = phi[doc^-1[w], i] or 0 if doc^-1 is undefined at w
+            beta += np.multiply(count, exp_phi.T)
+        
         beta /= np.sum(beta, axis=1)[:, np.newaxis]
 #        
 #        beta = np.zeros(m_params.beta.shape)
