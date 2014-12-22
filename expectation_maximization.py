@@ -49,7 +49,8 @@ def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, m
         #Could introduce a negligible bias (because VI gets phi from beta),
         #but since we reset these positions (updated from phi) to 1e-100 every
         #time, it shouldn't accumulate.
-        m_params.beta[pathway_priors == 0] = 1e-100
+        beta_zeros = m_params.beta == 0
+        m_params.beta[beta_zeros] = 1e-100
         
         params = [None] * len(corpus)
 
@@ -99,6 +100,5 @@ def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, m
         if (delta < 1e-5 or iteration >= max_iterations):
             break
         
-        m_params.beta[pathway_priors == 0] = 0
-    
+    m_params.beta[beta_zeros] = 0
     return m_params, params
