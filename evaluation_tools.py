@@ -31,7 +31,7 @@ def generate_random_corpus(voc_len, K, N_d, no_docs):
         return document, eta_d
         
     mu = np.random.uniform(0, 1, K)
-    sigma = sample_wishart(1000, np.identity(K))
+    sigma = sample_wishart(K, np.identity(K))
     
     beta = [np.random.uniform(0, 1, voc_len) for _ in xrange(K)]
     for i in xrange(K):
@@ -56,14 +56,17 @@ def error_measure(m_params, doc_words, doc_counts, doc_thetas):
     thetas = np.array([expected_theta(variational_inference(d, c, m_params), m_params, d, c) for (d, c) in zip(doc_words, doc_counts)])
     return np.mean(np.linalg.norm(thetas - doc_thetas, axis=1))
 
-def cosine_similarity(a, b):
+def cosine_similarity(a, b=None):
     return a.dot(b) / np.linalg.norm(a) / np.linalg.norm(b)
 
-def document_similarity_matrix(thetas):    
-    M = np.zeros((len(thetas), len(thetas)))
+def document_similarity_matrix(thetas, thetas2=None):
+    if thetas2 is None:
+        thetas2 = thetas
+        
+    M = np.zeros((len(thetas), len(thetas2)))
     for i in xrange(len(thetas)):
-        for j in xrange(len(thetas)):
-            M[i, j] = cosine_similarity(thetas[i], thetas[j])[0]
+        for j in xrange(len(thetas2)):
+            M[i, j] = cosine_similarity(thetas[i], thetas2[j])
             
     return M
 
