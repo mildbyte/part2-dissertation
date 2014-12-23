@@ -12,15 +12,11 @@ from multiprocessing import Pool
     
 
 """Sampling of the likelihood based on the variational posterior"""
-def sample_term(v_params, m_params, doc, counts, eta, t1):
+def sample_term(v_params, m_params, betaDoc, counts, eta, t1):
     theta = np.exp(eta)
     theta /= sum(theta)
     
-    t1 += counts.dot(safe_log(theta.dot(m_params.beta[:, doc])))
-#    
-#    for (n, c) in zip(xrange(len(doc)), counts):
-#        t1 += c * safe_log(np.sum(theta * m_params.beta[:, doc[n]]))
-#        
+    t1 += counts.dot(safe_log(theta.dot(betaDoc))) #betaDoc = m_params.beta[:, doc]
     t2 = np.sum(safe_log(scipy.stats.multivariate_normal.pdf(eta - v_params.lambd, np.zeros(len(eta)), np.diag(np.sqrt(v_params.nu_sq)))))
     
     return t1 - t2
@@ -43,22 +39,27 @@ def sample_lhood(v_params, m_params, doc, counts):
 def expected_theta(v_params, m_params, doc, counts):
     nsamples = 1000
 
+    #Precalculate some values for the sampling loop
     t1 = 0.5 * np.linalg.slogdet(m_params.inv_sigma)[1]
     t1 -= 0.5 * (np.diag(v_params.nu_sq).dot(m_params.inv_sigma)).trace()
     lambda_mu = v_params.lambd - m_params.mu
     t1 -= 0.5 * lambda_mu.dot(m_params.inv_sigma.dot(lambda_mu))
     
+    betaDoc = m_params.beta[:, doc]
+    sigma = np.diag(np.sqrt(v_params.nu_sq))
+    
     def terms():
             
         for _ in xrange(nsamples):
-            eta = np.random.multivariate_normal(v_params.lambd, np.diag(np.sqrt(v_params.nu_sq)))
+            eta = np.random.multivariate_normal(v_params.lambd, sigma)
             
             theta = np.exp(eta)
             theta /= sum(theta)
-        
-            w = sample_term(v_params, m_params, doc, counts, eta, t1)
             
-            yield w + safe_log(theta)
+            t = t1 + counts.dot(safe_log(theta.dot(betaDoc)))
+            t2 = np.sum(safe_log(scipy.stats.multivariate_normal.pdf(eta - v_params.lambd, np.zeros(len(eta)), sigma)))
+                
+            yield t - t2 + safe_log(theta)
     
     samples = list(terms())
 
