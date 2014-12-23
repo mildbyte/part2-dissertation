@@ -18,26 +18,43 @@ import scipy.misc
 import networkx as nx
 np.set_printoptions(precision=2, linewidth=120)
 plt.style.use('ggplot')
+import pygraphviz
 
-def plot_correlations(corr, threshold=0.1, sigma_labels=None):
-    K = corr.shape[0]
+def connected_subgraph(G, node):
+    nodes = set([node])
     
-    G = nx.Graph()
-    G.add_nodes_from(xrange(K))
-    G.add_weighted_edges_from([(a, b, 1.0/corr[a, b]) for a in xrange(K) for b in xrange(K) if a != b and corr[a, b] > threshold])
+    while True:
+        newnodes = set(nodes)
+        for n in nodes:
+            newnodes.update(G.iterneighbors(n))
+        
+        if newnodes == nodes:
+            return G.subgraph(nodes)
+        
+        nodes = newnodes
+
+def generate_graph(corr, threshold=0.1, sigma_labels=None):    
+    K = corr.shape[0]
+    if sigma_labels is None:
+        sigma_labels = xrange(K)
+        
+    G = pygraphviz.AGraph('graph G {}')
+    G.node_attr['shape'] = 'box'
+    G.graph_attr['splines'] = 'spline'
+    G.graph_attr['overlap'] = 'prism'
+    
+    for a in xrange(K):
+        for b in xrange(a):
+            if corr[a, b] > threshold:
+                G.add_edge(sigma_labels[a], sigma_labels[b], weight=1.0-corr[a, b], label="%.2f" % corr[a, b])
     
     degree = G.degree()
-    G.remove_nodes_from([n for n in degree if degree[n] == 0])
+    G.delete_nodes_from([n for n in degree if degree[n] == 0])
 
-    if sigma_labels is None:
-        labels = {i: i for i in G.nodes()}
-    else:
-        labels = {i: sigma_labels[i] for i in G.nodes()}
-        
-    pos = nx.spring_layout(G)
-    nx.draw(G, pos, with_labels=True, edge_cmap=plt.get_cmap("Blues"), alpha=0.7, node_size=1000, width=3.0, labels=labels, font_size=9)
-    labels={(u,v,) : "%.2f" % (1.0/d['weight']) for u, v, d in G.edges(data=True)}
-    nx.draw_networkx_edge_labels(G, pos, edge_labels=labels, font_size=9)
+    return G
+
+def plot_correlations(G):
+    G.draw(path="D:\\pathways.png", prog='sfdp', args='-Gdpi=200')
 
 def plot_cdf(arr):
     counts, edges = np.histogram(arr, normed=True, bins=1000)
