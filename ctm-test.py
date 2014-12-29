@@ -20,19 +20,33 @@ np.set_printoptions(precision=2, linewidth=120)
 plt.style.use('ggplot')
 import pygraphviz
 
-def connected_subgraph(G, node):
+def connected_subgraph(G, node, max_depth=3):
     nodes = set([node])
+    depth = 0
+    
+    G2 = pygraphviz.AGraph('graph G {}')
+    G2.node_attr['shape'] = 'box'
+    G2.graph_attr['splines'] = 'spline'
+    G2.graph_attr['overlap'] = 'prism'    
     
     while True:
+        depth += 1
+        if depth == max_depth:
+            break
+        
         newnodes = set(nodes)
         for n in nodes:
+            for e in G.iteredges(n):
+                G2.add_edge(e, attr=e.attr)
             newnodes.update(G.iterneighbors(n))
         
         if newnodes == nodes:
-            return G.subgraph(nodes)
+            break           
         
         nodes = newnodes
-
+    
+    return G2
+    
 def generate_graph(corr, threshold=0.1, sigma_labels=None):    
     K = corr.shape[0]
     if sigma_labels is None:
@@ -46,7 +60,7 @@ def generate_graph(corr, threshold=0.1, sigma_labels=None):
     for a in xrange(K):
         for b in xrange(a):
             if corr[a, b] > threshold:
-                G.add_edge(sigma_labels[a], sigma_labels[b], weight=1.0-corr[a, b], label="%.2f" % corr[a, b])
+                G.add_edge(sigma_labels[a], sigma_labels[b], len=(1.0 - corr[a, b]), label="%.2f" % corr[a, b])
     
     degree = G.degree()
     G.delete_nodes_from([n for n in degree if degree[n] == 0])
