@@ -103,7 +103,7 @@ def load_evaluation_dataset(supported_pathways):
 
     result = defaultdict(list)    
     
-    with open("D:\\diss-data\\CTD_chem_pathways_enriched_for_validation.txt", 'r') as f:
+    with open(diss_data_root + "CTD_chem_pathways_enriched_for_validation.txt", 'r') as f:
         for line in f.readlines()[1:]:
             tokens = line.strip().lower().split('\t')
             
