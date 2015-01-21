@@ -7,18 +7,20 @@ Created on Thu Oct 23 10:43:11 2014
 
 from variational_inference import variational_inference
 from expectation_maximization import expectation_maximization
-from inference import parallel_expected_theta
-from evaluation_tools import generate_random_corpus, document_similarity_matrix, dsm_rmse, normalize_mu_sigma
+from inference import expected_theta
+from evaluation_tools import generate_random_corpus, document_similarity_matrix, dsm_rmse, normalize_mu_sigma, f
 from math_utils import cor_mat
 
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.stats
 import scipy.misc
-import networkx as nx
 np.set_printoptions(precision=2, linewidth=120)
 plt.style.use('ggplot')
 import pygraphviz
+
+#diss_data_root = "D:\\diss-data\\"
+diss_data_root = "/mnt/B28A02CE8A028ED3/diss-data/"
 
 def connected_subgraph(G, node, max_depth=3):
     nodes = set([node])
@@ -68,7 +70,7 @@ def generate_graph(corr, threshold=0.1, sigma_labels=None):
     return G
 
 def plot_correlations(G):
-    G.draw(path="D:\\pathways.png", prog='sfdp', args='-Gdpi=200')
+    G.draw(path="pathways.png", prog='sfdp', args='-Gdpi=200')
 
 def plot_cdf(arr):
     counts, edges = np.histogram(arr, normed=True, bins=1000)
@@ -123,46 +125,42 @@ def evaluate_drug_theta(theta, pathway_labels, reference_pathways):
     #Return the rank of each of the pathways that this drug actually has
     return [np.where(sorted_pathways == p)[0][0] for p in reference_pathways]
     
+    
 if __name__ == "__main__":
-    drug_prune = 10
-    gene_prune = 1
-    pathway_prune = 1
-
-    
-    drug_gene = np.loadtxt("D:\\diss-data\\gene_expression_matrix_X.txt").T    
-    drug_gene = np.round(np.abs(drug_gene*100)).astype('int')
-    drug_gene = drug_gene[::drug_prune,::gene_prune]     
-    
-    doc_words = [d.nonzero()[0] for d in drug_gene]
-    doc_counts = [d[d.nonzero()[0]] for d in drug_gene]
-
-    pathway_gene = np.loadtxt("D:\\diss-data\\gene_pathway_matrix_K.txt")[::pathway_prune,::gene_prune]
-    priors = np.multiply(np.random.uniform(size=pathway_gene.shape), pathway_gene)
-    #priors = np.random.uniform(size=pathway_gene.shape)
-    #priors[priors > 0.5] = 0
-    #priors /= 0.5
+    drug_prune = 1
+#    gene_prune = 1
+#    pathway_prune = 1
+#
 #    
-    priors = np.array([p / sum(p) for p in priors])
-    print "Drugs: %d, pathways: %d, genes: %d" % (drug_gene.shape[0], pathway_gene.shape[0], drug_gene.shape[1])
-# 
-#    m_params, v_params = expectation_maximization(doc_words, doc_counts, len(priors), priors, max_iterations=100)
-#    thetas = parallel_expected_theta(v_params, m_params, doc_words, doc_counts)
-
-    
-    data = np.load("D:\\data-every-10th-drug.npz")
-    m_params = data['arr_0'].item()
-    v_params = data['arr_1']
-    
-    data = np.load("D:\\thetas-every-10th-drug.npz")
-    thetas = data['arr_0']
-        
-    pathway_ids = [int(p[:-1]) for p in open("D:\\diss-data\\pathway_id.txt").readlines()][::pathway_prune]
-    pathway_names = [p[:-1] for p in open("D:\\diss-data\\pathway_names_used.txt").readlines()][::pathway_prune]
-    drug_names = [d[:-1] for d in open("D:\\diss-data\\drug_name.txt").readlines()][1::drug_prune]
-    eval_data = load_evaluation_dataset(set(pathway_ids))
-    
-    mu_n, sigma_n = normalize_mu_sigma(m_params.mu, m_params.sigma)
-    thetas_norm = [(t - mu_n)/np.sqrt(s) for t, s in zip(thetas, sigma_n.diagonal())]
+#    drug_gene = np.loadtxt(diss_data_root + "gene_expression_matrix_X.txt").T    
+#    drug_gene = np.round(np.abs(drug_gene*100)).astype('int')
+#    drug_gene = drug_gene[::drug_prune,::gene_prune]     
+#    
+#    doc_words = [d.nonzero()[0] for d in drug_gene]
+#    doc_counts = [d[d.nonzero()[0]] for d in drug_gene]
+#
+#    priors = np.loadtxt(diss_data_root + "gene_pathway_matrix_K.txt")[::pathway_prune,::gene_prune]
+#    priors = np.array([p / sum(p) for p in priors])
+#    print "Drugs: %d, pathways: %d, genes: %d" % (drug_gene.shape[0], pathway_gene.shape[0], drug_gene.shape[1])
+## 
+##    m_params, v_params = expectation_maximization(doc_words, doc_counts, len(priors), priors, max_iterations=100)
+##    thetas = parallel_expected_theta(v_params, m_params, doc_words, doc_counts)
+#
+#    
+#    data = np.load(diss_data_root + "../data-every-1th-drug.npz")
+#    m_params = data['arr_0'].item()
+#    #v_params = data['arr_1']
+#    
+#    data = np.load(diss_data_root + "../thetas-every-1th-drug.npz")
+#    thetas = data['arr_0']
+#        
+#    pathway_ids = [int(p[:-1]) for p in open(diss_data_root + "pathway_id.txt").readlines()][::pathway_prune]
+#    pathway_names = [p[:-1] for p in open(diss_data_root + "pathway_names_used.txt").readlines()][::pathway_prune]
+#    drug_names = [d[:-1] for d in open(diss_data_root + "drug_name.txt").readlines()][1::drug_prune]
+#    eval_data = load_evaluation_dataset(set(pathway_ids))
+#    
+#    mu_n, sigma_n = normalize_mu_sigma(m_params.mu, m_params.sigma)
+#    thetas_norm = [(t - mu_n)/np.sqrt(s) for t, s in zip(thetas, sigma_n.diagonal())]
     
     
 #    
@@ -182,24 +180,24 @@ if __name__ == "__main__":
 #vary K, sparsity of beta(how many zeros in each topic)/topic graph
 #see the GMRF paper for toy dataset generation
 #check out bdgraph
-def generated_corpus_evaluation():
-    voc_len = 100
-    K = 5
+#def generated_corpus_evaluation():
+    voc_len = 10
+    K = 2
     N_d = 100
-    no_docs = 10
+    no_docs = 1000
     
     print "Generating a random corpus..."
     doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs)
     
 #    validation(doc_words, doc_counts, doc_thetas)
     
-    priors = [np.random.uniform(0, 1, voc_len) for _ in xrange(K)]
+    priors = [np.ones(voc_len) for _ in xrange(K)]
     for i in xrange(K):
         priors[i][i] = 0
 
     print "Performing expectation maximization..."    
     priors = np.array([p / sum(p) for p in priors])
-    m_params, v = expectation_maximization(doc_words, doc_counts, K, priors, max_iterations=100)
+    m_params, v_params = expectation_maximization(doc_words, doc_counts, K, priors, max_iterations=100)
     
     corr = np.zeros((K, K))
     
@@ -215,7 +213,7 @@ def generated_corpus_evaluation():
         print "Warning: could not infer the topic mapping, topics not far enough apart"
     
     print "Evaluating by classifying the training dataset..."
-    thetas = np.array(parallel_expected_theta(v, m_params, doc_words, doc_counts))
+    thetas = np.array([expected_theta(v, m_params, w, c) for v, w, c in zip(v_params, doc_words, doc_counts)])
     
     permuted_thetas = np.array(thetas)
     for d in xrange(len(thetas)):
@@ -254,6 +252,8 @@ def generated_corpus_evaluation():
     print "RMSE between inferred document correlations and the reference: %f" % dsm_rmse(inferred, reference)
     print "RMSE between inferred beta and the reference: %f" % dsm_rmse(np.array(permuted_beta), np.array(beta))
     print "RMSE between inferred topic correlations and the reference: %f" % dsm_rmse(cor_mat(permuted_sigma), cor_mat(sigma))
+    print "RMSE between inferred topic proportions and the reference: %f" % dsm_rmse(f(permuted_mu), f(mu))
+    
         
     
     
