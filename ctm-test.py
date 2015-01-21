@@ -201,39 +201,37 @@ def generated_corpus_evaluation():
     priors = np.array([p / sum(p) for p in priors])
     m_params, v = expectation_maximization(doc_words, doc_counts, K, priors, max_iterations=100)
     
-    corr = np.zeros((K, K))
+    corr = document_similarity_matrix(beta, m_params.beta)
     
-    for i in xrange(K):
-        for j in xrange(K):
-            corr[i,j] = scipy.stats.pearsonr(beta[i], m_params.beta[j])[0]
-            
-    print "Reference-inferred beta correlation matrix (for topic identifiability):"
+    print "Reference-inferred beta similarity matrix (for topic identifiability):"
     print corr
-
+    
+    print "Evaluating by classifying the training dataset..."
+    thetas = []
+    for i, v, d, c in zip(xrange(len(doc_counts)), v, doc_words, doc_counts):
+        thetas.append(expected_theta(v, m_params, d, c))
+    thetas = np.array(thetas)
+    
+    
+    permuted_thetas = np.array(thetas)
+    permuted_mu = np.array(m_params.mu)    
+    permuted_sigma = np.array(m_params.sigma)
+    permuted_beta = np.array(m_params.beta)
+    
     betamap = np.argmax(corr, axis=0) #betamap[i] : inferred topic id that's most similar to the actual topic i
     if (len(np.unique(betamap)) < len(betamap)):
         print "Warning: could not infer the topic mapping, topics not far enough apart"
-    
-    print "Evaluating by classifying the training dataset..."
-    thetas = np.array(parallel_expected_theta(v, m_params, doc_words, doc_counts))
-    
-    permuted_thetas = np.array(thetas)
-    for d in xrange(len(thetas)):
-        for i in xrange(len(betamap)):
-            permuted_thetas[d, betamap[i]] = thetas[d, i]
-    
-    permuted_mu = np.array(m_params.mu)
-    for i in xrange(len(mu)):
-        permuted_mu[betamap[i]] = m_params.mu[i]
-    
-    permuted_sigma = np.array(m_params.sigma)
-    for i in xrange(K):
-        for j in xrange(K):
-            permuted_sigma[betamap[i], betamap[j]] = m_params.sigma[i, j]
-    
-    permuted_beta = np.array(m_params.beta)
-    for i in xrange(K):
-        permuted_beta[betamap[i]] = m_params.beta[i]
+    else:
+        for d in xrange(len(thetas)):
+            for i in xrange(len(betamap)):
+                permuted_thetas[d, betamap[i]] = thetas[d, i]
+        for i in xrange(len(mu)):
+            permuted_mu[betamap[i]] = m_params.mu[i]
+        for i in xrange(K):
+            for j in xrange(K):
+                permuted_sigma[betamap[i], betamap[j]] = m_params.sigma[i, j]
+        for i in xrange(K):
+            permuted_beta[betamap[i]] = m_params.beta[i]
     
     theta_diff_sizes = [dsm_rmse(inf, ref) for inf, ref in zip(permuted_thetas, doc_thetas)]
     
@@ -254,6 +252,7 @@ def generated_corpus_evaluation():
     print "RMSE between inferred document correlations and the reference: %f" % dsm_rmse(inferred, reference)
     print "RMSE between inferred beta and the reference: %f" % dsm_rmse(np.array(permuted_beta), np.array(beta))
     print "RMSE between inferred topic correlations and the reference: %f" % dsm_rmse(cor_mat(permuted_sigma), cor_mat(sigma))
+    print "RMSE between inferred topic proportions and the reference: %f" % dsm_rmse(f(permuted_mu), f(mu))
         
     
     
