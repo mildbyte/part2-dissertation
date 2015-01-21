@@ -31,11 +31,12 @@ def generate_random_corpus(voc_len, K, N_d, no_docs):
         return document, eta_d
         
     mu = np.random.uniform(0, 1, K)
-    sigma = sample_wishart(K, np.identity(K))
+#    sigma = sample_wishart(K, np.identity(K) / float(K*K)) #so the base variance for, say, 5 topics will be 0.04
+    sigma = np.identity(K)
     
     beta = [np.random.uniform(0, 1, voc_len) for _ in xrange(K)]
-    for i in xrange(K):
-        beta[i][i] = 0
+    for i in xrange(max(K, voc_len)):
+        beta[i % K][i % voc_len] = 0
     beta = [b / sum(b) for b in beta]
     
     doc_words = []
@@ -75,10 +76,12 @@ def sample_wishart(dof, scale):
     
     d = scale.shape[0]
     a = np.zeros((d, d))
-    for r in xrange(d):
-        if r!=0:
-            a[r, :r] = np.random.normal(size=(r,))
-        a[r,r] = np.sqrt(random.gammavariate(0.5 * (dof - d + 1), 2.0))
+    for i in xrange(d):
+        for j in xrange(i + 1):
+            if i == j:
+                a[i, j] = np.sqrt(scipy.stats.chi2.rvs(dof + 2 - i))
+            else:
+                a[i, j] = np.random.normal(0, 1)
     return cholesky.dot(a).dot(a.T).dot(cholesky.T)
     
 def dsm_rmse(inf, ref):
