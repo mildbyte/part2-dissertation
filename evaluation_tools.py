@@ -35,8 +35,8 @@ def generate_random_corpus(voc_len, K, N_d, no_docs):
     sigma = np.identity(K)
     
     beta = [np.random.uniform(0, 1, voc_len) for _ in xrange(K)]
-    for i in xrange(K):
-        beta[i][i] = 0
+    for i in xrange(max(K, voc_len)):
+        beta[i % K][i % voc_len] = 0
     beta = [b / sum(b) for b in beta]
     
     doc_words = []

@@ -192,8 +192,8 @@ if __name__ == "__main__":
 #    validation(doc_words, doc_counts, doc_thetas)
     
     priors = [np.ones(voc_len) for _ in xrange(K)]
-    for i in xrange(K):
-        priors[i][i] = 0
+    for i in xrange(max([K, voc_len])):
+        priors[i % K][i % voc_len] = 0
 
     print "Performing expectation maximization..."    
     priors = np.array([p / sum(p) for p in priors])
