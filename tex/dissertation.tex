@@ -1,0 +1,144 @@
+\documentclass[12pt,a4paper,twoside,openright]{report}
+\usepackage[pdfborder={0 0 0}]{hyperref}    % turns references into hyperlinks
+\usepackage[margin=25mm]{geometry}  % adjusts page layout
+\usepackage{graphicx}  % allows inclusion of PDF, PNG and JPG images
+\usepackage{verbatim}
+\usepackage{docmute}   % only needed to allow inclusion of proposal.tex
+
+\raggedbottom                           % try to avoid widows and orphans
+\sloppy
+\clubpenalty1000%
+\widowpenalty1000%
+
+\renewcommand{\baselinestretch}{1.1}    % adjust line spacing to make
+                                        % more readable
+
+\begin{document}
+
+\bibliographystyle{plain}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Title
+
+
+\pagestyle{empty}
+
+\rightline{\LARGE \textbf{Artjoms Iskovs}}
+
+\vspace*{60mm}
+\begin{center}
+\Huge
+\textbf{Predicting drug-pathway interactions using the Correlated Topic Model} \\[5mm]
+Computer Science Tripos -- Part II \\[5mm]
+Trinity College \\[5mm]
+\today  % today's date
+\end{center}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Proforma, table of contents and list of figures
+
+\pagestyle{plain}
+
+\chapter*{Proforma}
+
+{\large
+\begin{tabular}{ll}
+Name:               & \bf Artjoms Iskovs                       \\
+College:            & \bf Trinity College                     \\
+Project Title:     & \bf Predicting drug-pathway interactions using the Correlated Topic Model\\
+Examination:        & \bf Computer Science Tripos -- Part II, July 2015  \\
+Word Count:         & \bf ??\\
+Project Originator: & N.~Pratanwanich                    \\
+Supervisor:         & N.~Pratanwanich                    \\ 
+\end{tabular}
+}
+
+\section*{Original Aims of the Project}
+
+
+\section*{Work Completed}
+
+\section*{Special Difficulties}
+ 
+\newpage
+\section*{Declaration}
+
+I, Artjoms Iskovs of Trinity College, being a candidate for Part II of the Computer
+Science Tripos, hereby declare that this dissertation and the work described in it are my own work,
+unaided except as may be specified below, and that the dissertation does not contain material that has already been used to any substantial
+extent for a comparable purpose.
+
+\bigskip
+\leftline{Signed [signature]}
+
+\medskip
+\leftline{Date [date]}
+
+\tableofcontents
+
+\listoffigures
+
+\newpage
+\section*{Acknowledgements}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% now for the chapters
+
+\pagestyle{headings}
+
+\chapter{Introduction}
+
+\chapter{Preparation}
+
+\chapter{Implementation}
+
+\section{Incorporating priors into the Model}
+
+\section{Training process}
+
+\section{Classification process}
+
+\section{Code optimization}
+
+\chapter{Evaluation}
+
+\section{Toy datasets}
+
+Since it is difficult to verify correctness of the model on the real drug dataset, I had to write some routines for toy dataset generation of various complexities.
+
+\begin{itemize}
+\item Sample $\mu$ from a K-dimensional uniform distribution
+\item Sample $\beta$ from K voclen-dimensional uniform distributions and normalize it
+\item Sample $\Sigma$ from an inverse Wishart distribution
+\item Generate N random documents
+\end{itemize}
+
+The generation process returns the model parameters, the counts of words in each document, as well as the topic distribution for every document. Only the word counts are fed into the model: the other outputs are used for evaluation.
+
+The big problem in the evaluation of the model is topic identifiability: the recovered topics are not at all guaranteed to be in the correct order and if they are close together, they are not guaranteed to be recovered. To combat this, the entries on the diagonal of the $\beta$ matrix are set to zero: that way every topic has a missing word.
+
+The performance measure that is not affected by the topic identifiability is the document similarity matrix. Given the inferred and the reference $\theta$, the per-document topic distribution, we can take their cosine similarity to see how similar any two documents are. Thus, for the whole corpus, we can construct a document similarity matrix and the two matrices for the inferred and the reference distributions can be compared.
+
+To see how well the topic structure has been recovered, a similar matrix can be constructed for $\beta$, the per-topic word distribution. Using this matrix, we can see which topics from the inferred structure are the closest to the original ones and permute the results of the model accordingly, giving us access to more evaluation measures.
+
+\section{KEGG and CMap datasets}
+
+\chapter{Conclusion}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% the bibliography
+\addcontentsline{toc}{chapter}{Bibliography}
+\bibliography{bibliography}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% the appendices
+\appendix
+
+\chapter{Project Proposal}
+
+\input{proposal}
+
+\end{document}
