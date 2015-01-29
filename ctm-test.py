@@ -124,7 +124,24 @@ def evaluate_drug_theta(theta, pathway_labels, reference_pathways):
     
     #Return the rank of each of the pathways that this drug actually has
     return [np.where(sorted_pathways == p)[0][0] for p in reference_pathways]
+
+#Performs an evaluation cycle for given topic and vocabulary length, returning the performance measure
+def generated_rmse_evaluation(K, voc_len):
+    N_d = 100
+    no_docs = 100
+    doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs)
     
+    priors = [np.ones(voc_len) for _ in xrange(K)]
+    for i in xrange(max([K, voc_len])):
+        priors[i % K][i % voc_len] = 0
+    priors = np.array([p / sum(p) for p in priors])
+    m_params, v_params = expectation_maximization(doc_words, doc_counts, K, priors, max_iterations=100)
+    
+    thetas = np.array([expected_theta(v, m_params, w, c) for v, w, c in zip(v_params, doc_words, doc_counts)])
+    reference = document_similarity_matrix(doc_thetas)
+    inferred = document_similarity_matrix(thetas)
+    
+    return dsm_rmse(inferred, reference)
     
 if __name__ == "__main__":
     drug_prune = 1
