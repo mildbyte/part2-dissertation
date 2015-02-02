@@ -117,13 +117,12 @@ def load_evaluation_dataset(supported_pathways):
     
     return result
 
-def evaluate_drug_theta(theta, pathway_labels, reference_pathways):
-    sorted_pathways = range(len(theta))
-    sorted_pathways.sort(key=lambda p: theta[p], reverse=True)
-    sorted_pathways = np.array(pathway_labels)[sorted_pathways]
-    
-    #Return the rank of each of the pathways that this drug actually has
-    return [np.where(sorted_pathways == p)[0][0] for p in reference_pathways]
+def evaluate_drug_theta(theta, pathway_map, reference_pathways):
+    #Return the average theta value for each of the pathways that this drug actually has
+    return np.sum([theta[pathway_map[p]] for p in reference_pathways])
+
+def validate_all_thetas(drug_names, thetas, eval_data, pathway_map):
+    return np.array([evaluate_drug_theta(t, pathway_map, eval_data[d]) for d, t in zip(drug_names, thetas) if d in eval_data])
 
 #Performs an evaluation cycle for given topic and vocabulary length, returning the performance measure
 def generated_rmse_evaluation(K, voc_len):
@@ -178,6 +177,13 @@ if __name__ == "__main__":
     pathway_names = [p[:-1] for p in open(diss_data_root + "pathway_names_used.txt").readlines()][::pathway_prune]
     drug_names = [d[:-1] for d in open(diss_data_root + "drug_name.txt").readlines()][1::drug_prune]
     eval_data = load_evaluation_dataset(set(pathway_ids))
+    
+    #Load the LDA phi values and transpose to have the same shape as our beta
+    lda_phi = np.loadtxt(diss_data_root + "lda-phi.txt").T
+    lda_phi /= np.sum(lda_phi, axis=1)[:, np.newaxis]
+    
+    lda_thetas = np.loadtxt(diss_data_root + "lda-theta.txt")
+    lda_thetas /= np.sum(lda_thetas, axis=1)[:, np.newaxis]
     
 #    mu_n, sigma_n = normalize_mu_sigma(m_params.mu, m_params.sigma)
 #    thetas_norm = [(t - mu_n)/np.sqrt(s) for t, s in zip(thetas, sigma_n.diagonal())]
