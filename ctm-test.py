@@ -173,7 +173,7 @@ if __name__ == "__main__":
     doc_words = [d.nonzero()[0] for d in drug_gene]
     doc_counts = [d[d.nonzero()[0]] for d in drug_gene]
 
-    priors = np.loadtxt(diss_data_root + "gene_pathway_matrix_K.txt")[::pathway_prune,::gene_prune]
+    priors = np.loadtxt(diss_data_root + "gene_pathway_matrix_K.txt").T[::pathway_prune,::gene_prune]
     priors = np.array([p / sum(p) for p in priors])
     print "Drugs: %d, pathways: %d, genes: %d" % (drug_gene.shape[0], priors.shape[0], drug_gene.shape[1])
 # 
