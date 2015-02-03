@@ -145,6 +145,21 @@ def generated_rmse_evaluation(K, voc_len):
 def most_similar_drug_ids(sim_matrix, drug_id):
     return sorted(range(len(sim_matrix)), key=lambda x: sim_matrix[drug_id, x], reverse=True)
 
+def calc_heatmap(drug_names, pathway_ids, thetas, eval_data):
+    drug_names_in_eval = [d for d in drug_names if d in eval_data]
+    
+    ranks = [sorted(range(len(t)), key=lambda x: t[x], reverse=True) for d, t in zip(drug_names, thetas) if d in eval_data]
+    img = np.zeros((len(thetas[0]), len(drug_names_in_eval)))
+    
+    for drug, rank in enumerate(ranks):
+        for i, pathway in enumerate(rank):
+            img[i, drug] = 1 if pathway_ids[pathway] in eval_data[drug_names_in_eval[drug]] else 0
+    
+    return img
+    
+def plot_heatmap(drug_names, pathway_ids, thetas, eval_data):
+    imshow(calc_heatmap(drug_names, pathway_ids, thetas, eval_data), cmap="Greys_r", interpolation='nearest')
+
 if __name__ == "__main__":
     drug_prune = 1
     gene_prune = 1
