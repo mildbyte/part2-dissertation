@@ -98,9 +98,9 @@ def plot_rank(theta, pathway_labels=None, prune_top=None, drug_name=None):
         plt.title(drug_name)
     
     plt.ylabel("Pathway rank")    
-    plt.xlabel("Pathway proportion, $\\sigma$s from the mean")
+    plt.xlabel("Pathway proportion")
     
-def load_evaluation_dataset(supported_pathways):
+def load_evaluation_dataset(supported_pathways=None):
     from collections import defaultdict
 
     result = defaultdict(list)    
@@ -112,7 +112,7 @@ def load_evaluation_dataset(supported_pathways):
             drug = tokens[0].replace('"', '')
             pathway = int(tokens[1])
             
-            if pathway in supported_pathways:
+            if supported_pathways is None or pathway in supported_pathways:
                 result[drug].append(pathway)
     
     return result
@@ -228,7 +228,8 @@ if __name__ == "__main__":
     
     
 #    mu_n, sigma_n = normalize_mu_sigma(m_params.mu, m_params.sigma)
-#    thetas_norm = [(t - mu_n)/np.sqrt(s) for t, s in zip(thetas, sigma_n.diagonal())]
+#    stdevs = np.sqrt(sigma_n.diagonal())
+#    thetas_norm = [(t - mu_n)/stdevs for t in thetas]
     
 #    
 #    
