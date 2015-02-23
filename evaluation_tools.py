@@ -16,15 +16,18 @@ import random
 def f(eta):
     return np.exp(eta) / np.sum(np.exp(eta))
     
-def generate_random_corpus(voc_len, K, N_d, no_docs):
+def generate_random_corpus(voc_len, K, N_d, no_docs, enforce_topic_zeros=0):
     def gendoc(mu, sigma, beta):
         
         eta_d = np.random.multivariate_normal(mu, sigma)
+        eta_d = f(eta_d)
+        eta_d[np.argsort(eta_d)[:enforce_topic_zeros]] = 0
+        eta_d /= np.sum(eta_d)
         
         document = []
         for n in xrange(N_d):
             
-            Z_dn = beta[np.flatnonzero(np.random.multinomial(1, f(eta_d)))[0]]
+            Z_dn = beta[np.flatnonzero(np.random.multinomial(1, eta_d))[0]]
             W_dn = np.random.choice(xrange(len(Z_dn)), p=Z_dn)
             document.append(W_dn)
     
@@ -49,7 +52,7 @@ def generate_random_corpus(voc_len, K, N_d, no_docs):
         
         doc_words.append(np.array(list(c.iterkeys())))
         doc_counts.append(np.array(list(c.itervalues())))
-        doc_thetas.append(f(eta_d))
+        doc_thetas.append(eta_d)
 
     return doc_words, doc_counts, doc_thetas, mu, sigma, beta
 
