@@ -45,6 +45,7 @@ def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, m
         expanded_counts.append(exp_count)
     
     iteration = 0
+    beta_zeros = m_params.beta == 0
     
     pool = Pool(processes=2)
     
@@ -59,9 +60,8 @@ def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, m
         #Could introduce a negligible bias (because VI gets phi from beta),
         #but since we reset these positions (updated from phi) to 1e-100 every
         #time, it shouldn't accumulate.
-        beta_zeros = m_params.beta == 0
-        m_params.beta[beta_zeros] = 1e-100
         
+        m_params.beta[beta_zeros] = 1e-100
         params = [None] * len(corpus)
 
         #Can pass previous v_params to speed up convergence
@@ -110,7 +110,7 @@ def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, m
         delta = abs((new_l_bound - old_l_bound)/old_l_bound)
         print "New bound: %.2f, difference: %.6f" % (new_l_bound, delta)
         
-        if (delta < 1e-5 or iteration >= max_iterations):
+        if (delta < 2e-5 or iteration >= max_iterations):
             break
     
     pool.close()
