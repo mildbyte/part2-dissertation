@@ -7,6 +7,8 @@
 \usepackage[noend]{algpseudocode}
 \usepackage[]{algorithm}
 \usepackage{amsmath}
+\usepackage{mathtools}
+\usepackage{enumitem}
 \newcommand{\var}[1]{{\operatorname{\mathit{#1}}}}
 
 \raggedbottom                           % try to avoid widows and orphans
@@ -162,7 +164,7 @@ While the model could be used to predict real-world drug-pathway interactions, i
 
 The generative process for a toy dataset proceeds as follows:
 
-\begin{itemize}
+\begin{itemize}[noitemsep]
 \item Sample $\mu$ from a K-dimensional uniform distribution
 \item Sample $\beta$ from K voclen-dimensional uniform distributions and normalize it
 \item Sample $\Sigma$ from an inverse Wishart distribution
@@ -171,10 +173,10 @@ The generative process for a toy dataset proceeds as follows:
 
 To generate a single document:
 
-\begin{itemize}
+\begin{itemize}[noitemsep]
 \item Sample $\eta_d$ from $Norm(\mu, \Sigma)$ and normalize it to get the topic distribution for the document, $\theta_d = \frac{e^{\eta_d}}{\sum{e^{\eta_d}}}$
 \item Repeat W times where W is the number of words in each document:
-\begin{itemize}
+\begin{itemize}[noitemsep]
 \item Sample $z_{d, n}$, the topic the word belongs to, from $\eta_d$
 \item Sample $w_{d, n}$ from $\beta{z_{d, n}}$, the word distribution for that topic
 \end{itemize}
@@ -190,14 +192,33 @@ The following subsections go into detail about which methods of evaluation were 
 
 Since the final output of the model is a distribution of topics for every document, it makes sense to evaluate the model based on that. However, the big problem in the evaluation of the model is topic identifiability: the recovered topics are not at all guaranteed to be in the correct order and if they are close together, they are not guaranteed to be recovered. This means that even if the model gave perfect predictions about every document, it could score poorly simply because a topic that has one index in the model is referred to by a different index in the evaluation dataset.
 
-The performance measure that is not affected by the topic identifiability is the document similarity matrix. Given the inferred and the reference $\theta$, the per-document topic distribution, we can take their cosine similarity to see how similar any two documents are. Thus, for the whole corpus, we can construct a document similarity matrix and the two matrices for the inferred and the reference distributions can be compared.
+The performance measure that is not affected by the topic identifiability is the document similarity matrix. Given the inferred and the reference $\theta$, the per-document topic distribution, we can take their cosine similarity to see how similar any two documents are. Thus, for the whole corpus, we can construct a document similarity matrix and the two matrices for the inferred and the reference distributions can be compared:
+
+\begin{equation}
+M_{i,j} = \frac{\theta_i \cdot \theta_j}{|\theta_i||\theta_j|}
+\end{equation}
 
 To gain access to more evaluation measures, a similar matrix can be constructed for $\beta$, the per-topic word distribution. Using this matrix, we can see which topics from the inferred structure are the closest to the original ones and permute the results of the model accordingly. However, this doesn't help with some generated topics being close together and so the generated dataset actually has some entries in the word-topic matrix set to zero. In addition, the model is trained with the pattern of zeros set as its prior, which improves the chances of a successful topic recovery. While this can be considered cheating, the real-world gene-pathway membership dataset is, in fact, very sparse as well (for every pathway, most genes don't participate in it), so this is a necessary measure.
 
 \subsection{Evaluating the parameter recovery}
 
-Perhaps vary K and the vocabulary length to plot a grid of RMSEs, also add the CDF from some sample tests.
-Sigma: topic structure (graph) recovery
+The benefit of evaluating the model with toy datasets is that the model parameters the reference dataset was generated with are available. Hence, they can be compared to the parameters inferred by the model. The issue is still topic identifiability: each one of the model parameters references topics in some way: $\mu$ is the mean proportion of topics, $\Sigma$ is the covariance matrix of the topic proportions and $\beta$ is the topic-word distribution. Hence, just like in the evaluation of the topic inference, the entries in the parameters have to be permuted as per the "map" that relates the model's and the generated data's view of topics:
+
+\begin{equation}
+\mu'_{map_i} = \mu_i;
+\Sigma'_{map_i, map_j} = \Sigma_{i, j};
+\beta'_{map_i, w} = \beta_{i, w}
+\end{equation}
+
+TODO: add about mu normalisation?
+
+The parameters are then compared to the reference using the normalized root-mean-square error (RMSE):
+
+\begin{equation}
+RMSE(I, R) = \frac{\sqrt{\sum{(I-R)^2}}}{\sqrt{D}(max(R) - min(R))}
+\end{equation}
+
+where $I$ is the inferred parameter, $R$ is the reference parameter and $D$ is the size of the matrix/vector.
 
 \subsection{Rank recovery}
 
@@ -207,7 +228,11 @@ The problem of evaluating pathway distributions against a list of relevant pathw
 
 (MAP/ranks here, side plots)
 
-Another way of evaluating the distributions I came up with is, for every drug and for every pathway that this drug actually affects, summing the probabilities predicted by the model for that pathway. This results in a value for every drug that represents, in essence, the fraction of drug-pathway activity that the model got ,,right". The distribution of these values can then be compared to the performance of random guessing to judge whether the model gives significantly different results.
+Another way of evaluating the distributions I came up with is, for every drug and for every pathway that this drug actually affects, summing the probabilities predicted by the model for that pathway. This results in a value for every drug that represents, in essence, the fraction of drug-pathway activity that the model got ,,right". The distribution of these values can then be compared to the performance of random guessing to judge whether the model gives significantly different results:
+
+\begin{equation}
+c_i = \sum\limits_{p \in ref_i}{\theta_{i, p}}
+\end{equation}
 
 \section{KEGG and CMap datasets}
 
