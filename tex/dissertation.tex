@@ -174,7 +174,7 @@ The generative process for a toy dataset proceeds as follows:
 To generate a single document:
 
 \begin{itemize}[noitemsep]
-\item Sample $\eta_d$ from $Norm(\mu, \Sigma)$ and normalize it to get the topic distribution for the document, $\theta_d = \frac{e^{\eta_d}}{\sum{e^{\eta_d}}}$
+\item Sample $\eta_d$ from $N(\mu, \Sigma)$ and normalize it to get the topic distribution for the document, $\theta_d = \frac{e^{\eta_d}}{\sum{e^{\eta_d}}}$
 \item Repeat W times where W is the number of words in each document:
 \begin{itemize}[noitemsep]
 \item Sample $z_{d, n}$, the topic the word belongs to, from $\eta_d$
@@ -202,15 +202,21 @@ To gain access to more evaluation measures, a similar matrix can be constructed 
 
 \subsection{Evaluating the parameter recovery}
 
-The benefit of evaluating the model with toy datasets is that the model parameters the reference dataset was generated with are available. Hence, they can be compared to the parameters inferred by the model. The issue is still topic identifiability: each one of the model parameters references topics in some way: $\mu$ is the mean proportion of topics, $\Sigma$ is the covariance matrix of the topic proportions and $\beta$ is the topic-word distribution. Hence, just like in the evaluation of the topic inference, the entries in the parameters have to be permuted as per the "map" that relates the model's and the generated data's view of topics:
+The benefit of evaluating the model with toy datasets is that the model parameters the reference dataset was generated with are available. Hence, they can be compared to the parameters inferred by the model. Topic identifiability is still an issue here, since each one of the model parameters references topics in some way: $\mu$ is the mean proportion of topics, $\Sigma$ is the covariance matrix of the topic proportions and $\beta$ is the topic-word distribution. Hence, just like in the evaluation of the topic inference, the entries in the parameters have to be permuted as per the ``map" that relates the model's and the generated data's view of topics:
 
-\begin{equation}
-\mu'_{map_i} = \mu_i;
-\Sigma'_{map_i, map_j} = \Sigma_{i, j};
-\beta'_{map_i, w} = \beta_{i, w}
-\end{equation}
+\begin{align*}
+&\mu'_{map_i} = \mu_i \\
+&\Sigma'_{map_i, map_j} = \Sigma_{i, j} \\
+&\beta'_{map_i, w} = \beta_{i, w}
+\end{align*}
 
 TODO: add about mu normalisation?
+
+In addition, the covariance matrix $\Sigma$ is turned into the correlation matrix, since the fact that the topic proportion drawn from the multivariate normal is normalized means the variance of a single pathway by itself is meaningless:
+
+\begin{equation}
+C_{i, j} = \frac{|\Sigma^{-1}_{i, j}|}{\sqrt{\Sigma^{-1}_{i, i}\Sigma^{-1}_{j, j}}}
+\end{equation}
 
 The parameters are then compared to the reference using the normalized root-mean-square error (RMSE):
 
@@ -220,19 +226,26 @@ RMSE(I, R) = \frac{\sqrt{\sum{(I-R)^2}}}{\sqrt{D}(max(R) - min(R))}
 
 where $I$ is the inferred parameter, $R$ is the reference parameter and $D$ is the size of the matrix/vector.
 
-\subsection{Rank recovery}
+TODO: add about graph recovery (correlation matrix)
+
+\subsection{Evaluating the rank recovery}
 
 The validation dataset (CTD) does not contain actual drug-pathway distributions: instead, for every drug, it lists the pathways that it does affect. Therefore, the toy dataset generation method had to be altered: when the topic distribution for a drug is drawn, a certain number of lowest-represented pathways is set to zero, enforcing that every drug, in essence, affects only a few pathways.
 
 The problem of evaluating pathway distributions against a list of relevant pathways strikingly resembles a similar problem from information retrieval: given a ranking for documents (here, pathways) output by a model for various queries (here, drug gene expression profiles) and a judgement as to which documents (pathways) are relevant (actually affected by the drug), how can evaluation be performed?
 
-(MAP/ranks here, side plots)
+TODO: information on MAP/ranks here and side plots
 
-Another way of evaluating the distributions I came up with is, for every drug and for every pathway that this drug actually affects, summing the probabilities predicted by the model for that pathway. This results in a value for every drug that represents, in essence, the fraction of drug-pathway activity that the model got ,,right". The distribution of these values can then be compared to the performance of random guessing to judge whether the model gives significantly different results:
+Another way of evaluating the distributions I came up with is, for every drug and for every pathway that this drug actually affects, summing the probabilities predicted by the model for that pathway. This results in a value for every drug that represents, in essence, the fraction of drug-pathway activity that the model got ``right":
 
 \begin{equation}
-c_i = \sum\limits_{p \in ref_i}{\theta_{i, p}}
+c_d = \sum\limits_{p \in ref_d}{\theta_{d, p}}
 \end{equation}
+
+where $ref_d$ is a set of correct pathways for every drug and $\theta_d$ is the predicted pathway distribution for drug $d$.
+
+The distribution of these values can then be compared to the performance of random guessing to judge whether the model gives significantly different results.
+
 
 \section{KEGG and CMap datasets}
 
