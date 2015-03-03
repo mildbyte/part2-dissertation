@@ -8,19 +8,19 @@ Created on Thu Oct 23 10:43:11 2014
 from variational_inference import variational_inference
 from expectation_maximization import expectation_maximization
 from inference import expected_theta
-from evaluation_tools import generate_random_corpus, document_similarity_matrix, dsm_rmse, normalize_mu_sigma, f
+from evaluation_tools import generate_random_corpus, document_similarity_matrix, dsm_rmse, normalize_mu_sigma, f, cosine_similarity
 from math_utils import cor_mat
 
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.stats
 import scipy.misc
-np.set_printoptions(precision=2, linewidth=120)
+np.set_printoptions(precision=5, linewidth=120)
 plt.style.use('ggplot')
 import pygraphviz
 
-#diss_data_root = "D:\\diss-data\\"
-diss_data_root = "/mnt/B28A02CE8A028ED3/diss-data/"
+diss_data_root = "D:\\diss-data\\"
+#diss_data_root = "/mnt/B28A02CE8A028ED3/diss-data/"
 
 def connected_subgraph(G, node, max_depth=3):
     nodes = set([node])
@@ -114,15 +114,30 @@ def load_evaluation_dataset(supported_pathways=None):
             
             if supported_pathways is None or pathway in supported_pathways:
                 result[drug].append(pathway)
-    
+                
     return result
 
-def evaluate_drug_theta(theta, pathway_map, reference_pathways):
-    #Return the average theta value for each of the pathways that this drug actually has
-    return np.sum([theta[pathway_map[p]] for p in reference_pathways])
+def precision(k, rank, reference): 
+    return float(len(set(rank[:k]).intersection(reference))) / float(k)
 
-def validate_all_thetas(drug_names, thetas, eval_data, pathway_map):
-    return np.array([evaluate_drug_theta(t, pathway_map, eval_data[d]) for d, t in zip(drug_names, thetas) if d in eval_data])
+def average_precision(theta, reference):
+    rank = sorted(range(len(theta)), key=lambda x: theta[x], reverse=True)
+
+    result = 0    
+    
+    for k, p in enumerate(rank):
+        if p in reference:
+            result += precision(k+1, rank, reference)
+    
+    result /= len(reference)
+    return result
+
+def evaluate_drug_theta(theta, reference):
+    #Return the average theta value for each of the pathways that this drug actually has
+    return np.sum([theta[p] for p in reference])
+
+def validate_all_thetas(thetas, eval_data):
+    return np.array([evaluate_drug_theta(t, e) for t, e in zip(thetas, eval_data)])
 
 #Performs an evaluation cycle for given topic and vocabulary length, returning the performance measure
 def generated_rmse_evaluation(K, voc_len):
@@ -145,23 +160,28 @@ def generated_rmse_evaluation(K, voc_len):
 def most_similar_drug_ids(sim_matrix, drug_id):
     return sorted(range(len(sim_matrix)), key=lambda x: sim_matrix[drug_id, x], reverse=True)
 
-def calc_heatmap(drug_names, pathway_ids, thetas, eval_data):
-    drug_names_in_eval = [d for d in drug_names if d in eval_data]
+def calc_heatmap(thetas, eval_data):
     
-    ranks = [sorted(range(len(t)), key=lambda x: t[x], reverse=True) for d, t in zip(drug_names, thetas) if d in eval_data]
-    img = np.zeros((len(thetas[0]), len(drug_names_in_eval)))
+    ranks = [sorted(range(len(t)), key=lambda x: t[x], reverse=True) for t in thetas]
+    img = np.zeros(thetas.T.shape)
     
-    for drug, rank in enumerate(ranks):
+    for d, reference, rank in zip(xrange(len(eval_data)), eval_data, ranks):
         for i, pathway in enumerate(rank):
-            img[i, drug] = 1 if pathway_ids[pathway] in eval_data[drug_names_in_eval[drug]] else 0
+            img[i, d] = 1 if pathway in reference else 0
     
     return img
     
-def plot_heatmap(drug_names, pathway_ids, thetas, eval_data):
-    imshow(calc_heatmap(drug_names, pathway_ids, thetas, eval_data), cmap="Greys_r", interpolation='nearest')
+def plot_heatmap(thetas, eval_data):
+    imshow(calc_heatmap(thetas, eval_data), cmap="Greys_r", interpolation='nearest')
+
+#Filter the thetas so that they only mention the drugs and the pathways in the reference dataset
+def filter_thetas(thetas, pathways_in_eval, pathway_ids, drug_names_in_eval, drug_names):
+    filtered = np.delete(thetas, [i for i, p in enumerate(pathway_ids) if p not in pathways_in_eval], axis=1)
+    filtered /= np.sum(filtered, axis=1)[:, np.newaxis]
     
-def filter_thetas(thetas, pathways_in_eval, pathway_ids):
-    return np.delete(thetas, [i for i, p in enumerate(pathway_ids) if p not in pathways_in_eval], axis=1)
+    filtered = np.delete(filtered, [i for i, d in enumerate(drug_names) if d not in drug_names_in_eval], axis=0)
+    
+    return filtered
 
 
 #TODO: try the CDF/heatmap/side evaluation on the simulated data
@@ -173,39 +193,46 @@ def filter_thetas(thetas, pathways_in_eval, pathway_ids):
 
 if __name__ == "__main__":
     drug_prune = 1
-    gene_prune = 1
-    pathway_prune = 1
-
-    drug_gene = np.loadtxt(diss_data_root + "drug_gene_expression_matrix.txt", skiprows=1).T
-    drug_gene = np.exp(drug_gene)
-    drug_gene = drug_gene[::drug_prune,::gene_prune]     
-    
-    doc_words = [d.nonzero()[0] for d in drug_gene]
-    doc_counts = [d[d.nonzero()[0]] for d in drug_gene]
-
-    priors = np.loadtxt(diss_data_root + "gene_pathway_kegg_matrix.txt", skiprows=1).T[::pathway_prune,::gene_prune]
-    priors = np.array([p / sum(p) for p in priors])
-    print "Drugs: %d, pathways: %d, genes: %d" % (drug_gene.shape[0], priors.shape[0], drug_gene.shape[1])
-## 
-    m_params, v_params = expectation_maximization(doc_words, doc_counts, len(priors), priors, max_iterations=100)
-    
-##    
+#    gene_prune = 1
+#    pathway_prune = 1
+#
+#    drug_gene = np.loadtxt(diss_data_root + "drug_gene_expression_matrix.txt", skiprows=1).T
+#    drug_gene = np.exp(drug_gene)
+#    drug_gene = drug_gene[::drug_prune,::gene_prune]     
+#    
+#    doc_words = [d.nonzero()[0] for d in drug_gene]
+#    doc_counts = [d[d.nonzero()[0]] for d in drug_gene]
+#
+#    priors = np.loadtxt(diss_data_root + "gene_pathway_kegg_matrix.txt", skiprows=1).T[::pathway_prune,::gene_prune]
+#    priors = np.array([p / sum(p) for p in priors])
+#    print "Drugs: %d, pathways: %d, genes: %d" % (drug_gene.shape[0], priors.shape[0], drug_gene.shape[1])
+### 
+##    m_params, v_params = expectation_maximization(doc_words, doc_counts, len(priors), priors, max_iterations=100)
+#    
 ###    
+####    
 #    data = np.load(diss_data_root + "../data-every-1th-drug-exp.npz")
 #    m_params = data['arr_0'].item()
-##    v_params = data['arr_1']
-##    
+###    v_params = data['arr_1']
+###    
 #    data = np.load(diss_data_root + "../thetas-every-1th-drug-exp.npz")
 #    thetas = data['arr_0']
-#  
-    thetas = np.array([expected_theta(v, m_params, w, c) for v, w, c in zip(v_params, doc_words, doc_counts)])      
-#    
-#    
+##  
+##    thetas = np.array([expected_theta(v, m_params, w, c) for v, w, c in zip(v_params, doc_words, doc_counts)])      
+##    
+##    
 #    pathway_ids = [int(p.strip()) for p in open(diss_data_root + "pathway_id.txt").readlines()][::pathway_prune]
 #    pathway_names = [p.strip() for p in open(diss_data_root + "pathway_names_used.txt").readlines()][::pathway_prune]
 #    drug_names = [d.strip() for d in open(diss_data_root + "drug_name.txt").readlines()][1::drug_prune]
+#    
 #    eval_data = load_evaluation_dataset(set(pathway_ids))
 #    pathway_map = {v: k for k, v in enumerate(pathway_ids)}
+#    pathways_in_eval = set.union(*([set(eval_data[d]) for d in drug_names if d in eval_data]))
+#    pathway_ids_in_eval = sorted(pathways_in_eval)
+#    pathway_map_in_eval = {v: k for k, v in enumerate(pathway_ids_in_eval)}
+#    drug_names_in_eval = [d for d in drug_names if d in eval_data]
+#    eval_data = [[pathway_map_in_eval[p] for p in eval_data[d]] for d in drug_names_in_eval]
+#
 #    
 ####    
 ####            
@@ -214,61 +241,61 @@ if __name__ == "__main__":
 ####    lda_phi /= np.sum(lda_phi, axis=1)[:, np.newaxis]
 ####    
 ##    
-#    pathways_in_eval = set.union(*([set(eval_data[d]) for d in drug_names if d in eval_data]))
-#    pathway_map_in_eval = {v: k for k, v in enumerate(sorted(pathways_in_eval))}
-#    pathway_ids_in_eval = sorted(pathways_in_eval)
+#    
+#    
+#    
 ##
 ##    lda_thetas = np.loadtxt(diss_data_root + "lda-theta.txt")
 ##    lda_thetas_f = filter_thetas(lda_thetas, pathways_in_eval, pathway_ids)
 ##    
-#    ctm_thetas_f = filter_thetas(thetas, pathways_in_eval, pathway_ids)
+#    ctm_thetas_f = filter_thetas(thetas, pathways_in_eval, pathway_ids, drug_names_in_eval, drug_names)
 ##
 #    random_thetas = np.random.uniform(size=ctm_thetas_f.shape)
 #    random_thetas /= np.sum(random_thetas, axis=1)[:, np.newaxis]
 #
 #    #Construct thetas implied by the evaluation data
-#    drug_names_in_eval = [d for d in drug_names if d in eval_data]
 #    eval_thetas = np.zeros((len(drug_names_in_eval), len(pathway_names)))
 #    
-#    for i, d in enumerate(drug_names_in_eval):
-#        for p in eval_data[d]:    
-#            eval_thetas[i, pathway_map[p]] = 1
+#    for i, e in enumerate(eval_data):
+#        for p in e:
+#            eval_thetas[i, p] = 1
 #            
 #    eval_thetas /= np.sum(eval_thetas, axis=1)[:, np.newaxis]
-#            
-#    eval_thetas = filter_thetas(eval_thetas, pathways_in_eval, pathway_ids)
 #    
-#    gmrf_thetas = filter_thetas(scipy.io.loadmat(diss_data_root + "output_s_me.mat")['output_S'].T, pathways_in_eval, pathway_ids)
+#    gmrf_thetas = filter_thetas(scipy.io.loadmat(diss_data_root + "output_s_me.mat")['output_S'].T, pathways_in_eval, pathway_ids, drug_names_in_eval, drug_names)
+#    gmrf_thetas /= np.sum(gmrf_thetas, axis=1)[:, np.newaxis]
 ##    
 ##    lda_perf = validate_all_thetas(drug_names, lda_thetas_f, eval_data, pathway_map_in_eval)
-#    ctm_perf = validate_all_thetas(drug_names, ctm_thetas_f, eval_data, pathway_map_in_eval)
-#    random_perf = validate_all_thetas(drug_names, random_thetas, eval_data, pathway_map_in_eval)
-#    gmrf_perf = validate_all_thetas(drug_names, gmrf_thetas, eval_data, pathway_map_in_eval)
+#    ctm_perf = validate_all_thetas(ctm_thetas_f, eval_data)
+#    random_perf = validate_all_thetas(random_thetas, eval_data)
+#    gmrf_perf = validate_all_thetas(gmrf_thetas, eval_data)
 ##    
-#    ctm_side = np.sum(calc_heatmap(drug_names, pathway_ids_in_eval, ctm_thetas_f, eval_data), axis=1)
-#    gmrf_side = np.sum(calc_heatmap(drug_names, pathway_ids_in_eval, gmrf_thetas, eval_data), axis=1)
+#    ctm_side = np.sum(calc_heatmap(ctm_thetas_f, eval_data), axis=1)
+#    gmrf_side = np.sum(calc_heatmap(gmrf_thetas, eval_data), axis=1)
 ##    lda_side = np.sum(calc_heatmap(drug_names, pathway_ids_in_eval, lda_thetas_f, eval_data), axis=1)
-#    ran_side = np.sum(calc_heatmap(drug_names, pathway_ids_in_eval, random_thetas, eval_data), axis=1)
-#    ref_side = np.sum(calc_heatmap(drug_names, pathway_ids_in_eval, eval_thetas, eval_data), axis=1)
+#    ran_side = np.sum(calc_heatmap(random_thetas, eval_data), axis=1)
+#    ref_side = np.sum(calc_heatmap(eval_thetas, eval_data), axis=1)
 #    
 #    map(plot_cdf, [ctm_perf, random_perf, gmrf_perf])
-#    legend(['CTM', 'Random', 'GMRF'])
+#    legend(['CTM', 'Random'])
 #    title('CDF of the proportion of drug-pathway perturbations explained by each model')
 #    
+#    ctm_ap = [average_precision(t, e) for t, e in zip (ctm_thetas_f, eval_data)]
 #    
-#    mu_n, sigma_n = normalize_mu_sigma(m_params.mu, m_params.sigma)
-#    stdevs = np.sqrt(sigma_n.diagonal())
-#    thetas_norm = [(t - mu_n)/stdevs for t in thetas]
-    
+##    
+##    mu_n, sigma_n = normalize_mu_sigma(m_params.mu, m_params.sigma)
+##    stdevs = np.sqrt(sigma_n.diagonal())
+##    thetas_norm = [(t - mu_n)/stdevs for t in thetas]
 #    
 #    
-#    f = open("D:\\data-every-" + str(drug_prune) + "th-drug.npz", 'wb')
-#    np.savez(f, m_params, v_params)
-#    f.close()
-#    
-#    f = open("D:\\thetas-every-" + str(drug_prune) + "th-drug.npz", 'wb')
-#    np.savez(f, thetas)
-#    f.close()
+##    
+##    f = open("D:\\drug-mparams-every-" + str(drug_prune) + "th-drug-exp.npz", 'wb')
+##    np.savez_compressed(f, m_params)
+##    f.close()
+##    
+##    f = open("D:\\drug-thetas-every-" + str(drug_prune) + "th-drug-exp.npz", 'wb')
+##    np.savez(f, thetas)
+##    f.close()
     
         
 #TODO:
@@ -276,76 +303,96 @@ if __name__ == "__main__":
 #gibbs sampling for logistic normal topic models with graph-based priors    
 #Evaluation: RMSE for theta, beta, corr mat, visual graph (threshold for corr)
 #vary K, sparsity of beta(how many zeros in each topic)/topic graph
-#see the GMRF paper for toy dataset generation
-#check out bdgraph
+#check out bdgraph!!!!
 #def generated_corpus_evaluation():
-#    voc_len = 10
-#    K = 2
-#    N_d = 100
-#    no_docs = 1000
-#    
-#    print "Generating a random corpus..."
-#    doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs)
-#    
-##    validation(doc_words, doc_counts, doc_thetas)
-#    
-#    priors = [np.ones(voc_len) for _ in xrange(K)]
-#    for i in xrange(max([K, voc_len])):
-#        priors[i % K][i % voc_len] = 0
-#
-#    print "Performing expectation maximization..."    
-#    priors = np.array([p / sum(p) for p in priors])
-#    m_params, v_params = expectation_maximization(doc_words, doc_counts, K, priors, max_iterations=100)
-#    
-#    corr = document_similarity_matrix(beta, m_params.beta)
-#    
-#    print "Reference-inferred beta similarity matrix (for topic identifiability):"
-#    print corr
-#    
-#    print "Evaluating by classifying the training dataset..."
-#    thetas = np.array([expected_theta(v, m_params, w, c) for v, w, c in zip(v_params, doc_words, doc_counts)])
-#        
-#    permuted_thetas = np.array(thetas)
-#    permuted_mu = np.array(m_params.mu)    
-#    permuted_sigma = np.array(m_params.sigma)
-#    permuted_beta = np.array(m_params.beta)
-#    
-#    betamap = np.argmax(corr, axis=0) #betamap[i] : inferred topic id that's most similar to the actual topic i
-#    if (len(np.unique(betamap)) < len(betamap)):
-#        print "Warning: could not infer the topic mapping, topics not far enough apart"
-#    else:
-#        for d in xrange(len(thetas)):
-#            for i in xrange(len(betamap)):
-#                permuted_thetas[d, betamap[i]] = thetas[d, i]
-#        for i in xrange(len(mu)):
-#            permuted_mu[betamap[i]] = m_params.mu[i]
-#        for i in xrange(K):
-#            for j in xrange(K):
-#                permuted_sigma[betamap[i], betamap[j]] = m_params.sigma[i, j]
-#        for i in xrange(K):
-#            permuted_beta[betamap[i]] = m_params.beta[i]
-#    
-#    theta_diff_sizes = [dsm_rmse(inf, ref) for inf, ref in zip(permuted_thetas, doc_thetas)]
-#    
-#    baseline = np.random.multivariate_normal(mu, sigma, size=no_docs)
-#    baseline = np.exp(baseline) / np.sum(np.exp(baseline), axis=1)[:, None]
-#    baseline_diff_sizes = [dsm_rmse(inf, ref) for inf, ref in zip(baseline, doc_thetas)]
+    voc_len = 100
+    K = 15
+    N_d = 1000
+    no_docs = 300
+    
+    print "Generating a random corpus..."
+    doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs, 12)
+    
+#    validation(doc_words, doc_counts, doc_thetas)
+    
+    priors = np.ones((K, voc_len))
+    priors[beta == 0] = 0
+
+    print "Performing expectation maximization..."    
+    priors = np.array([p / sum(p) for p in priors])
+    m_params, v_params = expectation_maximization(doc_words, doc_counts, K, priors, max_iterations=100)
+    
+    corr = document_similarity_matrix(beta, m_params.beta)
+    
+    print "Reference-inferred beta similarity matrix (for topic identifiability):"
+    print corr
+    
+    print "Evaluating by classifying the training dataset..."
+    thetas = np.array([expected_theta(v, m_params, w, c) for v, w, c in zip(v_params, doc_words, doc_counts)])
+        
+    permuted_thetas = np.array(thetas)
+    permuted_mu = np.array(m_params.mu)    
+    permuted_sigma = np.array(m_params.sigma)
+    permuted_beta = np.array(m_params.beta)
+    
+    betamap = np.argmax(corr, axis=0) #betamap[i] : inferred topic id that's most similar to the actual topic i
+    if (len(np.unique(betamap)) < len(betamap)):
+        print "Warning: could not infer the topic mapping, topics not far enough apart"
+    else:
+        for d in xrange(len(thetas)):
+            for i in xrange(len(betamap)):
+                permuted_thetas[d, betamap[i]] = thetas[d, i]
+        for i in xrange(len(mu)):
+            permuted_mu[betamap[i]] = m_params.mu[i]
+        for i in xrange(K):
+            for j in xrange(K):
+                permuted_sigma[betamap[i], betamap[j]] = m_params.sigma[i, j]
+        for i in xrange(K):
+            permuted_beta[betamap[i]] = m_params.beta[i]
+    
+    theta_diff_sizes = [dsm_rmse(inf, ref) for inf, ref in zip(permuted_thetas, doc_thetas)]
+    
+    baseline = np.random.multivariate_normal(mu, sigma, size=no_docs)
+    baseline = np.exp(baseline) / np.sum(np.exp(baseline), axis=1)[:, None]
+    baseline_diff_sizes = [cosine_similarity(inf, ref) for inf, ref in zip(baseline, doc_thetas)]
+    
+    baseline2 = np.random.uniform(size=baseline.shape)
+    baseline2 = np.exp(baseline2) / np.sum(np.exp(baseline2), axis=1)[:, None]
+    baseline2_diff_sizes = [cosine_similarity(inf, ref) for inf, ref in zip(baseline2, doc_thetas)]
+    
+    ref_ranks = [np.where(d > 0)[0] for i, d in enumerate(doc_thetas)]
+    
+    thetas = np.array(thetas)
+    doc_thetas = np.array(doc_thetas)
+    
+    ctm_perf = validate_all_thetas(thetas, ref_ranks)
+    rnd_perf = validate_all_thetas(baseline2, ref_ranks)
+    ref_perf = validate_all_thetas(doc_thetas, ref_ranks)
+    
+    ctm_side = np.sum(calc_heatmap(thetas, ref_ranks), axis=1)
+    ref_side = np.sum(calc_heatmap(doc_thetas, ref_ranks), axis=1)
+    rnd_side = np.sum(calc_heatmap(baseline2, ref_ranks), axis=1)
+    
+    ctm_ap = [average_precision(t, r) for t, r in zip(thetas, ref_ranks)]
+    rnd_ap = [average_precision(t, r) for t, r in zip(baseline2, ref_ranks)]
+    ref_ap = [average_precision(t, r) for t, r in zip(doc_thetas, ref_ranks)]
+
 #    
 #    plot_cdf(theta_diff_sizes)
-#    plot_cdf(baseline_diff_sizes)
+#    plot_cdf(baseline2_diff_sizes)
 #    
 #    plt.legend([r"Inferred $\theta$", r"Baseline $\theta$ (random)"])
 #    plt.xlabel("RMSE $\\theta_{inf}$ from $\\theta_{ref}$")
 #    plt.ylabel("Proportion of errors below a given RMSE (the CDF)")
 #        
-#    reference = document_similarity_matrix(doc_thetas)
-#    inferred = document_similarity_matrix(thetas)
-#    
-#    print "RMSE between inferred document correlations and the reference: %f" % dsm_rmse(inferred, reference)
-#    print "RMSE between inferred beta and the reference: %f" % dsm_rmse(np.array(permuted_beta), np.array(beta))
-#    print "RMSE between inferred topic correlations and the reference: %f" % dsm_rmse(cor_mat(permuted_sigma), cor_mat(sigma))
-#    print "RMSE between inferred topic proportions and the reference: %f" % dsm_rmse(f(permuted_mu), f(mu))
-#    
-#        
-#    
+    reference = document_similarity_matrix(doc_thetas)
+    inferred = document_similarity_matrix(thetas)
     
+    print "RMSE between inferred document correlations and the reference: %f" % dsm_rmse(inferred, reference)
+    print "RMSE between inferred beta and the reference: %f" % dsm_rmse(np.array(permuted_beta), np.array(beta))
+    print "RMSE between inferred topic correlations and the reference: %f" % dsm_rmse(cor_mat(permuted_sigma), cor_mat(sigma))
+    print "RMSE between inferred topic proportions and the reference: %f" % dsm_rmse(f(permuted_mu), f(mu))
+    
+        
+    
+#    
