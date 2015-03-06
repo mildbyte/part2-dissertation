@@ -15,6 +15,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.stats
 import scipy.misc
+from itertools import groupby
 np.set_printoptions(precision=5, linewidth=120)
 plt.style.use('ggplot')
 import pygraphviz
@@ -120,6 +121,9 @@ def load_evaluation_dataset(supported_pathways=None):
 def precision(k, rank, reference): 
     return float(len(set(rank[:k]).intersection(reference))) / float(k)
 
+def recall(k, rank, reference):
+    return float(len(set(rank[:k]).intersection(reference))) / float(len(reference))
+
 def average_precision(theta, reference):
     rank = sorted(range(len(theta)), key=lambda x: theta[x], reverse=True)
 
@@ -131,6 +135,11 @@ def average_precision(theta, reference):
     
     result /= len(reference)
     return result
+
+def precision_recall(theta, reference):
+    rank = sorted(range(len(theta)), key=lambda x: theta[x], reverse=True)
+    
+    return [(precision(k+1, rank, reference), recall(k+1, rank, reference)) for k in xrange(len(theta))]
 
 def evaluate_drug_theta(theta, reference):
     #Return the average theta value for each of the pathways that this drug actually has
@@ -182,6 +191,22 @@ def filter_thetas(thetas, pathways_in_eval, pathway_ids, drug_names_in_eval, dru
     filtered = np.delete(filtered, [i for i, d in enumerate(drug_names) if d not in drug_names_in_eval], axis=0)
     
     return filtered
+
+def plot_avg_pr_curve(thetas, reference):
+    all_precisions = [pr for t, e in zip(thetas, reference) for pr in precision_recall(t, e)]
+    all_precisions.sort(key=lambda x: x[1])
+    
+    precisions = [(r, [p[0] for p in ps]) for r, ps in groupby(all_precisions, lambda x: x[1])]
+    precisions = [(r, np.mean(ps), np.std(ps)) for r, ps in precisions]
+    recs, precmeans, precstds = map(np.array, zip(*precisions))
+#    
+    plot(recs, precmeans)
+#    plot(recs, precmeans+precstds, 'b')
+#    plot(recs, precmeans-precstds, 'b')
+#
+#    fill_between(recs, precmeans+precstds, precmeans-precstds, alpha=0.5)
+#    xlim([0, 1.1])
+#    ylim([0, 1.1])
 
 
 #TODO: try the CDF/heatmap/side evaluation on the simulated data
@@ -282,6 +307,14 @@ if __name__ == "__main__":
 #    
 #    ctm_ap = [average_precision(t, e) for t, e in zip (ctm_thetas_f, eval_data)]
 #    
+#    ctm_pr = [(p, r) for (p, r) in precision_recall(t, e) for t, e in zip(ctm_thetas_f, eval_data)]
+#    ctm_pr.sort(key=lambda x: x[1])
+#    
+#    precisions = [(r, list(ps)) for r, ps in groupby(ctm_pr, lambda x: x[1])]
+#    precisions = [(r, np.mean(ps), np.std(ps)) for r, ps in precisions]
+#    recs, precmeans, precstds = zip(*precisions)
+#
+#    
 ##    
 ##    mu_n, sigma_n = normalize_mu_sigma(m_params.mu, m_params.sigma)
 ##    stdevs = np.sqrt(sigma_n.diagonal())
@@ -306,12 +339,12 @@ if __name__ == "__main__":
 #check out bdgraph!!!!
 #def generated_corpus_evaluation():
     voc_len = 100
-    K = 15
+    K = 10
     N_d = 1000
-    no_docs = 300
+    no_docs = 512
     
     print "Generating a random corpus..."
-    doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs, 12)
+    doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs, 3)
     
 #    validation(doc_words, doc_counts, doc_thetas)
     
