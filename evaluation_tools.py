@@ -16,12 +16,13 @@ import random
 def f(eta):
     return np.exp(eta) / np.sum(np.exp(eta))
     
-def generate_random_corpus(voc_len, K, N_d, no_docs, enforce_topic_zeros=0):
+def generate_random_corpus(voc_len, K, N_d, no_docs, theta_density=1.0, beta_density=1.0):
     def gendoc(mu, sigma, beta):
+        density = int(np.clip(np.random.poisson(theta_density * K), 1, K))
         
         eta_d = np.random.multivariate_normal(mu, sigma)
         eta_d = f(eta_d)
-        eta_d[np.argsort(eta_d)[:enforce_topic_zeros]] = 0
+        eta_d[np.argsort(eta_d)[density:]] = 0
         eta_d /= np.sum(eta_d)
         
         document = []
@@ -34,13 +35,14 @@ def generate_random_corpus(voc_len, K, N_d, no_docs, enforce_topic_zeros=0):
         return document, eta_d
         
     mu = np.random.uniform(0, 1, K)
-#    sigma = sample_wishart(K, np.identity(K) / float(K*K)) #so the base variance for, say, 5 topics will be 0.04
-    sigma = np.identity(K)
+    sigma = sample_wishart(K, np.identity(K) / float(K*K)) #so the base variance for, say, 5 topics will be 0.04
+#    sigma = np.identity(K)
     
     beta = [np.random.uniform(0, 1, voc_len) for _ in xrange(K)]
-    for i in xrange(max(K, voc_len)):
-        beta[i % K][i % voc_len] = 0
-    beta = [b / sum(b) for b in beta]
+    for i in xrange(K):
+        density = np.clip(np.random.poisson(beta_density * voc_len), 1, voc_len)
+        beta[i][np.argsort(beta[i])[density:]] = 0
+    beta = np.array([b / sum(b) for b in beta])
     
     doc_words = []
     doc_counts = []
