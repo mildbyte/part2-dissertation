@@ -186,7 +186,49 @@ W is chosen to be suffciently large as to provide a good approximation to the di
 
 The generation process returns the model parameters, the counts of words in each document, as well as the topic distribution for every document. Only the word counts are fed into the model: the other outputs are used for evaluation.
 
-The following subsections go into detail about which methods of evaluation were performed.
+The following subsections describe the datasets which were generated and goes into detail about the methods of evaluation that were performed.
+
+\subsection{Description of toy datasets}
+
+The datasets were generated so that they mimic the properties of the real world KEGG/CMap dataset. All datasets have the following in common:
+
+\begin{itemize}[noitemsep]
+\item Vocabulary length (number of genes): 3000
+\item Number of documents (drugs): 500
+\item Number of words in each document: 1000
+\item Density of $\beta$: 0.0138
+\item Density of $\theta$: 0.1231
+\end{itemize}
+
+Densities here refer to the fraction of non-zero elements in each matrix. The KEGG/CMap dataset is very sparse: each pathway only affects, on average 1.38\% of all genes and each drug only affects, on average, 12.3\% of all pathways. The density value for $\beta$ was calculated by taking the matrix of priors (since it explicitly enforces the pattern of zeros in the result), whereas the density value for $\theta$ was calculated by taking the reference (CTD) dataset.
+
+With these parameters, 5 datasets were generated:
+
+\begin{itemize}[noitemsep]
+\item 10 topics
+\item 20 topics
+\item 50 topics
+\item 100 topics
+\end{itemize}
+
+These datasets allow to investigate how the performance of the model changes when the number of topics increases.
+
+The parameters of the fifth dataset were designed to mimic the real-world one as closely as possible in order to determine, by comparing the performance of the model on that dataset against the real-world one, whether the drug gene expression data follows the generative framework described by the CTM. In addition to reusing all the parameters the first 4 datasets were generated with, for this dataset I also approximated the $\mu$ and $\sigma$ of the reference by first calculating the topic distribution $\theta$ implied by the dataset (assuming all pathways in the resultant matrix are equally weighted) and then calculating the mean and the covariance matrix of the distribution of pathways based on it.
+
+In the last 4 datasets, I varied the density of the covariance matrix: the proportion of pathways in the implied matrix of correlations that are connected:
+
+\begin{itemize}[noitemsep]
+\item No correlations: use the identity matrix as $\Sigma$
+\item Density 10\%
+\item Density 50\%
+\item Density 90\%
+\end{itemize}
+
+\subsection{Convergence analysis}
+
+At every iteration, the model outputs a likelihood bound that it assigns to the data and continues updating the model parameters until the likelihood bound converges (the change is less than a certain threshold). The likelihood bound values over iterations are plotted here.
+
+It can be observed that increasing the number of topics decreases the likelihood bound the model assigns to the data andmakes convergence slower.
 
 \subsection{Evaluating the topic prediction}
 
@@ -212,7 +254,7 @@ The benefit of evaluating the model with toy datasets is that the model paramete
 
 TODO: add about mu normalisation?
 
-In addition, the covariance matrix $\Sigma$ is turned into the correlation matrix, since the fact that the topic proportion drawn from the multivariate normal is normalized means the variance of a single pathway by itself is meaningless:
+In addition, the covariance matrix $\Sigma$ is turned into the correlation matrix (normalized) so that the correlations inferred by the model and the reference correlations can be compared:
 
 \begin{equation}
 C_{i, j} = \frac{|\Sigma^{-1}_{i, j}|}{\sqrt{\Sigma^{-1}_{i, i}\Sigma^{-1}_{j, j}}}
@@ -221,7 +263,7 @@ C_{i, j} = \frac{|\Sigma^{-1}_{i, j}|}{\sqrt{\Sigma^{-1}_{i, i}\Sigma^{-1}_{j, j
 The parameters are then compared to the reference using the normalized root-mean-square error (RMSE):
 
 \begin{equation}
-RMSE(I, R) = \frac{\sqrt{\sum{(I-R)^2}}}{\sqrt{D}(max(R) - min(R))}
+\mathit{RMSE}(I, R) = \frac{\sqrt{\sum{(I-R)^2}}}{\sqrt{D}(max(R) - min(R))}
 \end{equation}
 
 where $I$ is the inferred parameter, $R$ is the reference parameter and $D$ is the size of the matrix/vector.
@@ -234,18 +276,17 @@ The validation dataset (CTD) does not contain actual drug-pathway distributions:
 
 The problem of evaluating pathway distributions against a list of relevant pathways strikingly resembles a similar problem from information retrieval: given a ranking for documents (here, pathways) output by a model for various queries (here, drug gene expression profiles) and a judgement as to which documents (pathways) are relevant (actually affected by the drug), how can evaluation be performed?
 
-TODO: information on MAP/ranks here and side plots
+Two metrics that are used in information retrieval to evaluate such systems are precision and recall: precision is the fraction of retrieved documents that are relevant and recall is the fraction of relevant documents that are retrieved. These metrics can be calculated at all the cutoff ranks in the output pathway list and used to plot a precision-recall curve.
 
 Another way of evaluating the distributions I came up with is, for every drug and for every pathway that this drug actually affects, summing the probabilities predicted by the model for that pathway. This results in a value for every drug that represents, in essence, the fraction of drug-pathway activity that the model got ``right":
 
 \begin{equation}
-c_d = \sum\limits_{p \in ref_d}{\theta_{d, p}}
+c_d = \sum\limits_{p \in \mathit{ref}_d}{\theta_{d, p}}
 \end{equation}
 
-where $ref_d$ is a set of correct pathways for every drug and $\theta_d$ is the predicted pathway distribution for drug $d$.
+where $\mathit{ref}_d$ is a set of correct pathways for every drug and $\theta_d$ is the predicted pathway distribution for drug $d$.
 
 The distribution of these values can then be compared to the performance of random guessing to judge whether the model gives significantly different results.
-
 
 \section{KEGG and CMap datasets}
 
