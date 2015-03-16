@@ -16,7 +16,7 @@ import random
 def f(eta):
     return np.exp(eta) / np.sum(np.exp(eta))
     
-def generate_random_corpus(voc_len, K, N_d, no_docs, theta_density=1.0, beta_density=1.0):
+def generate_random_corpus(voc_len, K, N_d, no_docs, theta_density=1.0, beta_density=1.0, mu=None, sigma=None):
     def gendoc(mu, sigma, beta):
         density = int(np.clip(np.random.poisson(theta_density * K), 1, K))
         
@@ -26,17 +26,21 @@ def generate_random_corpus(voc_len, K, N_d, no_docs, theta_density=1.0, beta_den
         eta_d /= np.sum(eta_d)
         
         document = []
-        for n in xrange(N_d):
+        topics = np.random.multinomial(N_d, eta_d)
+        
+        for t, n in enumerate(topics):
+            words = beta[t]
             
-            Z_dn = beta[np.flatnonzero(np.random.multinomial(1, eta_d))[0]]
-            W_dn = np.random.choice(xrange(len(Z_dn)), p=Z_dn)
-            document.append(W_dn)
+            W_dn = np.random.choice(xrange(len(words)), size=n, p=words)
+            document.extend(W_dn)
     
         return document, eta_d
-        
-    mu = np.random.uniform(0, 1, K)
-    sigma = sample_wishart(K, np.identity(K) / float(K*K)) #so the base variance for, say, 5 topics will be 0.04
-#    sigma = np.identity(K)
+    
+    if mu is None:
+        mu = np.random.uniform(0, 1, K)
+    
+    if sigma is None:
+        sigma = sample_wishart(K, np.identity(K) / float(K*K)) #so the base variance for, say, 5 topics will be 0.04
     
     beta = [np.random.uniform(0, 1, voc_len) for _ in xrange(K)]
     for i in xrange(K):

@@ -235,6 +235,25 @@ def calc_all_lda_likelihoods():
 def density(M):
     return np.mean((M != 0))
 
+def load_toy_dataset(i):
+    data = np.load(diss_data_root + "%d-dataset.npz" % i)
+    doc_words = data['arr_0']
+    doc_counts = data['arr_1']
+    doc_thetas = data['arr_2']
+    mu = data['arr_3']
+    sigma = data['arr_4']
+    beta = data['arr_5']
+    
+    data = np.load(diss_data_root + "%d-results.npz" % i)
+    m_params = data['arr_0'].item()
+    thetas = data['arr_1']
+    
+    return doc_words, doc_counts, doc_thetas, mu, sigma, beta, m_params, thetas
+
+def save_toy_dataset(i, doc_words, doc_counts, doc_thetas, mu, sigma, beta, m_params, thetas):
+    np.savez_compressed(diss_data_root + "%d-dataset" % i, doc_words, doc_counts, doc_thetas, mu, sigma, beta)
+    np.savez_compressed(diss_data_root + "%d-results" % i, m_params, thetas)
+    
 #TODO: try the CDF/heatmap/side evaluation on the simulated data
 #writeup the simulated study
 #send the random thetas
@@ -368,10 +387,13 @@ if __name__ == "__main__":
 #vary K, sparsity of beta(how many zeros in each topic)/topic graph
 #check out bdgraph!!!!
 #def generated_corpus_evaluation():
-    voc_len = 100
-    K = 5
+    voc_len = 3000
+    K = 50
     N_d = 1000
     no_docs = 500
+    
+    mu = np.loadtxt(diss_data_root + "ctd-implied-mu.txt")
+    sigma = np.loadtxt(diss_data_root + "ctd-implied-sigma.txt")
     
     print "Generating a random corpus..."
     doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs, 0.1231, 0.0138)
@@ -386,9 +408,9 @@ if __name__ == "__main__":
     m_params, v_params = expectation_maximization(doc_words, doc_counts, K, priors, max_iterations=100)
     
     corr = document_similarity_matrix(beta, m_params.beta)
-    
-    print "Reference-inferred beta similarity matrix (for topic identifiability):"
-    print corr
+#    
+#    print "Reference-inferred beta similarity matrix (for topic identifiability):"
+#    print corr
     
     print "Evaluating by classifying the training dataset..."
     thetas = np.array([expected_theta(v, m_params, w, c) for v, w, c in zip(v_params, doc_words, doc_counts)])
