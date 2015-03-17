@@ -111,7 +111,54 @@ Using topic models in order to predict pathways affected by drugs has many benef
 
 \section{Correlated Topic Model}
 
-Bayesian plate notation here + explanation
+This section sets up the notation used throughout the whole dissertation and derives the training and the inference process for the Correlated Topic Model. Most of it is quoted from Blei's original CTM paper with some additions so that the derivation is easier to understand.
+
+First of all, given a document and the global model parameters, consider the distribution of the possible distributions of topics and the topic assignments:
+
+\begin{equation}
+p(\eta, z | w, \beta, \mu, \Sigma)
+\end{equation}
+
+Using Bayes' Theorem (and conditioning on the global model parameters $\beta, \mu, \Sigma$ throughout), this can be rewritten as 
+
+\begin{equation}
+\frac{p(\eta, z | \beta, \mu, \Sigma) p(w | \eta, z, \beta, \mu, \Sigma)}{p(w | \beta, \mu, \Sigma)}
+\end{equation}
+
+First, consider, $p(w | \eta, z, \beta, \mu, \Sigma)$, the probability of the document given all the model parameters and the topic assignments. Since all words in the document are independent of each other, this can be rewritten as a product:
+
+\begin{align}
+p(w | \eta, z, \beta, \mu, \Sigma) &= \prod\limits_{n=1}^N p(w_n | z_n, \eta, \beta, \mu, \Sigma) p(z_n | \eta, \beta, \mu, \Sigma)\\
+& = \prod\limits_{n=1}^N p(w_n | z_n, \beta) p(z_n | \eta)
+\end{align}
+
+By inspecting the Bayesian plate notation of the model, it can be seen that $w_n$ is only dependent on the topic assigment $z_n$ and the per-topic word distribution $\beta$, hence all of the other variables we are conditioning on can be removed from consideration. Similarly with $z_n$: it's only dependent on $\eta$.
+
+The denominator is the probability of the document given the global model parameters and it has to be calculated by marginalising over all possible distributions of topics and topic assignments:
+
+\begin{align}
+p(w | \beta, \mu, \Sigma) & = \int p(w | \eta, \beta) p(\eta | \mu, \Sigma) d\eta \\
+& =\int p(\eta | \mu, \Sigma)  \prod\limits_{n=1}^N p(w_n | \eta, \beta) d\eta \\
+& =\int p(\eta | \mu, \Sigma)  \prod\limits_{n=1}^N \sum\limits_{z_n=1}^K p(z_n | \eta) p(w_n | z_n, \beta) d\eta
+\end{align}
+
+In this expansion, we first integrate over all possible distributions of topics $\eta$, then the integrand is expanded to be a product over all words in the document and then, finally, we integrate over all possible topic assignments (since the integral is discrete, it turns into a sum). As in the previous derivation, due to the independence assumptions, we liberally add and remove the variables we are conditioning on to simplify the expression.
+
+The final expression, as it appears in Blei's paper, is
+
+\begin{equation}
+\frac{p(\eta | \mu, \Sigma) \prod\limits_{n=1}^N p(w_n | z_n, \beta) p(z_n | \eta)}{\int p(\eta | \mu, \Sigma)  \prod\limits_{n=1}^N \sum\limits_{z_n=1}^K p(z_n | \eta) p(w_n | z_n, \beta) d\eta}
+\end{equation}
+
+There are two problems with this expression's denominator (the marginal probability of the document). First, it contains a summation over $K$ possible values of the topic of the nth word in the document, $z_n$, which is inside a product over the $N$ words in the document, thus the integrand will contain $K^N$ terms: intractable with the sizes of the data used in this project. Worse even, the distributions $p(z_n | \eta)$ and $p(\eta | \mu, \Sigma)$ are not conjugate to each other, hence the integral over $\eta$ cannot be computed analytically.
+
+To solve this problem, Blei uses variational methods, which involve approximating the posterior distribution with a simpler one, called the variational distribution. The parameters of the distribution are fit to the true posterior (by minimizing the Kullback-Leibner divergence) and the variational distribution is used as a substitute for the posterior.
+
+The definition of the distribution is
+
+\begin{equation}
+q(\eta, z | \lambda, \nu, \phi) = \prod\limits_{i=1}^K q(\eta_i|\lambda_i, \nu_i^2) \prod\limits_{n=1}^N q(z_n | \phi_n)
+\end{equation}
 
 \section{Training process}
 
