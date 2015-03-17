@@ -315,6 +315,8 @@ The datasets were generated so that they mimic the properties of the real world 
 \item Density of $\theta$: 0.1231
 \end{itemize}
 
+TODO: how sparsity is enforced
+
 Densities here refer to the fraction of non-zero elements in each matrix. The KEGG/CMap dataset is very sparse: each pathway only affects, on average 1.38\% of all genes and each drug only affects, on average, 12.3\% of all pathways. The density value for $\beta$ was calculated by taking the matrix of priors (since it explicitly enforces the pattern of zeros in the result), whereas the density value for $\theta$ was calculated by taking the reference (CTD) dataset.
 
 With these parameters, 5 datasets were generated:
@@ -343,7 +345,7 @@ In the last 4 datasets, I varied the density of the covariance matrix: the propo
 
 At every iteration, the model outputs a likelihood bound that it assigns to the data and continues updating the model parameters until the likelihood bound converges (the change is less than a certain threshold). The likelihood bound values over iterations are plotted here.
 
-It can be observed that increasing the number of topics decreases the likelihood bound the model assigns to the data andmakes convergence slower.
+It can be observed that increasing the number of topics decreases the likelihood bound the model assigns to the data and makes convergence slower.
 
 \subsection{Evaluating the topic prediction}
 
@@ -355,7 +357,7 @@ The performance measure that is not affected by the topic identifiability is the
 M_{i,j} = \frac{\theta_i \cdot \theta_j}{|\theta_i||\theta_j|}
 \end{equation}
 
-To gain access to more evaluation measures, a similar matrix can be constructed for $\beta$, the per-topic word distribution. Using this matrix, we can see which topics from the inferred structure are the closest to the original ones and permute the results of the model accordingly. However, this doesn't help with some generated topics being close together and so the generated dataset actually has some entries in the word-topic matrix set to zero. In addition, the model is trained with the pattern of zeros set as its prior, which improves the chances of a successful topic recovery. While this can be considered cheating, the real-world gene-pathway membership dataset is, in fact, very sparse as well (for every pathway, most genes don't participate in it), so this is a necessary measure.
+To gain access to more evaluation measures, a similar matrix can be constructed for $\beta$, the per-topic word distribution. Using this matrix, we can see which topics from the inferred structure are the closest to the original ones and permute the results of the model accordingly. However, this doesn't help with some generated topics being close together. To combat this, the generation process takes a density parameter for the word-topic matrix and the document-topic matrix and enforces this density by setting a certain number of lowest-probability words in a topic (or topics in a document) to zero, as described in the method for generating toy datasets. In addition, the model is trained with the resultant pattern of zeros set as its prior, which improves the chances of a successful topic recovery. While this can be considered cheating, the real-world gene-pathway membership dataset is, in fact, very sparse as well (for every pathway, most genes don't participate in it), so this is a necessary measure.
 
 \subsection{Evaluating the parameter recovery}
 
@@ -405,13 +407,42 @@ The distribution of these values can then be compared to the performance of rand
 
 \section{KEGG and CMap datasets}
 
-What are KEGG/CMap?
+\subsection{Description of the dataset}
 
-Some diagrams and topic graphs here, compare with the LDA results, compare with the known drug pathways.
+KEGG (Kyoto Encyclopedia of Genes and Genomes), published by Kyoto Universiy Katehisa Laboratories is an online database of pathways and genes.
+CMap (Connectivity Map) is a catalog of gene-expression data.
 
-Cluster pathways/drugs
+These datasets were preprocessed into the following matrices:
 
-Side plot from LDA, heatmap of correctly predicted pathways
+\begin{itemize}[noitemsep]
+\item drug - gene (from CMap)
+\item boolean gene - pathway (from KEGG)
+\end{itemize}
+
+Parameters, size, sparsity
+
+How long did the model take to train on it
+
+abs vs exponentiating
+
+\subsection{CTD}
+
+\subsubsection{Precision-recall curves}
+Side plot from LDA, heatmap of correctly predicted pathways, PR curves (+ vs random)
+
+\subsubsection{Fraction of correctly identified pathway activity}
+The CDF thing (LDA-CTM-RND)
+
+\subsubsection{Cool pictures from the dataset}
+Cluster pathways/drugs, some diagrams and topic graphs, compare with the LDA results, compare with the known drug pathways.
+
+\subsection{ATC classification}
+
+Drugs have a hierarchical code that depends on what they actually do (example). This code is possible to predict from the gene expression data by training a generic classifier on it.
+
+If the inferred pathway proportions from the models are used instead as inputs, is the performance better?
+
+\subsection{Drug-target prediction}
 
 \chapter{Conclusion}
 
