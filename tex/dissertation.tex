@@ -113,6 +113,10 @@ Using topic models in order to predict pathways affected by drugs has many benef
 
 This section sets up the notation used throughout the whole dissertation and derives the training and the inference process for the Correlated Topic Model. Most of it is quoted from Blei's original CTM paper with some additions so that the derivation is easier to understand.
 
+\subsection{Deriving the likelihood bound on the corpus}
+
+We aim to find the model parameters that maximise the likelihood bound on the whole corpus. In other words, what are the model parameters that we need to set so that the corpus we're inspecting is the most likely one?
+
 First of all, given a document and the global model parameters, consider the distribution of the possible distributions of topics and the topic assignments:
 
 \begin{equation}
@@ -152,6 +156,8 @@ The final expression, as it appears in Blei's paper, is
 
 There are two problems with this expression's denominator (the marginal probability of the document). First, it contains a summation over $K$ possible values of the topic of the nth word in the document, $z_n$, which is inside a product over the $N$ words in the document, thus the integrand will contain $K^N$ terms: intractable with the sizes of the data used in this project. Worse even, the distributions $p(z_n | \eta)$ and $p(\eta | \mu, \Sigma)$ are not conjugate to each other, hence the integral over $\eta$ cannot be computed analytically.
 
+\subsection{Using variational methods to approximate the likelihood bound}
+
 To solve this problem, Blei uses variational methods, which involve approximating the posterior distribution with a simpler one, called the variational distribution. The parameters of the distribution are fit to the true posterior (by minimizing the Kullback-Leibner divergence) and the variational distribution is used as a substitute for the posterior.
 
 The definition of the distribution is
@@ -160,18 +166,82 @@ The definition of the distribution is
 q(\eta, z | \lambda, \nu, \phi) = \prod\limits_{i=1}^K q(\eta_i|\lambda_i, \nu_i^2) \prod\limits_{n=1}^N q(z_n | \phi_n)
 \end{equation}
 
-\section{Training process}
+Here, the variational distribution of the per-document topic distribution $\eta$ is $K$ independent normal variables with means $\lambda$ and standard deviations $\nu$.
 
-Quote the derivation from Blei's paper?
+Minimizing the Kullback-Leibner divergence between the variational distribution and the true posterior is the same as optimizing the parameters of the variational distribution so that it maximizes the probability of the document. This is equivalent to maximizing the log probability of the document, which can be bounded as
 
-The training process for the model is Bayesian inference: we express P(data|model) and vary the model parameters in order to maximize this probability
+\begin{align}
+\log p(w | \beta, \mu, \Sigma) & \geq E_q[\log p(\eta|\mu, \Sigma)] \\
+& + \sum\limits_{n=1}^N E_q[\log p(z_n | \eta)] \\
+& + \sum\limits_{n=1}^N E_q[\log p(w_n | z_n, \beta)] \\
+& + \mathit{H}(q)
+\end{align}
 
-Probably a feedback picture with variational parameters and model parameters here.
+Here, the expectation is taken with respect to the relevant variational distributions $q$ and $\mathit{H}(q)$ is the entropy of the variational distribution.
+
+The components of the likelihood bound are then rewritten in terms of the variational parameters $\lambda, \nu, \phi$:
+
+\begin{align}
+E_q[\log p(\eta|\mu, \Sigma)] & = \frac{1}{2} \log |\Sigma^{-1}| - \frac{K}{2} \log 2 \pi - \frac{1}{2}E_q[(\eta - \mu)^T\Sigma^{-1}(\eta - \mu)] \\
+& = \frac{1}{2} \log |\Sigma^{-1}| - \frac{K}{2} \log 2 \pi - \frac{1}{2}(\mathit{Tr}(\mathit{diag}(\nu^2)\Sigma^{-1} + (\lambda - \mu)^T\Sigma^{-1}(\lambda - \mu))
+\end{align}
+
+\begin{align}
+E_q[\log p(z_n | \eta)] & = E_q[\eta^Tz_n] - E_q[\log \sum\limits_{i=1}^K e^{\eta_i}] \\
+& \geq E_q[\eta^Tz_n] - \zeta^{-1}(\sum\limits_{i=1}^KE_q[e^{\eta_i}] + 1 - \log\zeta \\
+& = \sum\limits_{i=1}^K\lambda_i\phi_{n, i} - \zeta^{-1}(\sum\limits_{i=1}^Ke^{\lambda_i + \nu_i^2 / 2}) + 1 - \log\zeta
+\end{align}
+
+Here, the term $E_q[\log \sum\limits_{i=1}^K e^{\eta_i}]$ was bound by a Taylor expansion, introducing an extra parameter $\zeta$.
+
+\begin{equation}
+E_q[\log p(w_n | z_n, \beta)] = \sum\limits_{i=1}^K\phi_{n,i}\log\beta_{i, w_n}
+\end{equation}
+
+\begin{equation}
+\mathit{H}(q) = \sum\limits_{i=1}^K\frac{1}{2}(\log\nu_i^2 + \log 2 \pi + 1) - \sum\limits_{n=1}^N\sum\limits_{i=1}^K\phi_{n,i}\log\phi_{n,i}
+\end{equation}
+
+\subsection{Maximising the likelihood bound}
+
+Finally, the optimisation of the likelihood bound happens by iteratively maximising it with respect to each one of the variational parameters.
+
+First, the maximisation of the bound with respect to $\zeta$ can be performed analytically:
+
+\begin{equation}
+\hat\zeta = \sum\limits_{i=1}^Ke^{\lambda_i + \nu_i^2 / 2}
+\end{equation}
+
+$\phi$ has a maximum at
+
+\begin{equation}
+\hat\phi_{n, i} \propto e^{\lambda_i}\beta_{i, w_n}
+\end{equation}
+
+($\phi$ then has to be normalised)
+
+For maximisation with respect to $\lambda$ and $\nu^2$, numerical methods are used with derivatives
+
+\begin{align}
+dL/d\lambda & = -\Sigma^{-1}(\lambda - \mu) + \sum\limits_{n=1}^N\phi_{n, 1:K} - (N/\zeta)e^{\lambda + \nu^2/2} \\
+dL/d\nu^2 & = -\mathit{diag}(\Sigma^{-1})/2 - \frac{N}{2\zeta}e^{\lambda + \nu^2/2} + \frac{1}{2\nu^2}
+\end{align}
+
+Blei's paper suggests using the conjugate gradient algorithm to optimise $\lambda$ and Newton's method for each coordinate of $\nu^2$, however, I found that I got better performance (both in convergence rates and the speed of the model) when using the limited-memory Broyden-Fletcher-Goldfarb-Shanno algorithm with box constraints (L-BFGS-B) to optimise for the whole vector $\nu^2$. I didn't write my own implementations of the conjugate gradient or the L-BFGS-B algorithm: they were available as a part of SciPy.
+
+Once these variational parameters have been found, they are used to estimate the global model parameters:
+
+\begin{align}
+\hat\beta_i & \propto \sum\limits_d\phi_{d, i}n_d \\
+\hat\mu & = \frac{1}{D} \sum\limits_d\lambda_d \\
+\hat\Sigma & = \frac{1}{D} \sum\limits_d I\nu^2_d + (\lambda_d - \hat\mu)(\lambda_d - \hat\mu)^T
+\end{align}
+
+\subsection{Final algorithm of the training process}
+
+The overall training process is as follows: set some initial model parameters and use those to perform variational inference on every document. Use the variational parameters to update the model parameters and repeat again until the likelihood bound converges (fractional change is less than a certain threshold).
+
 \input{variational_inference}
-
-The core of the training process is optimizing the likelihood bound on the model: how likely is the corpus given the model. By altering the parameters of the model in order to maximize this bound, the model is trained on the data.
-
-The training happens in cycles. First, a variational distribution is fit to every document in the corpus. Then, the new model parameters are inferred and the likelihood bound recalculated. This process repeats until changes in the likelihood bound are negligible.
 
 \section{Incorporating priors into the Model}
 
@@ -183,13 +253,11 @@ This means that a zero entry in the $\beta$ matrix that the training process is 
 
 TODO: read up on how theta is inferred
 
-\section{Implementation in code}
+\section{Implementation in code and code optimisation}
 
-Python!
+To implement the training process for the model, I used Python, perhaps an unusual choice given the large amount of numerical computation that needs to be done and the poor performance of Python on these kinds of tasks. However, Python allows for extremely dense and expressive code, as well as has a REPL (Read-Eval-Print Loop), which allows for quick prototyping, implementation and debugging. The unsuitability of Python for numerical calculations is fixed by NumPy, a linear algebra library, that allows fast matrix operations in native code (using either routines provided by NumPy or more advanced numerical libraries that support the Basic Linear Algebra Subsystem (BLAS) API, such as ATLAS or OpenBLAS). In addition, NumPy integrates well with SciPy, a scientific computing library that provides useful routines, for example, for working with probability distributions or numerical optimisation.
 
-\section{Code optimization}
-
-Since Python is an interpreted language, it is great for quick prototyping and implementation. Unfortunately, it means that its performance is several orders of magnitude below that of C code. Using NumPy for numerical calculations definitely helps, since the matrix product operations are performed in native code, but I still had performance issues which would have made working with the actual KEGG/CMap datasets very inconvenient. The training time for 1/10th of the dataset was about 3-4 hours, which implies more than 30-40 hours for the full dataset, since increasing its size would worsen the convergence rate. Using the profiler, I identified several performance bottlenecks in the code.
+Despite using NumPy, I still had performance issues which would have made working with the actual KEGG/CMap datasets very inconvenient. The training time for 1/10th of the dataset was about 3-4 hours, which implies more than 30-40 hours for the full dataset, since increasing its size would worsen the convergence rate. Using the profiler, I identified several performance bottlenecks in the code.
 
 Firstly, the EM process used explicit Python list comprehensions that are evaluated using the Python interpreter, which I converted into matrix products.
 
