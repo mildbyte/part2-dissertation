@@ -450,7 +450,7 @@ With these parameters, 5 datasets were generated:
 
 These datasets allow to investigate how the performance of the model changes when the number of topics increases.
 
-The parameters of the fifth dataset were designed to mimic the real-world one as closely as possible in order to determine, by comparing the performance of the model on that dataset against the real-world one, whether the drug gene expression data follows the generative framework described by the CTM. In addition to reusing all the parameters the first 4 datasets were generated with, for this dataset I also approximated the $\mu$ and $\sigma$ of the reference by first calculating the topic distribution $\theta$ implied by the dataset (assuming all pathways in the resultant matrix are equally weighted) and then calculating the mean and the covariance matrix of the distribution of pathways based on it.
+The parameters of the fifth dataset were designed to mimic the real-world one as closely as possible in order to determine, by comparing the performance of the model on that dataset against the real-world one, whether the drug gene expression data follows the generative framework described by the CTM. In addition to reusing all the parameters the first 4 datasets were generated with, for this dataset I also approximated the $\mu$ and $\Sigma$ of the reference by first calculating the topic distribution $\theta$ implied by the dataset (assuming all pathways in the resultant matrix are equally weighted) and then calculating the mean and the covariance matrix of the distribution of pathways based on it.
 
 In the last 4 datasets, I varied the density of the covariance matrix: the proportion of pathways in the implied matrix of correlations that are connected:
 
@@ -477,21 +477,29 @@ It can be observed that increasing the number of topics decreases the likelihood
 
 \subsection{Description of the dataset}
 
-KEGG (Kyoto Encyclopedia of Genes and Genomes), published by Kyoto Universiy Katehisa Laboratories is an online database of pathways and genes.
-CMap (Connectivity Map) is a catalog of gene-expression data.
+KEGG (Kyoto Encyclopedia of Genes and Genomes), published by Kyoto Universiy Katehisa Laboratories, is an online collection of databases dealing with various aspects of biology. Of interest to this project is the KEGG PATHWAY database, a collection of pathways and genes which they include. CMap (Connectivity Map), published by the Broad Institute is a catalog of gene-expression data.
 
-These datasets were preprocessed into the following matrices:
+These two datasets are used to derive the following matrices:
 
 \begin{itemize}[noitemsep]
-\item drug - gene (from CMap)
-\item boolean gene - pathway (from KEGG)
+\item Drug-gene expression data, where each entry is the logarithm of the ratio of the expression of the gene when treated with a certain drug against the baseline, rounded to 2 decimal figures.
+\item Boolean gene-pathway membership matrix that has a ``1" entry if the pathway contains a given gene and ``0" if it doesn't.
 \end{itemize}
 
-Parameters, size, sparsity
+I used the same preprocessed data that was used in the LDA paper, so I didn't have to perform the preprocessing of the raw gene expression data myself. This was so that the results from the LDA and the CTM method could be compared.
+
+The parameters of the training dataset are:
+\begin{itemize}[noitemsep]
+\item 3041 gene
+\item 236 pathways
+\item 1169 drugs
+\item Density of $\beta$: 0.0138
+\item Density of $\theta$: 0.1231
+\end{itemize}
 
 It took about 6 hours to train the model on the whole dataset.
 
-abs vs exponentiating
+Before the CTM can be trained on the dataset, the drug-gene expression data has to be turned into a sort of a ``document", since we're now operating in terms of words and word counts. This is performed by taking the absolute value of each element and multiplying it by 100 (since the preprocessed data has been rounded to the nearest 0.01). Observe that this discards the sign of the expression value. Since we're operating in log space, this means that the gene expression ratios that are reciprocals of each other will be treated the same.
 
 \subsection{CTD}
 

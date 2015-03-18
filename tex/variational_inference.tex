@@ -61,7 +61,7 @@
 	\caption{Model parameter inference for the whole corpus}
 	\begin{algorithmic}[1]
 		\Function{inference}{$\var{corpus}, K$}
-			\State Initialize the model parameters: $\var{mod-params}=(\mu = 0, \sigma=I, \beta=\var{priors})$
+			\State Initialize the model parameters: $\var{mod-params}=(\mu = 0, \Sigma=I, \beta=\var{priors})$
 			\While{change in likelihood bound $>$ threshold}
 				\State $\var{var-params}\gets \Call{variational-inference}{\var{mod-params}, w, n}$ for all $(w, n)$ in $\var{corpus}$
 				
