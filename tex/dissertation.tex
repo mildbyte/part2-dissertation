@@ -9,6 +9,7 @@
 \usepackage{amsmath}
 \usepackage{mathtools}
 \usepackage{enumitem}
+\usepackage{epstopdf}
 \newcommand{\var}[1]{{\operatorname{\mathit{#1}}}}
 
 \raggedbottom                           % try to avoid widows and orphans
@@ -262,7 +263,7 @@ Once these variational parameters have been found, they are used to estimate the
 
 \begin{align}
 \hat\beta_i & \propto \sum\limits_d\phi_{d, i}n_d \\ \label{eq:betaopt}
-\hat\mu & = \frac{1}{D} \sum\limits_d\lambda_d \\
+\hat\mu & = \frac{1}{D} \sum\limits_d\lambda_d \\ 
 \hat\Sigma & = \frac{1}{D} \sum\limits_d I\nu^2_d + (\lambda_d - \hat\mu)(\lambda_d - \hat\mu)^T
 \end{align}
 
@@ -471,6 +472,14 @@ It can be observed that increasing the number of topics decreases the likelihood
 
 \subsection{Parameter recovery}
 
+It would be reasonable to assume that if the model predicts the topic distribution for a document consistently well, it will also be able to recover the model parameters the corpus was generated with, since this is what the model relies on for its predictions. However, this is not exactly the case.
+
+Figure plots the RMSE between the inferred and the reference topic-word distributions as a function of the number of topics in the dataset. It's consistently smaller than random.
+
+Figures and plot the RMSE between the inferred and the reference sigma and mu, respectively. The situation here is more bleak.
+
+The issue here is that every sample theta from $N(\mu, \Sigma)$ is altered after sampling by enforcing a certain number of zero elements. Hence, the document-topic distributions after generation are not guaranteed to follow a normal distribution with the original parameters. Intuitively, this is because theta values now have a larger chance of some elements coinciding (since they both have been set to zero), which introduces a bias into the correlations.
+
 \subsection{Rank recovery}
 
 \section{KEGG and CMap datasets}
@@ -504,6 +513,10 @@ Before the CTM can be trained on the dataset, the drug-gene expression data has 
 \subsection{CTD}
 
 \subsubsection{Precision-recall curves}
+\begin{figure}[!htb]
+\includegraphics[width=\textwidth]{ctd-pr-curves.eps}
+\caption{Precision-recall curves on the validation dataset (CTD) for CTM, LDA, GMRF and random topic assignments (baseline)}
+\end{figure}
 Side plot from LDA, heatmap of correctly predicted pathways, PR curves (+ vs random)
 
 \subsubsection{Fraction of correctly identified pathway activity}

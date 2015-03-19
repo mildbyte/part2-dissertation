@@ -100,6 +100,13 @@ def plot_rank(theta, pathway_labels=None, prune_top=None, drug_name=None):
     
     plt.ylabel("Pathway rank")    
     plt.xlabel("Pathway proportion")
+
+def generate_random_beta(ref_beta):
+    result = np.random.uniform(size=ref_beta.shape)
+    result[ref_beta == 0] = 0
+    result /= np.sum(result, axis=1)[:, np.newaxis]
+    
+    return result
     
 def load_evaluation_dataset(supported_pathways=None):
     from collections import defaultdict
@@ -195,7 +202,7 @@ def calc_heatmap(thetas, eval_data):
     return img
     
 def plot_heatmap(thetas, eval_data):
-    imshow(calc_heatmap(thetas, eval_data), cmap="Greys_r", interpolation='nearest')
+    imshow(1 - calc_heatmap(thetas, eval_data), cmap="Greys_r", interpolation='nearest')
 
 #Filter the thetas so that they only mention the drugs and the pathways in the reference dataset
 def filter_thetas(thetas, pathways_in_eval, pathway_ids, drug_names_in_eval, drug_names):
@@ -205,6 +212,9 @@ def filter_thetas(thetas, pathways_in_eval, pathway_ids, drug_names_in_eval, dru
     filtered = np.delete(filtered, [i for i, d in enumerate(drug_names) if d not in drug_names_in_eval], axis=0)
     
     return filtered
+    
+def calc_ref_ranks(thetas):
+    return [np.where(d > 0)[0] for i, d in enumerate(thetas)]
 
 def plot_avg_pr_curve(thetas, reference):
     
@@ -339,19 +349,19 @@ if __name__ == "__main__":
     gmrf_thetas = filter_thetas(scipy.io.loadmat(diss_data_root + "output_s_me.mat")['output_S'].T, pathways_in_eval, pathway_ids, drug_names_in_eval, drug_names)
     gmrf_thetas /= np.sum(gmrf_thetas, axis=1)[:, np.newaxis]
 ##    
-##    lda_perf = validate_all_thetas(drug_names, lda_thetas_f, eval_data, pathway_map_in_eval)
-#    ctm_perf = validate_all_thetas(ctm_thetas_f, eval_data)
-#    random_perf = validate_all_thetas(random_thetas, eval_data)
-#    gmrf_perf = validate_all_thetas(gmrf_thetas, eval_data)
-##    
-#    ctm_side = np.sum(calc_heatmap(ctm_thetas_f, eval_data), axis=1)
-#    gmrf_side = np.sum(calc_heatmap(gmrf_thetas, eval_data), axis=1)
-##    lda_side = np.sum(calc_heatmap(drug_names, pathway_ids_in_eval, lda_thetas_f, eval_data), axis=1)
-#    ran_side = np.sum(calc_heatmap(random_thetas, eval_data), axis=1)
-#    ref_side = np.sum(calc_heatmap(eval_thetas, eval_data), axis=1)
+    lda_perf = validate_all_thetas(lda_thetas_f, eval_data)
+    ctm_perf = validate_all_thetas(ctm_thetas_f, eval_data)
+    random_perf = validate_all_thetas(random_thetas, eval_data)
+    gmrf_perf = validate_all_thetas(gmrf_thetas, eval_data)
 #    
-#    map(plot_cdf, [ctm_perf, random_perf, gmrf_perf])
-#    legend(['CTM', 'Random'])
+    ctm_side = np.sum(calc_heatmap(ctm_thetas_f, eval_data), axis=1)
+    gmrf_side = np.sum(calc_heatmap(gmrf_thetas, eval_data), axis=1)
+#    lda_side = np.sum(calc_heatmap(drug_names, pathway_ids_in_eval, lda_thetas_f, eval_data), axis=1)
+    ran_side = np.sum(calc_heatmap(random_thetas, eval_data), axis=1)
+    ref_side = np.sum(calc_heatmap(eval_thetas, eval_data), axis=1)
+    
+    map(plot_cdf, [ctm_perf, lda_perf, gmrf_perf, random_perf])
+    legend(['CTM', 'LDA', 'GMRF', 'Random'])
 #    title('CDF of the proportion of drug-pathway perturbations explained by each model')
 #    
 #    ctm_ap = [average_precision(t, e) for t, e in zip (ctm_thetas_f, eval_data)]
@@ -387,16 +397,18 @@ if __name__ == "__main__":
 #vary K, sparsity of beta(how many zeros in each topic)/topic graph
 #check out bdgraph!!!!
 #def generated_corpus_evaluation():
+
+    mu = np.loadtxt(diss_data_root + "ctd-implied-mu.txt")
+    sigma = np.loadtxt(diss_data_root + "ctd-implied-sigma.txt")        
+        
     voc_len = 3000
-    K = 50
+    K = len(mu)
     N_d = 1000
     no_docs = 500
     
-    mu = np.loadtxt(diss_data_root + "ctd-implied-mu.txt")
-    sigma = np.loadtxt(diss_data_root + "ctd-implied-sigma.txt")
-    
     print "Generating a random corpus..."
-    doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs, 0.1231, 0.0138)
+    doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs, 0.1231, 0.0138, mu, sigma)
+#    doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs, 0.25, 0.0138)
     
 #    validation(doc_words, doc_counts, doc_thetas)
     
@@ -446,7 +458,7 @@ if __name__ == "__main__":
     baseline2 = np.exp(baseline2) / np.sum(np.exp(baseline2), axis=1)[:, None]
     baseline2_diff_sizes = [cosine_similarity(inf, ref) for inf, ref in zip(baseline2, doc_thetas)]
     
-    ref_ranks = [np.where(d > 0)[0] for i, d in enumerate(doc_thetas)]
+    ref_ranks = calc_ref_ranks(doc_thetas)
     
     thetas = np.array(thetas)
     doc_thetas = np.array(doc_thetas)
@@ -462,6 +474,9 @@ if __name__ == "__main__":
     ctm_ap = [average_precision(t, r) for t, r in zip(thetas, ref_ranks)]
     rnd_ap = [average_precision(t, r) for t, r in zip(baseline2, ref_ranks)]
     ref_ap = [average_precision(t, r) for t, r in zip(doc_thetas, ref_ranks)]
+    
+    ctm_cosines = [cosine_similarity(t, r) for t, r in zip(thetas, doc_thetas)]
+    rnd_cosines = [cosine_similarity(t, r) for t, r in zip(baseline2, doc_thetas)]
 
 #    
 #    plot_cdf(theta_diff_sizes)
