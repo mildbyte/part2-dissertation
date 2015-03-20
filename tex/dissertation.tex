@@ -510,12 +510,17 @@ It took about 6 hours to train the model on the whole dataset.
 
 Before the CTM can be trained on the dataset, the drug-gene expression data has to be turned into a sort of a ``document", since we're now operating in terms of words and word counts. This is performed by taking the absolute value of each element and multiplying it by 100 (since the preprocessed data has been rounded to the nearest 0.01). Observe that this discards the sign of the expression value. Since we're operating in log space, this means that the gene expression ratios that are reciprocals of each other will be treated the same.
 
+\begin{figure}[!htb]
+\includegraphics[width=\textwidth]{ctd-ctm-lda-diffs.eps}
+\caption{Histogram of the cosine similarities between the topics inferred by CTM and LDA}
+\end{figure}
+
 \subsection{CTD}
 
 \subsubsection{Precision-recall curves}
 \begin{figure}[!htb]
 \includegraphics[width=\textwidth]{ctd-pr-curves.eps}
-\caption{Precision-recall curves on the validation dataset (CTD) for CTM, LDA, GMRF and random topic assignments (baseline)}
+\caption{Precision-recall curves on the validation dataset (CTD) for CTM, LDA, and random topic assignments (baseline)}
 \end{figure}
 Side plot from LDA, heatmap of correctly predicted pathways, PR curves (+ vs random)
 
