@@ -49,6 +49,26 @@ def connected_subgraph(G, node, max_depth=3):
         nodes = newnodes
     
     return G2
+
+def generate_cluster_graph(mcl_result, labels=None):
+    K = mcl_result.shape[0]
+    if labels is None:
+        labels = xrange(K)
+        
+    G = pygraphviz.AGraph('graph G {}')
+    G.node_attr['shape'] = 'box'
+    G.graph_attr['splines'] = 'spline'
+    G.graph_attr['overlap'] = 'prism'
+    
+    for a in xrange(K):
+        for b in xrange(K):
+            if a != b and mcl_result[a, b] > 1e-5:
+                G.add_edge(labels[a], labels[b])
+    
+    degree = G.degree()
+    G.delete_nodes_from([n for i, n in enumerate(G.nodes()) if degree[i] == 0])
+
+    return G
     
 def generate_graph(corr, threshold=0.1, sigma_labels=None):    
     K = corr.shape[0]
@@ -66,7 +86,7 @@ def generate_graph(corr, threshold=0.1, sigma_labels=None):
                 G.add_edge(sigma_labels[a], sigma_labels[b], len=(1.0 - corr[a, b]), label="%.2f" % corr[a, b])
     
     degree = G.degree()
-    G.delete_nodes_from([n for n in degree if degree[n] == 0])
+    G.delete_nodes_from([n for i, n in enumerate (G.nodes()) if degree[n] == 0])
 
     return G
 
@@ -106,6 +126,11 @@ def generate_random_beta(ref_beta):
     result[ref_beta == 0] = 0
     result /= np.sum(result, axis=1)[:, np.newaxis]
     
+    return result
+
+def generate_random_theta(ref_theta):
+    result = np.random.uniform(size=ref_theta.shape)
+    result = np.exp(result) / np.sum(np.exp(result), axis=1)[:, None]
     return result
     
 def load_evaluation_dataset(supported_pathways=None):
@@ -263,6 +288,19 @@ def load_toy_dataset(i):
 def save_toy_dataset(i, doc_words, doc_counts, doc_thetas, mu, sigma, beta, m_params, thetas):
     np.savez_compressed(diss_data_root + "%d-dataset" % i, doc_words, doc_counts, doc_thetas, mu, sigma, beta)
     np.savez_compressed(diss_data_root + "%d-results" % i, m_params, thetas)
+
+#Performs Markov clustering on the similarity matrix
+def mcl(M, power, inflation):
+    while True:
+        Mprev = M
+        M /= np.sum(M, axis=0)
+        
+        M = M ** power
+        M = np.linalg.matrix_power(M, inflation)
+        
+        if (np.mean(np.abs(M - Mprev)) < 0.00001):
+            return M / np.sum(M, axis=0)
+    
     
 #TODO: try the CDF/heatmap/side evaluation on the simulated data
 #writeup the simulated study
@@ -293,11 +331,11 @@ if __name__ == "__main__":
 #    
 ###    
 ####    
-    data = np.load(diss_data_root + "../data-every-1th-drug-exp.npz")
+    data = np.load(diss_data_root + "../data-every-1th-drug-new.npz")
     m_params = data['arr_0'].item()
 ###    v_params = data['arr_1']
 ###    
-    data = np.load(diss_data_root + "../thetas-every-1th-drug-exp.npz")
+    data = np.load(diss_data_root + "../thetas-every-1th-drug-new.npz")
     thetas = data['arr_0']
 ##  
 ##    thetas = np.array([expected_theta(v, m_params, w, c) for v, w, c in zip(v_params, doc_words, doc_counts)])      
@@ -356,12 +394,12 @@ if __name__ == "__main__":
 #    
     ctm_side = np.sum(calc_heatmap(ctm_thetas_f, eval_data), axis=1)
     gmrf_side = np.sum(calc_heatmap(gmrf_thetas, eval_data), axis=1)
-#    lda_side = np.sum(calc_heatmap(drug_names, pathway_ids_in_eval, lda_thetas_f, eval_data), axis=1)
+    lda_side = np.sum(calc_heatmap(lda_thetas_f, eval_data), axis=1)
     ran_side = np.sum(calc_heatmap(random_thetas, eval_data), axis=1)
     ref_side = np.sum(calc_heatmap(eval_thetas, eval_data), axis=1)
     
-    map(plot_cdf, [ctm_perf, lda_perf, gmrf_perf, random_perf])
-    legend(['CTM', 'LDA', 'GMRF', 'Random'])
+#    map(plot_cdf, [ctm_perf, lda_perf, gmrf_perf, random_perf])
+#    legend(['CTM', 'LDA', 'GMRF', 'Random'])
 #    title('CDF of the proportion of drug-pathway perturbations explained by each model')
 #    
 #    ctm_ap = [average_precision(t, e) for t, e in zip (ctm_thetas_f, eval_data)]
@@ -402,12 +440,12 @@ if __name__ == "__main__":
     sigma = np.loadtxt(diss_data_root + "ctd-implied-sigma.txt")        
         
     voc_len = 3000
-    K = len(mu)
+    K = 50
     N_d = 1000
     no_docs = 500
     
     print "Generating a random corpus..."
-    doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs, 0.1231, 0.0138, mu, sigma)
+    doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs, 0.1231, 0.0138)
 #    doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs, 0.25, 0.0138)
     
 #    validation(doc_words, doc_counts, doc_thetas)
@@ -432,60 +470,46 @@ if __name__ == "__main__":
     permuted_sigma = np.array(m_params.sigma)
     permuted_beta = np.array(m_params.beta)
     
-    #todo: axis=1 gives better results
-    betamap = np.argmax(corr, axis=0) #betamap[i] : inferred topic id that's most similar to the actual topic i
-    if (len(np.unique(betamap)) < len(betamap)):
-        print "Warning: could not infer the topic mapping, topics not far enough apart"
-    else:
-        for d in xrange(len(thetas)):
-            for i in xrange(len(betamap)):
-                permuted_thetas[d, betamap[i]] = thetas[d, i]
-        for i in xrange(len(mu)):
-            permuted_mu[betamap[i]] = m_params.mu[i]
-        for i in xrange(K):
-            for j in xrange(K):
-                permuted_sigma[betamap[i], betamap[j]] = m_params.sigma[i, j]
-        for i in xrange(K):
-            permuted_beta[betamap[i]] = m_params.beta[i]
+#    #todo: axis=1 gives better results
+#    betamap = np.argmax(corr, axis=0) #betamap[i] : inferred topic id that's most similar to the actual topic i
+#    if (len(np.unique(betamap)) < len(betamap)):
+#        print "Warning: could not infer the topic mapping, topics not far enough apart"
+#    else:
+#        for d in xrange(len(thetas)):
+#            for i in xrange(len(betamap)):
+#                permuted_thetas[d, betamap[i]] = thetas[d, i]
+#        for i in xrange(len(mu)):
+#            permuted_mu[betamap[i]] = m_params.mu[i]
+#        for i in xrange(K):
+#            for j in xrange(K):
+#                permuted_sigma[betamap[i], betamap[j]] = m_params.sigma[i, j]
+#        for i in xrange(K):
+#            permuted_beta[betamap[i]] = m_params.beta[i]
     
     theta_diff_sizes = [dsm_rmse(inf, ref) for inf, ref in zip(permuted_thetas, doc_thetas)]
-    
-    baseline = np.random.multivariate_normal(mu, sigma, size=no_docs)
-    baseline = np.exp(baseline) / np.sum(np.exp(baseline), axis=1)[:, None]
-    baseline_diff_sizes = [cosine_similarity(inf, ref) for inf, ref in zip(baseline, doc_thetas)]
-    
-    baseline2 = np.random.uniform(size=baseline.shape)
-    baseline2 = np.exp(baseline2) / np.sum(np.exp(baseline2), axis=1)[:, None]
-    baseline2_diff_sizes = [cosine_similarity(inf, ref) for inf, ref in zip(baseline2, doc_thetas)]
-    
+
     ref_ranks = calc_ref_ranks(doc_thetas)
     
     thetas = np.array(thetas)
     doc_thetas = np.array(doc_thetas)
     
+    baseline = generate_random_theta(doc_thetas)
+    
     ctm_perf = validate_all_thetas(thetas, ref_ranks)
-    rnd_perf = validate_all_thetas(baseline2, ref_ranks)
+    rnd_perf = validate_all_thetas(baseline, ref_ranks)
     ref_perf = validate_all_thetas(doc_thetas, ref_ranks)
     
     ctm_side = np.sum(calc_heatmap(thetas, ref_ranks), axis=1)
     ref_side = np.sum(calc_heatmap(doc_thetas, ref_ranks), axis=1)
-    rnd_side = np.sum(calc_heatmap(baseline2, ref_ranks), axis=1)
+    rnd_side = np.sum(calc_heatmap(baseline, ref_ranks), axis=1)
     
     ctm_ap = [average_precision(t, r) for t, r in zip(thetas, ref_ranks)]
-    rnd_ap = [average_precision(t, r) for t, r in zip(baseline2, ref_ranks)]
+    rnd_ap = [average_precision(t, r) for t, r in zip(baseline, ref_ranks)]
     ref_ap = [average_precision(t, r) for t, r in zip(doc_thetas, ref_ranks)]
     
     ctm_cosines = [cosine_similarity(t, r) for t, r in zip(thetas, doc_thetas)]
-    rnd_cosines = [cosine_similarity(t, r) for t, r in zip(baseline2, doc_thetas)]
+    rnd_cosines = [cosine_similarity(t, r) for t, r in zip(baseline, doc_thetas)]
 
-#    
-#    plot_cdf(theta_diff_sizes)
-#    plot_cdf(baseline2_diff_sizes)
-#    
-#    plt.legend([r"Inferred $\theta$", r"Baseline $\theta$ (random)"])
-#    plt.xlabel("RMSE $\\theta_{inf}$ from $\\theta_{ref}$")
-#    plt.ylabel("Proportion of errors below a given RMSE (the CDF)")
-#        
     reference = document_similarity_matrix(doc_thetas)
     inferred = document_similarity_matrix(thetas)
     
