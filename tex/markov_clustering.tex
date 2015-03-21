@@ -1,0 +1,24 @@
+\documentclass{article}
+\usepackage[noend]{algpseudocode}
+\usepackage[]{algorithm}
+\usepackage{amsmath}
+\usepackage[cm]{fullpage}
+\newcommand{\var}[1]{{\operatorname{\mathit{#1}}}}
+
+\begin{document}
+\begin{algorithm}
+	\caption{Markov Clustering Algorithm}
+	\begin{algorithmic}[1]
+		\Function{markov-clustering}{$M, \var{expansion}, \var{inflation}$}
+			\While{change in $M >$ threshold}
+				\State Normalize $M$
+				\State Expansion step: $M_{i,j} \gets M_{i,j}^{\var{expansion}}$
+				\State Inflation step: $M \gets M^{\var{inflation}}$
+			\EndWhile
+			\State Normalize $M$
+			\State\Return $M$
+		\EndFunction
+	\end{algorithmic}
+\end{algorithm}
+
+\end{document}

@@ -313,19 +313,19 @@ if __name__ == "__main__":
     drug_prune = 1
     gene_prune = 1
     pathway_prune = 1
-#
-#    drug_gene = np.loadtxt(diss_data_root + "drug_gene_expression_matrix.txt", skiprows=1).T
-#    drug_gene = np.exp(drug_gene)
-#    drug_gene = drug_gene[::drug_prune,::gene_prune]     
-#    
-#    doc_words = [d.nonzero()[0] for d in drug_gene]
-#    doc_counts = [d[d.nonzero()[0]] for d in drug_gene]
-#
-#    priors = np.loadtxt(diss_data_root + "gene_pathway_matrix_K.txt", skiprows=1).T[::pathway_prune,::gene_prune]
-#    priors = np.array([p / sum(p) for p in priors])
-#    beta_density = density(priors) #0.0138 for ctd
-#
-#    print "Drugs: %d, pathways: %d, genes: %d" % (drug_gene.shape[0], priors.shape[0], drug_gene.shape[1])
+
+    drug_gene = np.loadtxt(diss_data_root + "gene_expression_matrix_X.txt")
+    drug_gene = np.exp(drug_gene)
+    drug_gene = drug_gene[::drug_prune,::gene_prune]     
+    
+    doc_words = [d.nonzero()[0] for d in drug_gene]
+    doc_counts = [d[d.nonzero()[0]] for d in drug_gene]
+
+    priors = np.loadtxt(diss_data_root + "gene_pathway_matrix_K.txt").T[::pathway_prune,::gene_prune]
+    priors = np.array([p / sum(p) for p in priors])
+    beta_density = density(priors) #0.0138 for ctd
+
+    print "Drugs: %d, pathways: %d, genes: %d" % (drug_gene.shape[0], priors.shape[0], drug_gene.shape[1])
 ### 
 ##    m_params, v_params = expectation_maximization(doc_words, doc_counts, len(priors), priors, max_iterations=100)
 #    
