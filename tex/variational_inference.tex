@@ -8,6 +8,7 @@
 \begin{document}
 \begin{algorithm}
    \caption{Variational Inference for a document}
+   \label{alg:variational_inference}
    \Comment{$\var{mod-params}$ is a tuple $(\mu, \Sigma, \beta), \var{var-params}$ is a tuple $(\zeta, \phi, \lambda, \nu^2)$.}
    \begin{algorithmic}[1]
       \Function{optimize-zeta}{$\lambda, \nu^2$}
@@ -59,6 +60,7 @@
 
 \begin{algorithm}
 	\caption{Model parameter inference for the whole corpus}
+	\label{alg:expectation_maximisation}
 	\begin{algorithmic}[1]
 		\Function{inference}{$\var{corpus}, K$}
 			\State Initialize the model parameters: $\var{mod-params}=(\mu = 0, \Sigma=I, \beta=\var{priors})$
@@ -75,7 +77,7 @@
 						\EndFor
 					\EndFor
 				\EndFor
-				\State Normalize $\beta$ so that every column sums up to 1
+				\State Normalize $\beta$ so that every row sums up to 1
 			\EndWhile
 			\State\Return $\var{mod-params}$
 		\EndFunction

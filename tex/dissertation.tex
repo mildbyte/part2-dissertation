@@ -126,6 +126,7 @@ Using topic models in order to predict pathways affected by drugs has many benef
 
 This section sets up the notation used throughout the whole dissertation and derives the training and the inference process for the Correlated Topic Model. The training process was mostly derived from Blei's original paper, however I provide some additions here so that the derivation is easier to understand. The derivation of the inference process is mine, however I used Blei's CTM implementation in C to verify my method.
 
+\begin{table}
 \begin{tabular}{| l | l |}
 \hline
 Variable & Description \\
@@ -142,6 +143,8 @@ $\eta$ & Drawn topic distribution for a certain document \\
 $z$ & Drawn topic assignments for each word in the document \\
 \hline
 \end{tabular}
+\caption{Definitions of the variables used in the Correlated Topic Model}
+\end{table}
 
 \subsection{Deriving the likelihood bound on the corpus}
 
@@ -269,7 +272,7 @@ Once these variational parameters have been found, they are used to estimate the
 
 \subsection{Final algorithm of the training process}
 
-The overall training process is as follows: set some initial model parameters and use those to perform variational inference on every document. Use the variational parameters to update the model parameters and repeat again until the likelihood bound converges (fractional change is less than a certain threshold).
+The overall training process is as follows: set some initial model parameters and use those to perform variational inference on every document (Algorithm \ref{alg:variational_inference}). Use the variational parameters to update the model parameters (Algorithm \ref{alg:expectation_maximisation}) and repeat until the likelihood bound converges (fractional change is less than a certain threshold). In the original paper, this algorithm is called Variational EM (Expectation-Maximisation). The classic EM algorithm consists of two steps: the E step, where some sort of a function of the model parameters is calculated or expressed, and the M step, where that function is maximised. Here, the E step is the variational inference process (where we express the likelihood bound on the document as a function of the parameters of the variational distribution (fit to each document) and the global model parameters) and the M step is where the variational parameters for every document are combined to update the global model parameters.
 
 \input{variational_inference}
 
@@ -287,19 +290,19 @@ TODO: read up on how theta is inferred
 
 \section{Implementation in code and code optimisation}
 
-To implement the training process for the model, I used Python, perhaps an unusual choice given the large amount of numerical computation that needs to be done and the poor performance of Python on these kinds of tasks. However, Python allows for extremely dense and expressive code, as well as has a REPL (Read-Eval-Print Loop), which allows for quick prototyping, implementation and debugging. The unsuitability of Python for numerical calculations is fixed by NumPy, a linear algebra library, that allows fast matrix operations in native code (using either routines provided by NumPy or more advanced numerical libraries that support the Basic Linear Algebra Subsystem (BLAS) API, such as ATLAS or OpenBLAS). In addition, NumPy integrates well with SciPy, a scientific computing library that provides useful routines, for example, for working with probability distributions or numerical optimisation.
+To implement the training process for the model, I used Python, perhaps an unusual choice given the large amount of numerical computation that needs to be done and the poor performance of Python on these kinds of tasks. However, Python allows for extremely dense and expressive code, as well as has a REPL (Read-Eval-Print Loop), which allows for quick prototyping, implementation and debugging. The unsuitability of Python for numerical calculations is fixed by \texttt{NumPy}, a linear algebra library, that allows fast matrix operations in native code (using either routines provided by \texttt{NumPy} or more advanced numerical libraries that support the Basic Linear Algebra Subsystem (BLAS) API, such as ATLAS or OpenBLAS). In addition, NumPy integrates well with \texttt{SciPy}, a scientific computing library that provides useful routines, for example, for working with probability distributions or numerical optimisation.
 
-Despite using NumPy, I still had performance issues which would have made working with the actual KEGG/CMap datasets very inconvenient. The training time for 1/10th of the dataset was about 3-4 hours, which implies more than 30-40 hours for the full dataset, since increasing its size would worsen the convergence rate. Using the profiler, I identified several performance bottlenecks in the code.
+Despite using \texttt{NumPy}, I still had performance issues which would have made working with the real-world datasets very inconvenient. The training time for 1/10th of the dataset was about 3-4 hours, which implies more than 30-40 hours for the full dataset, since increasing its size would worsen the convergence rate. Using \texttt{cProfile}, a Python profiler, I identified several performance bottlenecks in the code.
 
 Firstly, the EM process used explicit Python list comprehensions that are evaluated using the Python interpreter, which I converted into matrix products.
 
-Another major bottleneck is the likelihood bound calculation, which has to be performed every variational inference cycle for every document, since the termination criterion is based on the magnitude of changes in the bound. One solution to this would be not calculating the likelihood bound every iteration, but this resulted in worse performance: another variational inference cycle was more expensive than checking the bound. I used \texttt{numexpr}, a package that compiles operations on \texttt{NumPy} arrays into its own internal virtual machine bytecode and supports multithreaded computations on arrays.
+Another major bottleneck is the likelihood bound calculation, which has to be performed every variational inference cycle for every document, since the termination criterion is based on the magnitude of changes in the bound. One solution to this would be not calculating the likelihood bound every iteration, but this resulted in worse performance: another variational inference cycle was more expensive than checking the bound. To speed this up, I used \texttt{numexpr}, a package that compiles operations on \texttt{NumPy} arrays into its own internal virtual machine bytecode and supports multithreaded computations on arrays. This involved rewriting some code for the likelihood bound calculation (since \texttt{numexpr} only supports some operators and mathematical functions) and passing it as a string to the evaluator. Interestingly enough, I did not get an improvement when making the objective functions for the $\nu^2$ and $\lambda$ optimisation use \texttt{numexpr}.
 
 The variational inference process requires calling the \texttt{SciPy} function minimizer for some parameters multiple times, which requires an initial value to start its search from. It turned out that in the beginning of the variational inference (every EM iteration) the initial values were the default ones. Recycling the variational parameters to continue the search from the previous iteration gave yet another performance improvement.
 
 I also recompiled my \texttt{NumPy} distribution to use the Intel Math Kernel Library as its backend. Free for academic and personal use, Intel MKL provides a linear algebra library that implements the BLAS (Basic Linear Algebra Subsystem) API, optimized for manycore Intel CPUs.
 
-Since the variational inference process is independent for every document, it can be parallelized across multiple cores. However, because of the Python Global Interpreter Lock, only one thread can execute Python bytecode at a time. This meant that I had to launch several Python processes if I wanted to take advantage of my CPU's capabilities. While this did provide an increase in CPU usage, it resulted in worse performance than using \texttt{numxepr} and Intel MKL's natural multithreading capabilities.
+Since the variational inference process is independent for every document, it can be parallelized across multiple cores. However, because of the Python Global Interpreter Lock, only one thread can execute Python bytecode at a time. This meant that I had to launch several Python processes if I wanted to take advantage of my CPU's capabilities. While this did provide an increase in CPU usage, it resulted in worse performance than using \texttt{numexpr} and Intel MKL's natural multithreading capabilities.
 
 These efforts brought the training time down to about 8-9 hours for the whole dataset.
 
@@ -345,7 +348,7 @@ One big problem in the evaluation of the model is topic identifiability: the rec
 
 Firstly, if we're evaluating the model on toy datasets, we have access to the actual matrix of topic-word distributions $\beta$. Hence, a similarity matrix between the inferred and the reference $\beta$ can be constructed:
 
-\begin{equation}
+\begin{equation}\label{eq:beta_similarity matrix}
 M_{i,j} = \frac{\beta^{inf}_i \cdot \beta^{ref}_j}{|\beta^{inf}_i||\beta^{ref}_j|}
 \end{equation}
 
@@ -355,7 +358,7 @@ By inspecting this matrix, we can find out which topics from the inferred and th
 &\mu'_{map_i} = \mu_i \\
 &\Sigma'_{map_i, map_j} = \Sigma_{i, j} \\
 &\beta'_{map_i, w} = \beta_{i, w} \\
-&\theta'_{map_d} = \theta_i
+&\theta'_{map_i} = \theta_i
 \end{align*}
 
 While this method is used when evaluating the recovery of the model parameters, it will not help with evaluation on the real-world dataset (since the actual parameters are, obviously, unavailable).
@@ -370,7 +373,7 @@ The model is trained with the resultant pattern of zeros in $\beta$ set as its p
 
 Since the final output of the model is a distribution of topics for every document, it makes sense to evaluate the model based on that.
 
-The performance measure that is not affected by the topic identifiability is the document similarity matrix, which is very close in its definition to the beta matrix used to permute the parameters. Given the inferred and the reference $\theta$, the per-document topic distribution, we can take their cosine similarity to see how similar any two documents are. Thus, for the whole corpus, we can construct a document similarity matrix and the two matrices for the inferred and the reference distributions can be compared:
+The performance measure that is not affected by the topic identifiability is the document similarity matrix, which is very close in its definition to the beta matrix (\ref{eq:beta_similarity matrix}) used to permute the parameters. Given the inferred and the reference $\theta$, the per-document topic distribution, we can take their cosine similarity to see how similar any two documents are. Thus, for the whole corpus, we can construct a document similarity matrix and the two matrices for the inferred and the reference distributions can be compared:
 
 \begin{equation}
 M_{i,j} = \frac{\theta_i \cdot \theta_j}{|\theta_i||\theta_j|}
@@ -526,8 +529,10 @@ To perform a quick sanity check for the results, I took the cosine similarities 
 \begin{figure}[!htb]
 \includegraphics[width=\textwidth]{ctd-pr-curves.eps}
 \caption{Precision-recall curves on the validation dataset (CTD) for CTM, LDA, and random topic assignments (baseline)}
+\label{fig:ctd-pr-curves}
 \end{figure}
-Side plot from LDA, heatmap of correctly predicted pathways, PR curves (+ vs random)
+
+Figure~\ref{fig:ctd-pr-curves} shows the average precision-recall curve across the whole dataset.
 
 \subsubsection{Fraction of correctly identified pathway activity}
 The CDF thing (LDA-CTM-RND)
