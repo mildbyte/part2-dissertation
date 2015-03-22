@@ -308,7 +308,7 @@ These efforts brought the training time down to about 8-9 hours for the whole da
 
 \chapter{Evaluation}
 
-There are two ways the evaluation of the model can be performed: firstly, it can be trained on real-world gene expression and pathway membership data and evaluated against another dataset, called CTD, that lists, for every drug, the pathways that it does affect. However, it is not at all certain that the drug gene expression data actually does follow the generative framework defined by the CTM. Therefore, if model had poor performance on the real-world dataset, it would be impossible to find out whether it's because of an error in the implementation of the model or simply because the CTM is not suited to such tasks.
+There are two ways the evaluation of the model can be performed: firstly, it can be trained on real-world gene expression and pathway membership data (which will be referred to as the KEGG/CMap dataset) and evaluated against another dataset, called CTD, that lists, for every drug, the pathways that it does affect. However, it is not at all certain that the drug gene expression data actually does follow the generative framework defined by the CTM. Therefore, if model had poor performance on the real-world dataset, it would be impossible to find out whether it's because of an error in the implementation of the model or simply because the CTM is not suited to such tasks.
 
 Hence, most of the evaluation was performed on toy datasets, generated as per the CTM's framework. This allowed to explore the capabilities of the CTM as well as employ more effective evaluation methods, since the model parameters and the per-document topic distributions that the corpus was generated with were available.
 
@@ -375,7 +375,7 @@ Since the final output of the model is a distribution of topics for every docume
 
 The performance measure that is not affected by the topic identifiability is the document similarity matrix, which is very close in its definition to the beta matrix (\ref{eq:beta_similarity matrix}) used to permute the parameters. Given the inferred and the reference $\theta$, the per-document topic distribution, we can take their cosine similarity to see how similar any two documents are. Thus, for the whole corpus, we can construct a document similarity matrix and the two matrices for the inferred and the reference distributions can be compared:
 
-\begin{equation}
+\begin{equation}\label{eq:document_similarity_matrix}
 M_{i,j} = \frac{\theta_i \cdot \theta_j}{|\theta_i||\theta_j|}
 \end{equation}
 
@@ -427,11 +427,11 @@ The distribution of these values can then be compared to the performance of rand
 
 \section{Toy datasets}
 
-The following subsections describe the datasets which were generated and describes the results of the evaluation as per the aforementioned methods
+The following subsections describe the datasets which were generated and describes the results of the evaluation as per the aforementioned methods.
 
 \subsection{Description of toy datasets}
 
-The datasets were generated so that they mimic the properties of the real world KEGG/CMap dataset. All datasets have the following in common:
+The first batch of datasets was generated so that it mimics the properties of the real world KEGG/CMap dataset. All datasets from this batch have the following in common:
 
 \begin{itemize}[noitemsep]
 \item Vocabulary length (number of genes): 3000
@@ -502,7 +502,9 @@ These two datasets are used to derive the following matrices:
 
 I used the same preprocessed data that was used in the LDA paper, so I didn't have to perform the preprocessing of the raw gene expression data myself. This was so that the results from the LDA and the CTM method could be compared.
 
-Before the CTM can be trained on the dataset, the drug-gene expression data has to be turned into a sort of a ``document", since we're now operating in terms of words and word counts. This is performed by taking the absolute value of each element and multiplying it by 100 (since the preprocessed data has been rounded to the nearest 0.01). Observe that this discards the sign of the expression value. Since we're operating in log space, this means that the gene expression ratios that are reciprocals of each other will be treated the same.
+Before the CTM can be trained on the dataset, the drug-gene expression data has to be turned into a sort of a ``document", since we're now operating in terms of words and word counts. Both LDA and my implementation of CTM do it by taking the absolute value of each element and multiplying it by 100 (since the preprocessed data has been rounded to the nearest 0.01). Observe that this discards the sign of the expression value and since we're operating in log space, this means that the gene expression ratios that are reciprocals of each other will be treated the same.
+
+I was not comfortable with this method since it involved discarding information that the model might have had a use for, but the CTM training process does require nonnegative values. I hence performed another experimental run where the differential gene expression data was exponentiated (since the source matrix actually contains logarithms)
 
 The parameters of the training dataset are:
 \begin{itemize}[noitemsep]
@@ -515,6 +517,8 @@ The parameters of the training dataset are:
 
 It took about 9 hours to train the model on the whole dataset and perform the inference of the pathway structure for every drug.
 
+TODO: CTM inference had 1000 theta samples, enough?
+
 To perform a quick sanity check for the results, I took the cosine similarities for the predicted pathway distributions by CTM and LDA for every drug and plotted their distribution (Figure~\ref{fig:ctd-ctm-lda-diffs}). The distribution of cosine similarities between random guessing and LDA is also plotted for comparison. It can be seen that CTM and LDA give very similar results.
 
 \begin{figure}[!htb]
@@ -525,20 +529,57 @@ To perform a quick sanity check for the results, I took the cosine similarities 
 
 \subsection{CTD}
 
+TODO: What is CTD?
+
+The CTD dataset is a catalogue of drugs that lists which pathway each one of those affects. Not all pathways and not all drugs used in the KEGG/CMap dataset are mentioned in the CTD, so thefinal drug-pathway prediction matrices output by LDA and CTM had to be filtered down to the shape of CTD: 495 drugs (thus simply dropping the relevant rows) and 193 pathways (removing the columns and renormalising).
+
+The predicted thetas are then used to rank the pathways for every drug.
+
+Figure~\ref{fig:ctm-ctd-heatmap} shows a so-called ``heatmap" for CTM: the drugs are plotted on the horizontal axis and the vertical axis refers to the rank of the pathway for this drug. The corresponding square on this grid is black if the pathway at this rank is, indeed, affected by the drug (as per the CTD) and white if it isn't.
+
+\begin{figure}[!htb]
+\includegraphics[width=\textwidth]{ctm-ctd-heatmap.eps}
+\caption{CTD ``heatmap" for CTM}
+\label{fig:ctm-ctd-heatmap}
+\end{figure}
+
+\begin{figure}[!htb]
+\includegraphics[width=\textwidth]{lda-ctd-heatmap.eps}
+\caption{CTD ``heatmap" for LDA}
+\label{fig:lda-ctd-heatmap}
+\end{figure}
+
+\begin{figure}[!htb]
+\includegraphics[width=\textwidth]{ref-ctd-heatmap.eps}
+\caption{Reference CTD ``heatmap" where all pathways are inferred correctly}
+\label{fig:ref-ctd-heatmap}
+\end{figure}
+
+The expected behaviour is for the black squares to cluster towards the top of the ``heatmap", since that means the model assigned the top ranks to pathways that are actually correct. Figure~\ref{fig:ref-ctd-heatmap} shows this on an idealised ``heatmap" for the reference theta matrix created from the CTD. However, both LDA (Figure~\ref{fig:lda-ctd-heatmap}) and CTM are very far from that and to see exactly how, a different visualisation is required.
+
 \subsubsection{Precision-recall curves}
+
+A precision-recall curve can be interpreted as follows: imagine covering all but the first line of the aforementioned ``heatmap" and then calculating the fraction of correctly predicted pathways that are visible (black squares) over all ``retrieved" pathways (all visible squares). This is the precision at that rank cutoff. The recall is defined as the fraction of correctly predicted pathways over all correct pathways (including the invisible ones, so the denominator is fixed for this dataset). Naturally, as more and more ranks get uncovered, the recall increases (since we're seeing more and more black squares), whereas the precision can vary (if all the newly uncovered squares are black, it will increase and if they are all white, it will decrease).
+
+These pairs of values can then be plotted to form a precision-recall curve for the whole dataset (Figure~\ref{fig:ctd-pr-curves}).
+
 \begin{figure}[!htb]
 \includegraphics[width=\textwidth]{ctd-pr-curves.eps}
 \caption{Precision-recall curves on the validation dataset (CTD) for CTM, LDA, and random topic assignments (baseline)}
 \label{fig:ctd-pr-curves}
 \end{figure}
 
-Figure~\ref{fig:ctd-pr-curves} shows the average precision-recall curve across the whole dataset.
+The MAP values for CTM and LDA are 0.181 and 0.189, respectively. The average MAP value for random guessing is 0.141.
+
+The main conclusion to be made from this is that while CTM does have some predictive power, since its performance is significantly different from the baseline, it, in fact, does not outperform LDA on this dataset.
+
+What is very curious, however, is a large spike in the precision of both CTM and LDA at low recall levels.
 
 \subsubsection{Fraction of correctly identified pathway activity}
 The CDF thing (LDA-CTM-RND)
 
 \subsubsection{Clustering the drug similarity matrix}
-Since the document (or drug) similarity matrix is not affected by the topic identifiability, I decided to perform clustering on the matrix to identify some common groups of drugs and reference them to the actual descriptions of those drugs.
+Since the document (or drug) similarity matrix (\ref{eq:document_similarity_matrix}) is not affected by the topic identifiability, I decided to perform clustering on the matrix to identify some common groups of drugs and reference them to the actual descriptions of those drugs.
 I used the Markov Clustering Algorithm (MCL), a simple method that's based on the insight that a document similarity matrix, when normalised, forms a Markov chain. If one simulates multiple ``random walkers" on this chain and slowly starts weakening the links between the chains, each of them will eventually end up roaming around the final clusters. This is encoded in the following algorithm:
 
 \input{markov_clustering}

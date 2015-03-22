@@ -173,6 +173,17 @@ def precision_recall(theta, reference):
     
     return [(precision(k+1, rank, reference), recall(k+1, rank, reference)) for k in xrange(len(theta))]
 
+def mul_precision_rank(thetas, eval_data):
+    ranks = [sorted(range(len(t)), key=lambda x: t[x], reverse=True) for t in thetas]
+    
+    result = []
+    
+    for k in xrange(len(thetas[0])):
+        pre = float(sum([precision(k+1, r, ref) for r, ref in zip(ranks, eval_data)])) / len(thetas)
+        result.append((k, pre))
+    
+    return result
+
 def mul_precision_recall(thetas, eval_data):
     ranks = [sorted(range(len(t)), key=lambda x: t[x], reverse=True) for t in thetas]
     
@@ -293,13 +304,22 @@ def save_toy_dataset(i, doc_words, doc_counts, doc_thetas, mu, sigma, beta, m_pa
 def mcl(M, power, inflation):
     while True:
         Mprev = M
-        M /= np.sum(M, axis=0)
+        M = M / np.sum(M, axis=0)
+        
+        M = np.linalg.matrix_power(M, inflation)
+        M = M ** power
+        
+        if (np.mean(np.abs(M - Mprev)) < 0.00001):
+            return M / np.sum(M, axis=0)
+
+def mcl_it(M, power, inflation, iterations=100):
+    for _ in xrange(iterations):
+        M = M / np.sum(M, axis=0)
         
         M = M ** power
         M = np.linalg.matrix_power(M, inflation)
         
-        if (np.mean(np.abs(M - Mprev)) < 0.00001):
-            return M / np.sum(M, axis=0)
+    return M / np.sum(M, axis=0)
     
     
 #TODO: try the CDF/heatmap/side evaluation on the simulated data
@@ -337,6 +357,9 @@ if __name__ == "__main__":
 ###    
     data = np.load(diss_data_root + "../thetas-every-1th-drug-new.npz")
     thetas = data['arr_0']
+    
+    data = np.load(diss_data_root + "../thetas-every-1th-drug-exp.npz")
+    thetas_exp = data['arr_0']
 ##  
 ##    thetas = np.array([expected_theta(v, m_params, w, c) for v, w, c in zip(v_params, doc_words, doc_counts)])      
 ##    
@@ -367,9 +390,10 @@ if __name__ == "__main__":
 ##
     lda_thetas = np.loadtxt(diss_data_root + "lda-theta-paper.txt")
     lda_thetas_f = filter_thetas(lda_thetas, pathways_in_eval, pathway_ids, drug_names_in_eval, drug_names)
-##    
+    
     ctm_thetas_f = filter_thetas(thetas, pathways_in_eval, pathway_ids, drug_names_in_eval, drug_names)
-##
+    ctm_thetas_exp_f = filter_thetas(thetas_exp, pathways_in_eval, pathway_ids, drug_names_in_eval, drug_names)
+    
     random_thetas = np.random.uniform(size=ctm_thetas_f.shape)
     random_thetas /= np.sum(random_thetas, axis=1)[:, np.newaxis]
 
@@ -389,10 +413,11 @@ if __name__ == "__main__":
 ##    
     lda_perf = validate_all_thetas(lda_thetas_f, eval_data)
     ctm_perf = validate_all_thetas(ctm_thetas_f, eval_data)
+    ctm_exp_perf = validate_all_thetas(ctm_thetas_exp_f, eval_data)
     random_perf = validate_all_thetas(random_thetas, eval_data)
     gmrf_perf = validate_all_thetas(gmrf_thetas, eval_data)
 #    
-    ctm_side = np.sum(calc_heatmap(ctm_thetas_f, eval_data), axis=1)
+    ctm_exp_side = np.sum(calc_heatmap(ctm_thetas_exp_f, eval_data), axis=1)
     gmrf_side = np.sum(calc_heatmap(gmrf_thetas, eval_data), axis=1)
     lda_side = np.sum(calc_heatmap(lda_thetas_f, eval_data), axis=1)
     ran_side = np.sum(calc_heatmap(random_thetas, eval_data), axis=1)
@@ -440,7 +465,7 @@ if __name__ == "__main__":
     sigma = np.loadtxt(diss_data_root + "ctd-implied-sigma.txt")        
         
     voc_len = 3000
-    K = 50
+    K = 100
     N_d = 1000
     no_docs = 500
     
