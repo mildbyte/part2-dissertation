@@ -504,7 +504,7 @@ I used the same preprocessed data that was used in the LDA paper, so I didn't ha
 
 Before the CTM can be trained on the dataset, the drug-gene expression data has to be turned into a sort of a ``document", since we're now operating in terms of words and word counts. Both LDA and my implementation of CTM do it by taking the absolute value of each element and multiplying it by 100 (since the preprocessed data has been rounded to the nearest 0.01). Observe that this discards the sign of the expression value and since we're operating in log space, this means that the gene expression ratios that are reciprocals of each other will be treated the same.
 
-I was not comfortable with this method since it involved discarding information that the model might have had a use for, but the CTM training process does require nonnegative values. I hence performed another experimental run where the differential gene expression data was exponentiated (since the source matrix actually contains logarithms)
+I was not comfortable with this method since it involved discarding information that the model might have had a use for, but the CTM training process does require nonnegative values. I hence performed another experimental run where the differential gene expression data was exponentiated (since the source matrix actually has logarithms of the gene expression ratio).
 
 The parameters of the training dataset are:
 \begin{itemize}[noitemsep]
@@ -569,11 +569,27 @@ These pairs of values can then be plotted to form a precision-recall curve for t
 \label{fig:ctd-pr-curves}
 \end{figure}
 
-The MAP values for CTM and LDA are 0.181 and 0.189, respectively. The average MAP value for random guessing is 0.141.
+The MAP values for CTM, LDA and CTM with exponentiation are 0.181, 0.189 and 0.204, respectively. The average MAP value for random guessing is 0.172.
 
-The main conclusion to be made from this is that while CTM does have some predictive power, since its performance is significantly different from the baseline, it, in fact, does not outperform LDA on this dataset.
+The main conclusion to be made from this is that while CTM does have some predictive power, since its performance is significantly different from the baseline, it, in fact, does not outperform LDA on this dataset. Exponentiating the gene expression data prior to training (and thus not discarding the sign), however, improves the performance of CTM beyond that of LDA.
 
-What is very curious, however, is a large spike in the precision of both CTM and LDA at low recall levels.
+One curious phenomenon on this graph is the large spike in precision at low recall levels, meaning that all models made multiple correct predictions at top ranks. Figure~\ref{fig:ctd-side-plot-10} shows this in more detail: it plots, in essence, the number of black squares in each model's ``heatmap" at every rank up to 10. For almost half of all the drugs, the three models' most expressed pathway is indeed confirmed by CTD to be affected by those drugs.
+
+\begin{figure}[!htb]
+\includegraphics[width=\textwidth]{ctd-side-plot-10.eps}
+\caption{Number of drugs with correctly identified pathways at each rank.}
+\label{fig:ctd-side-plot-10}
+\end{figure}
+
+Closer inspection, however, reveals that the three models rank a pathway named ``Metabolic pathways" as first for most drugs in the evaluation set (495 (all drugs) for LDA, 480 for CTM and 474 for CTM with exponentiation). This pathway is a ``catch-all" for all metabolic pathways, uniting all pathways in the dataset. Ignoring it in the evaluation process changes the results tremendously.
+
+\begin{figure}[!htb]
+\includegraphics[width=\textwidth]{ctd-pr-curves-no1100.eps}
+\caption{Precision-recall curves on the validation dataset with the ``Metabolic pathways" pathway excluded.}
+\label{fig:ctd-pr-curves-no1100}
+\end{figure}
+
+Figure~\ref{fig:ctd-pr-curves-no1100} shows the resultant precision-recall curve. The new MAP values for CTM, LDA and CTM with exponentiation are 0.176, 0.166 and 0.213, respectively whereas the random method achieves a MAP value of 0.172. LDA still beats CTM and the fact that CTM relied on the presence of the removed pathway for most of its performance now has dropped its MAP value below that of random guessing. However, CTM with exponentiation now vastly outperforms all the other models.
 
 \subsubsection{Fraction of correctly identified pathway activity}
 The CDF thing (LDA-CTM-RND)
