@@ -7,7 +7,7 @@ Created on Thu Oct 23 10:43:11 2014
 
 from variational_inference import variational_inference
 from expectation_maximization import expectation_maximization
-from inference import expected_theta
+from inference import expected_theta, parallel_expected_theta
 from evaluation_tools import generate_random_corpus, document_similarity_matrix, dsm_rmse, normalize_mu_sigma, f, cosine_similarity
 from math_utils import cor_mat
 
@@ -17,7 +17,7 @@ import scipy.stats
 import scipy.misc
 from itertools import groupby
 np.set_printoptions(precision=5, linewidth=120)
-plt.style.use('ggplot')
+#plt.style.use('ggplot')
 import pygraphviz
 
 diss_data_root = "D:\\diss-data\\"
@@ -200,7 +200,7 @@ def mul_precision_recall(thetas, eval_data):
 
 def evaluate_drug_theta(theta, reference):
     #Return the average theta value for each of the pathways that this drug actually has
-    return np.sum([theta[p] for p in reference])
+    return np.sum([theta[p] for p in reference]) / len(reference) * len(theta)
 
 def validate_all_thetas(thetas, eval_data):
     return np.array([evaluate_drug_theta(t, e) for t, e in zip(thetas, eval_data)])
@@ -368,11 +368,12 @@ if __name__ == "__main__":
     pathway_names = [p.strip() for p in open(diss_data_root + "pathway_names_used.txt").readlines()][::pathway_prune]
     drug_names = [d.strip() for d in open(diss_data_root + "drug_name.txt").readlines()][1::drug_prune]
     
-    eval_data = load_evaluation_dataset(set(pathway_ids))
+    eval_data = load_evaluation_dataset(set(pathway_ids) - {1100}) 
     pathway_map = {v: k for k, v in enumerate(pathway_ids)}
     pathways_in_eval = set.union(*([set(eval_data[d]) for d in drug_names if d in eval_data]))
     pathway_ids_in_eval = sorted(pathways_in_eval)
     pathway_map_in_eval = {v: k for k, v in enumerate(pathway_ids_in_eval)}
+    pathway_names_in_eval = [n for i, n in zip(pathway_ids, pathway_names) if i in pathway_ids_in_eval]
     drug_names_in_eval = [d for d in drug_names if d in eval_data]
     eval_data = [[pathway_map_in_eval[p] for p in eval_data[d]] for d in drug_names_in_eval]
 #
@@ -427,7 +428,7 @@ if __name__ == "__main__":
 #    legend(['CTM', 'LDA', 'GMRF', 'Random'])
 #    title('CDF of the proportion of drug-pathway perturbations explained by each model')
 #    
-#    ctm_ap = [average_precision(t, e) for t, e in zip (ctm_thetas_f, eval_data)]
+#    ctm_ap = [average_precisionn(t, e) for t, e in zip (ctm_thetas_f, eval_data)]
 #    
 #    ctm_pr = [(p, r) for (p, r) in precision_recall(t, e) for t, e in zip(ctm_thetas_f, eval_data)]
 #    ctm_pr.sort(key=lambda x: x[1])
@@ -475,11 +476,11 @@ if __name__ == "__main__":
     
 #    validation(doc_words, doc_counts, doc_thetas)
     
-    priors = np.ones((K, voc_len))
+    priors = np.ones(beta.shape)
     priors[beta == 0] = 0
+    priors = np.array([p / sum(p) for p in priors])
 
     print "Performing expectation maximization..."    
-    priors = np.array([p / sum(p) for p in priors])
     m_params, v_params = expectation_maximization(doc_words, doc_counts, K, priors, max_iterations=100)
     
     corr = document_similarity_matrix(beta, m_params.beta)

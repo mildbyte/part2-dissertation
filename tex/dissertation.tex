@@ -411,19 +411,41 @@ TODO: add about graph recovery (correlation matrix)
 
 This method is used to validate the model against the real-world dataset (CTD) that does not contain actual drug-pathway distributions: instead, for every drug, it lists the pathways that it does affect. This is the rationale behind adding support for enforcing the sparsity of the topic matrices: that way datasets with drugs that only affect a few pathways can be generated and so this method can also be used when working with generated datasets.
 
-The problem of evaluating pathway distributions against a list of relevant pathways strikingly resembles a similar problem from information retrieval: given a ranking for documents (here, pathways) output by a model for various queries (here, drug gene expression profiles) and a judgement as to which documents (pathways) are relevant (actually affected by the drug), how can evaluation be performed?
+The problem of evaluating pathway distributions against a list of relevant pathways strikingly resembles a similar problem from information retrieval: Assume we turn the pathway distribution into a ranking for pathways for every drug (by simply sorting the list of pathways using the activity values inferred by the model as the key). Now, given a ranking for documents (here, pathways) output by a model for various queries (here, drug gene expression profiles) and a judgement as to which documents (pathways) are relevant (actually affected by the drug), how can evaluation be performed?
 
-Two metrics that are used in information retrieval to evaluate such systems are precision and recall: precision is the fraction of retrieved documents that are relevant and recall is the fraction of relevant documents that are retrieved. These metrics can be calculated at all the cutoff ranks in the output pathway list and used to plot a precision-recall curve.
+First of all, this can be visualised by plotting a so-called ``heatmap": a $D \times K$ Boolean matrix whre the drugs are plotted on the horizontal axis and the vertical axis refers to the rank of the pathway for this drug. The corresponding square on this grid is black if the pathway at this rank is, indeed, affected by the drug and white if it isn't. Hence, the performance of the model can be approximated visually: we expect the black dots to cluster towards the top (correct pathways being given higher ranks by the model). Figure~\ref{fig:ref-ctd-heatmap} shows an example idealised ``heatmap" for the real-world dataset which the model will be evaluated on as well. On this reference ``heatmap", all pathways have been inferred correctly.
 
-Another way of evaluating the distributions I came up with is, for every drug and for every pathway that this drug actually affects, summing the probabilities predicted by the model for that pathway. This results in a value for every drug that represents, in essence, the fraction of drug-pathway activity that the model got ``right":
+\begin{figure}[!htb]
+\includegraphics[width=\textwidth]{ref-ctd-heatmap.eps}
+\caption{Reference CTD ``heatmap" where all pathways are inferred correctly}
+\label{fig:ref-ctd-heatmap}
+\end{figure}
+
+To exactly quantify the performance of the model from such an image, metrics like precision and recall are used in information retrieval. 
+
+Imagine covering all but the first line of the aforementioned ``heatmap" and then calculating the fraction of correctly predicted pathways that are visible (black squares) over all ``retrieved" pathways (all visible squares). This is the precision at that rank cutoff. The recall is defined as the fraction of correctly predicted pathways over all correct pathways (including the invisible ones, so the denominator is fixed for this dataset). Naturally, as more and more ranks get uncovered, the recall increases (since we're seeing more and more black squares), whereas the precision can vary (if all the newly uncovered squares are black, it will increase and if they are all white, it will decrease).
+
+In the end of this process, multiple pairs of precision-recall values will be calculated and they can be used to plot a precision-recall curve.
+
+One minor issue with this type of evaluation is that we essentially discard information by ranking pathways, since multiple distributions of pathways can map to the same ranking. In addition, we might prefer a pathway distribution where pathways that are not actually affected by the drug have lower expression values to the one where they are higher. For example, if a drug affects pathways 1 and 2 but not 3, and two models assign to this drug distributions $(0.4, 0.4, 0.2)$ and $(0.5, 0.4, 0.1)$, respectively, then the resultant pathway rankings are the same, but, intuitively, the second model seems to have made a better prediction in this case.
+
+This intuition can be captured in the following measure:
 
 \begin{equation}
 c_d = \sum\limits_{p \in \mathit{ref}_d}{\theta_{d, p}}
 \end{equation}
 
-where $\mathit{ref}_d$ is a set of correct pathways for every drug and $\theta_d$ is the predicted pathway distribution for drug $d$.
+where $\mathit{ref}_d$ is a set of correct pathways for drug $d$ and $\theta_d$ is the predicted pathway distribution for drug $d$. Here, we find the proportion of activity that the model assigned to the pathways that are actually affected by the drug.
 
-The distribution of these values can then be compared to the performance of random guessing to judge whether the model gives significantly different results.
+One question about this measure is whether we need to take into account the number of pathways the drug actually affects. In the most extreme example, if a drug affects all pathways in the dataset, any model will score a $1.0$ with this measure and so a model that scores 1.0 isn't necessarily ``good". On the other hand, if a drug only affects a single pathway and a model manages to assign $1.0$ to that pathway only, then the model's performance is impressive yet it scores $1.0$, as much as the previous case.
+
+This is the reason comparison with random guessing is important: a random pathway distribution can be generated by drawing $K$ values from a uniform distribution and normalising them. On average, such a distribution will score $\rho_d$ on drug $d$, where $\rho_d$ is the drug's density (the fraction of pathways it actually affects). Hence, we can normalise the measure by dividing it by $\rho_d$ to find out by how much the model did better compared to random guessing. Furthermore, we can take the logarithm of this ratio so that the performance of random guessing ends up at 0, that of anything better than random gets a positive score and the performance of worse than random guessing becomes negative:
+
+\begin{equation}\label{eq:rho-normalised-score}
+M_d = \log(\frac{\sum\limits_{p \in \mathit{ref}_d}{\theta_{d, p}}}{\rho_d})
+\end{equation}
+
+This value will be referred as the rho-normalised log score further in the analysis.
 
 \section{Toy datasets}
 
@@ -467,6 +489,8 @@ In the last 4 datasets, I varied the density of the covariance matrix: the propo
 
 \subsection{Convergence analysis}
 
+TODO: ONE-ITERATION ANALYSIS (REDO ALL PLOTS)
+
 At every iteration, the model outputs a likelihood bound that it assigns to the data and continues updating the model parameters until the likelihood bound converges (the change is less than a certain threshold). The likelihood bound values over iterations are plotted here.
 
 It can be observed that increasing the number of topics decreases the likelihood bound the model assigns to the data and makes convergence slower.
@@ -479,7 +503,7 @@ It can be observed that increasing the number of topics decreases the likelihood
 \label{fig:sim-cosine}
 \end{figure}
 
-In Figure~\ref{fig:sim-cosine}, dots on the plot denote the locations of the data points, since the error bars in this case are so small (the greatest sample error value on this dataset is 0.005 for the random guessing at $K=10$.
+In Figure~\ref{fig:sim-cosine}, dots on the plot denote the locations of the data points, since the error bars in this case are extremely small (the greatest sample error value on this dataset is 0.005 for the random guessing at $K=10$).
 
 \subsection{Parameter recovery}
 
@@ -511,18 +535,34 @@ TODO: add random baseline?
 
 Figure~\ref{fig:sim-pr-curves-all} shows the precision-recall curves for the toy datasets with different number of topics on the same axis. The reference precision-recall curves (where all relevant topics/pathways are in the top ranks) can also be plotted, but in this case the CTM curves are so close to the reference curves they are indistinguishable. However, the topic recovery of CTM is not perfect, according to the previous tests, so a different method has to be used to evaluate how CTM fares on ranked retrieval tasks.
 
+\begin{figure}[!htb]
+\includegraphics[width=\textwidth]{sim-log.eps}
+\caption{CDF of the distribution of the rho-normalised log scores of CTM on the toy datasets}
+\label{fig:sim-log}
+\end{figure}
 
+Figure~\ref{fig:sim-log} shows the cumulative plots of rho-normalised log scores (Equation~\ref{eq:rho-normalised-score}) as the number of topics changes. While these plots do show that the CTM gives a much better performance than random guessing (since all scores are above 0), the figure is too confusing for any conclusions to be made. It does, however, show an interesting ``staircase" effect where the scores fall into discrete bins whose amount increases with the number of topics. This is because the unnormalised measure (sum of inferred expression levels for correct pathways) is close to 1 and so the final score only depends on the normalisation factor, which only depends on the number of pathways the drug actually has.
+
+\begin{figure}[!htb]
+\includegraphics[width=\textwidth]{sim-average-rho.eps}
+\caption{Average rho-normalised log score as a function of the number of topics in the toy datasets}
+\label{fig:sim-average-rho}
+\end{figure}
+
+Figure~\ref{fig:sim-average-rho} shows the mean score the model achieved on every dataset, plotted against the number of topics. The performance of the model generally degrades with the number of topics, however there is a peak somewhere between $K=10$ and $K=50$ where the model achieves top performance.
 
 \section{KEGG and CMap datasets}
 
 \subsection{Description of the dataset}
 
-KEGG (Kyoto Encyclopedia of Genes and Genomes), published by Kyoto Universiy Katehisa Laboratories, is an online collection of databases dealing with various aspects of biology. Of interest to this project is the KEGG PATHWAY database, a collection of pathways and genes which they include. CMap (Connectivity Map), published by the Broad Institute is a catalog of gene-expression data.
+KEGG (Kyoto Encyclopedia of Genes and Genomes), published by Kyoto Universiy Katehisa Laboratories, is an online collection of databases dealing with various aspects of biology. Of interest to this project is the KEGG PATHWAY database, a collection of pathways and genes which they include.
+
+CMap (Connectivity Map), published by the Broad Institute is a catalog of gene-expression data.
 
 These two datasets are used to derive the following matrices:
 
 \begin{itemize}[noitemsep]
-\item Drug-gene expression data, where each entry is the logarithm of the ratio of the expression of the gene when treated with a certain drug against the baseline, rounded to 2 decimal figures.
+\item Drug-gene expression matrix, where each entry is the logarithm of the ratio of the expression of the gene when treated with a certain drug against the baseline, rounded to 2 decimal places.
 \item Boolean gene-pathway membership matrix that has a ``1" entry if the pathway contains a given gene and ``0" if it doesn't.
 \end{itemize}
 
@@ -561,7 +601,7 @@ The CTD dataset is a catalogue of drugs that lists which pathway each one of tho
 
 The predicted thetas are then used to rank the pathways for every drug.
 
-Figure~\ref{fig:ctm-ctd-heatmap} shows a so-called ``heatmap" for CTM: the drugs are plotted on the horizontal axis and the vertical axis refers to the rank of the pathway for this drug. The corresponding square on this grid is black if the pathway at this rank is, indeed, affected by the drug (as per the CTD) and white if it isn't.
+Figure~\ref{fig:ctm-ctd-heatmap} shows a so-called ``heatmap" for CTM, explained in the beginning of this section.
 
 \begin{figure}[!htb]
 \includegraphics[width=\textwidth]{ctm-ctd-heatmap.eps}
@@ -575,19 +615,11 @@ Figure~\ref{fig:ctm-ctd-heatmap} shows a so-called ``heatmap" for CTM: the drugs
 \label{fig:lda-ctd-heatmap}
 \end{figure}
 
-\begin{figure}[!htb]
-\includegraphics[width=\textwidth]{ref-ctd-heatmap.eps}
-\caption{Reference CTD ``heatmap" where all pathways are inferred correctly}
-\label{fig:ref-ctd-heatmap}
-\end{figure}
-
-The expected behaviour is for the black squares to cluster towards the top of the ``heatmap", since that means the model assigned the top ranks to pathways that are actually correct. Figure~\ref{fig:ref-ctd-heatmap} shows this on an idealised ``heatmap" for the reference theta matrix created from the CTD. However, both LDA (Figure~\ref{fig:lda-ctd-heatmap}) and CTM are very far from that and to see exactly how, a different visualisation is required.
+The expected behaviour is for the black squares to cluster towards the top of the ``heatmap", since that means the model assigned the top ranks to pathways that are actually correct. However, both LDA (Figure~\ref{fig:lda-ctd-heatmap}) and CTM are very far from that and to see exactly how, a different visualisation is required.
 
 \subsubsection{Precision-recall curves}
 
-A precision-recall curve can be interpreted as follows: imagine covering all but the first line of the aforementioned ``heatmap" and then calculating the fraction of correctly predicted pathways that are visible (black squares) over all ``retrieved" pathways (all visible squares). This is the precision at that rank cutoff. The recall is defined as the fraction of correctly predicted pathways over all correct pathways (including the invisible ones, so the denominator is fixed for this dataset). Naturally, as more and more ranks get uncovered, the recall increases (since we're seeing more and more black squares), whereas the precision can vary (if all the newly uncovered squares are black, it will increase and if they are all white, it will decrease).
-
-These pairs of values can then be plotted to form a precision-recall curve for the whole dataset (Figure~\ref{fig:ctd-pr-curves}).
+The precision-recall curves for the whole dataset are plotted in Figure~\ref{fig:ctd-pr-curves}.
 
 \begin{figure}[!htb]
 \includegraphics[width=\textwidth]{ctd-pr-curves.eps}
@@ -617,13 +649,13 @@ Closer inspection, however, reveals that the three models rank a pathway named `
 
 Figure~\ref{fig:ctd-pr-curves-no1100} shows the resultant precision-recall curve. The new MAP values for CTM, LDA and CTM with exponentiation are 0.176, 0.166 and 0.213, respectively whereas the random method achieves a MAP value of 0.172. LDA still beats CTM and the fact that CTM relied on the presence of the removed pathway for most of its performance now has dropped its MAP value below that of random guessing. However, CTM with exponentiation now vastly outperforms all the other models.
 
-\subsubsection{Fraction of correctly identified pathway activity}
-While this method of evaluation helped see how the performance of CTM degrades as the number of topics increases, it is not very useful here (Figure~\ref{fig:ctd-cdf}). Table~\ref{tab:ctm-ctf-summary} summarises the distributions of this measure, taken for every drug in the dataset. The variance in performance between the models is too big to make any kind of general judgement here. 
+\subsubsection{Rho-normalised log scores}
+Figure~\ref{fig:ctd-rho-cdf} shows the CDF plots of the rho-normalised log scores (Equation~\ref{eq:rho-normalised-score}) for CTM, LDA and CTM with exponentiation (with the ``Metabolic pathways" pathway excluded). It can be seen from the plot that the median score of all three models is below that of random guessing. The parameters of this distribution are summarised in table~\ref{tab:ctm-ctf-summary}. The performance of random in this case was obtained by simulating 1000 random drug-pathway distributions and averaging their mean performance.
 
 \begin{figure}[!htb]
-\includegraphics[width=\textwidth]{ctd-cdf.eps}
-\caption{CDF of the fraction of pathway activity assigned by the models to actual pathways}
-\label{fig:ctd-cdf}
+\includegraphics[width=\textwidth]{ctd-rho-cdf.eps}
+\caption{CDF of the rho-normalised log score of the models on the CTD data}
+\label{fig:ctd-rho-cdf}
 \end{figure}
 
 \begin{table}
@@ -631,15 +663,17 @@ While this method of evaluation helped see how the performance of CTM degrades a
 \hline
 Model & Mean & Median & Standard deviation\\
 \hline
-CTM & 0.126 & 0.0712 & 0.146 \\
-LDA & 0.138 & 0.0779 & 0.154 \\
-CTM with exponentiation & 0.147 & 0.0906 & 0.161 \\
-Random & 0.150 & 0.0869 & 0.164 \\
+CTM & -0.177 & -0.238 & 0.654 \\
+LDA & -0.070 & -0.125 & 0.645 \\
+CTM with exponentiation & 0.064 & -0.059 & 0.801 \\
+Random & -0.008 & 0.000 & 0.124 \\
 \hline
 \end{tabular}
-\caption{Parameters of the distribution of the fraction of correctly identified pathway activity}
+\caption{Parameters of the distribution of the rho-normalised log scores}
 \label{tab:ctm-ctf-summary}
 \end{table}
+
+CTM with exponentiation is the only method that achieved a positive mean score, since its performance distribution has a heavy right tail: about 10\% of its predictions achieved a score greater than 1.
 
 \subsubsection{Clustering the drug similarity matrix}
 Since the document (or drug) similarity matrix (\ref{eq:document_similarity_matrix}) is not affected by the topic identifiability, I decided to perform clustering on the matrix to identify some common groups of drugs and reference them to the actual descriptions of those drugs.
