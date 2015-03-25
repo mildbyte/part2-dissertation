@@ -8,7 +8,7 @@ Created on Thu Oct 23 10:43:11 2014
 from variational_inference import variational_inference
 from expectation_maximization import expectation_maximization
 from inference import expected_theta, parallel_expected_theta
-from evaluation_tools import generate_random_corpus, document_similarity_matrix, dsm_rmse, normalize_mu_sigma, f, cosine_similarity
+from evaluation_tools import generate_random_corpus, document_similarity_matrix, dsm_rmse, normalize_mu_sigma, exp_normalise, cosine_similarity
 from math_utils import cor_mat
 
 import numpy as np
@@ -542,7 +542,7 @@ if __name__ == "__main__":
     print "RMSE between inferred document correlations and the reference: %f" % dsm_rmse(inferred, reference)
     print "RMSE between inferred beta and the reference: %f" % dsm_rmse(np.array(permuted_beta), np.array(beta))
     print "RMSE between inferred topic correlations and the reference: %f" % dsm_rmse(cor_mat(permuted_sigma), cor_mat(sigma))
-    print "RMSE between inferred topic proportions and the reference: %f" % dsm_rmse(f(permuted_mu), f(mu))
+    print "RMSE between inferred topic proportions and the reference: %f" % dsm_rmse(exp_normalise(permuted_mu), exp_normalise(mu))
     
         
     

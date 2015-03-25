@@ -413,7 +413,7 @@ This method is used to validate the model against the real-world dataset (CTD) t
 
 The problem of evaluating pathway distributions against a list of relevant pathways strikingly resembles a similar problem from information retrieval: Assume we turn the pathway distribution into a ranking for pathways for every drug (by simply sorting the list of pathways using the activity values inferred by the model as the key). Now, given a ranking for documents (here, pathways) output by a model for various queries (here, drug gene expression profiles) and a judgement as to which documents (pathways) are relevant (actually affected by the drug), how can evaluation be performed?
 
-First of all, this can be visualised by plotting a so-called ``heatmap": a $D \times K$ Boolean matrix whre the drugs are plotted on the horizontal axis and the vertical axis refers to the rank of the pathway for this drug. The corresponding square on this grid is black if the pathway at this rank is, indeed, affected by the drug and white if it isn't. Hence, the performance of the model can be approximated visually: we expect the black dots to cluster towards the top (correct pathways being given higher ranks by the model). Figure~\ref{fig:ref-ctd-heatmap} shows an example idealised ``heatmap" for the real-world dataset which the model will be evaluated on as well. On this reference ``heatmap", all pathways have been inferred correctly.
+First of all, this can be visualised by plotting a so-called ``heatmap": a $D \times K$ Boolean matrix where the drugs are plotted on the horizontal axis and the vertical axis refers to the rank of the pathway for this drug. The corresponding square on this grid is black if the pathway at this rank is, indeed, affected by the drug and white if it isn't. Hence, the performance of the model can be approximated visually: we expect the black dots to cluster towards the top (correct pathways being given higher ranks by the model). Figure~\ref{fig:ref-ctd-heatmap} shows an example idealised ``heatmap" for the real-world dataset which the model will be evaluated on as well. On this reference ``heatmap", all pathways have been inferred correctly.
 
 \begin{figure}[!htb]
 \includegraphics[width=\textwidth]{ref-ctd-heatmap.eps}
@@ -489,11 +489,13 @@ In the last 4 datasets, I varied the density of the covariance matrix: the propo
 
 \subsection{Convergence analysis}
 
-TODO: ONE-ITERATION ANALYSIS (REDO ALL PLOTS)
-
 At every iteration, the model outputs a likelihood bound that it assigns to the data and continues updating the model parameters until the likelihood bound converges (the change is less than a certain threshold). The likelihood bound values over iterations are plotted here.
 
 It can be observed that increasing the number of topics decreases the likelihood bound the model assigns to the data and makes convergence slower.
+
+Overall, the model achieves great performance on the prediction of the distributions of topics the document was generated with. It would hence be reasonable to assume that if the model predicts the topic distribution for a document consistently well, it will also be able to recover the model parameters the corpus was generated with, since this is what the model relies on for its predictions. However, this is not exactly the case: the model's abillity to recover the parameters ($\mu, \Sigma, \beta$) degrades quickly beyond that of random guessing as the number of topics increases. The reasons for this will be discussed further.
+
+In addition, since further iterations of the CTM training process are only used to improve the accuracy of the model parameters (which is pointless in this case), the performance of 1-iteration CTM is also investigated in attempts to see whether the lengthy CTM training process can be shortened.
 
 \subsection{Topic prediction}
 
@@ -503,11 +505,9 @@ It can be observed that increasing the number of topics decreases the likelihood
 \label{fig:sim-cosine}
 \end{figure}
 
-In Figure~\ref{fig:sim-cosine}, dots on the plot denote the locations of the data points, since the error bars in this case are extremely small (the greatest sample error value on this dataset is 0.005 for the random guessing at $K=10$).
+Figure~\ref{fig:sim-cosine} shows the mean cosine similarity between each $\theta_d$ in the inferred and the reference dataset. It can be seen that both CTM and 1-iteration CTM vastly outperform random guessing on all numbers of topics, but their performance degrades as the number of topics increases. Furthermore, the 1-iteration CTM is consistently worse than the full CTM, but not by much: it can still provide a good approximation to the CTM in a fraction of the required training time.
 
 \subsection{Parameter recovery}
-
-It would be reasonable to assume that if the model predicts the topic distribution for a document consistently well, it will also be able to recover the model parameters the corpus was generated with, since this is what the model relies on for its predictions. However, this is not exactly the case.
 
 \begin{figure}[!htb]
 \includegraphics[width=\textwidth]{sim-beta-cosine.eps}
@@ -515,13 +515,25 @@ It would be reasonable to assume that if the model predicts the topic distributi
 \label{fig:sim-beta-cosine}
 \end{figure}
 
+\begin{figure}[!htb]
+\includegraphics[width=\textwidth]{sim-mu-rmse.eps}
+\caption{RMSE between inferred and reference $\mu$ as a function of the number of topics}
+\label{fig:sim-mu-rmse}
+\end{figure}
+
+\begin{figure}[!htb]
+\includegraphics[width=\textwidth]{sim-sigma-rmse.eps}
+\caption{RMSE between inferred and reference $\Sigma$ as a function of the number of topics}
+\label{fig:sim-sigma-rmse}
+\end{figure}
+
 Figure~\ref{fig:sim-beta-cosine} shows the mean cosine similarity between the inferred and the reference rows of the $\beta$ matrix (the word distributions for every topic). There are $K$ topics in a single dataset and so every data point on this graph has been obtained by averaging the cosine similarities across $K$ samples. The random topic-word matrices here were generated by taking the Boolean matrix of priors and replacing the ``1" values with a draw from a uniform distribution and then renormalising.
 
 As evident from the figure, the recovery of the topic-word matrix gets much worse as the number of topics increases and becomes further away from the reference than a random topic-word matrix after the third dataset. The reason for this is that the pattern of zeros in the resultant matrix differs from the matrix of priors even though the priors have been enforced. If the prior matrix contains a zero in a certain position, the inferred matrix is guaranteed to have a zero in the same position as well, since the zeros propagate through the training process. However, this doesn't mean that a zero in a certain position in the inferred matrix is also in the reference matrix. It appears that the training process can introduce a zero in certain positions and it will stay there throughout the remaining training iterations. This appears to be an issue of the topic recoverability and prior enforcement.
 
-Another problem is the poor recoverability of the parameters of the global topic distribution, $\mu$ and $\Sigma$. The issue here is that every sample theta from $N(\mu, \Sigma)$ is altered after sampling by enforcing a certain number of zero elements. Hence, the document-topic distributions after generation are not guaranteed to follow a normal distribution with the original parameters. Intuitively, this is because theta values now have a larger chance of some elements coinciding (since they both have been set to zero), which introduces a bias into the correlations.
+Another problem is the poor recoverability of the parameters of the global topic distribution, $\mu$ and $\Sigma$ (Figures~\ref{fig:sim-mu-rmse}~and~\ref{fig:sim-sigma-rmse}, smaller RMSE is better). The performance of random guessing of was found by taking 1000 samples for $\mu$ and 100 samples for $\Sigma$.
 
-Despite all this, the model still achieves stellar performance in theta prediction tests on sparse datasets. This is because the theta prediction is dependent on not only the model parameters but also on the variational parameters, which take into account the actual words in the documents. Since with large numbers of topics the model parameters become useless for the theta prediction, there is no need to perform more than one variational inference iteration because further iterations will only change the global model parameters. I hence decided to evaluate the prediction performance of the model after just one iteration of training.
+The issue here is that every sample theta from $N(\mu, \Sigma)$ is altered after sampling by enforcing a certain number of zero elements. Hence, the document-topic distributions after generation are not guaranteed to follow a normal distribution with the original parameters. Intuitively, this is because theta values now have a larger chance of some elements coinciding (since they both have been set to zero), which introduces a bias into the correlations.
 
 \subsection{Rank recovery}
 
@@ -531,9 +543,9 @@ Despite all this, the model still achieves stellar performance in theta predicti
 \label{fig:sim-pr-curves-all}
 \end{figure}
 
-TODO: add random baseline?
+Figure~\ref{fig:sim-pr-curves-all} shows the precision-recall curves for the toy datasets with different number of topics on the same axis. The reference precision-recall curves (where all relevant topics/pathways are in the top ranks) can also be plotted, but in this case the CTM curves are so close to the reference curves they are indistinguishable. The precision-recall curves for the 1-iteration CTM also coincide with these curves.
 
-Figure~\ref{fig:sim-pr-curves-all} shows the precision-recall curves for the toy datasets with different number of topics on the same axis. The reference precision-recall curves (where all relevant topics/pathways are in the top ranks) can also be plotted, but in this case the CTM curves are so close to the reference curves they are indistinguishable. However, the topic recovery of CTM is not perfect, according to the previous tests, so a different method has to be used to evaluate how CTM fares on ranked retrieval tasks.
+However, according to the previous tests, the topic recovery of CTM is not perfect and the 1-iteration CTM does give slightly different results from the full CTM, so a different method has to be used to evaluate how CTM fares on ranked retrieval tasks.
 
 \begin{figure}[!htb]
 \includegraphics[width=\textwidth]{sim-log.eps}
@@ -549,7 +561,15 @@ Figure~\ref{fig:sim-log} shows the cumulative plots of rho-normalised log scores
 \label{fig:sim-average-rho}
 \end{figure}
 
-Figure~\ref{fig:sim-average-rho} shows the mean score the model achieved on every dataset, plotted against the number of topics. The performance of the model generally degrades with the number of topics, however there is a peak somewhere between $K=10$ and $K=50$ where the model achieves top performance.
+Figure~\ref{fig:sim-average-rho} shows the mean score the model achieved on every dataset, plotted against the number of topics. The performance of the model generally degrades with the number of topics, however there is a peak somewhere between $K=10$ and $K=50$ where the model achieves top performance. Doing just one iteration of CTM brings its scores very close to those of CTM, though they diverge as the number of topics increases.
+
+\subsection{Conclusion}
+
+On the datasets of similar characteristics to the real-world KEGG/CMap dataset (large document-topic and topic-word sparsity levels) the CTM achieves great performance in the prediction of the topic-word distributions, both when the reference distributions are available and when they have been turned into Boolean matrices. On the other hand, enforcing such large sparsity levels, in essence, breaks the assumptions about the generative process of the CTM which the model's training process relies on and the parameter recovery becomes much worse than random guessing.
+
+Furthermore, only performing one training iteration of the CTM, as opposed to training the CTM until its likelihood bound on the corpus converges, result in better recovery performance of $\mu$ and $\beta$ and similar performance for $\Sigma$. The performance on the document-topic distribution recovery is rather close (and still much better than random guessing) but diverges from the full CTM as the number of topics increases.
+
+Hence, if the real-world drug-gene expression data does follow the generative framework assumed by the CTM, the expected results are good topic recovery (good performance on predicting the drug-pathway relationships) and poor recovery of the correlations between pathways and the pathway-gene memberships. Performing only one EM cycle on CTM should improve that, but at the expense of the prediction of the drug-pathway relationships.
 
 \section{KEGG and CMap datasets}
 

@@ -13,7 +13,7 @@ from inference import expected_theta
 from collections import Counter
 import random
      
-def f(eta):
+def exp_normalise(eta):
     return np.exp(eta) / np.sum(np.exp(eta))
     
 def generate_random_corpus(voc_len, K, N_d, no_docs, theta_density=1.0, beta_density=1.0, mu=None, sigma=None):
@@ -21,7 +21,7 @@ def generate_random_corpus(voc_len, K, N_d, no_docs, theta_density=1.0, beta_den
         density = int(np.clip(np.random.poisson(theta_density * K), 1, K))
         
         eta_d = np.random.multivariate_normal(mu, sigma)
-        eta_d = f(eta_d)
+        eta_d = exp_normalise(eta_d)
         eta_d[np.argsort(eta_d)[density:]] = 0
         eta_d /= np.sum(eta_d)
         
@@ -98,7 +98,7 @@ def dsm_rmse(inf, ref):
 
 def normalize_mu_sigma(mu, sigma):    
     n_samples = 10000
-    samples = np.array([f(s) for s in np.random.multivariate_normal(mu, sigma, n_samples)])
+    samples = np.array([exp_normalise(s) for s in np.random.multivariate_normal(mu, sigma, n_samples)])
     return (np.mean(samples, axis=0), np.cov(samples.T))
     
 def validation(doc_words, doc_counts, doc_thetas, voc_len, K):
