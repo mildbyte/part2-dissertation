@@ -607,6 +607,10 @@ TODO: CTM inference had 1000 theta samples, enough?
 
 To perform a quick sanity check for the results, I took the cosine similarities for the predicted pathway distributions by CTM and LDA for every drug and plotted their distribution (Figure~\ref{fig:ctd-ctm-lda-diffs}). The distribution of cosine similarities between random guessing and LDA is also plotted for comparison. It can be seen that CTM and LDA give very similar results.
 
+TODO: smaller histogram, add CTM-exp
+
+TODO: 1-iteration CTM
+
 \begin{figure}[!htb]
 \includegraphics[width=\textwidth]{ctd-ctm-lda-diffs.eps}
 \caption{Histogram of the cosine similarities between the topics inferred by CTM and LDA}
@@ -646,6 +650,8 @@ The precision-recall curves for the whole dataset are plotted in Figure~\ref{fig
 \caption{Precision-recall curves on the validation dataset (CTD) for CTM, LDA, and random topic assignments (baseline)}
 \label{fig:ctd-pr-curves}
 \end{figure}
+
+TODO: what are MAP values?
 
 The MAP values for CTM, LDA and CTM with exponentiation are 0.181, 0.189 and 0.204, respectively. The average MAP value for random guessing is 0.172.
 
@@ -695,6 +701,8 @@ Random & -0.008 & 0.000 & 0.124 \\
 
 CTM with exponentiation is the only method that achieved a positive mean score, since its performance distribution has a heavy right tail: about 10\% of its predictions achieved a score greater than 1.
 
+TODO: analyse which drugs which model did better on
+
 \subsubsection{Clustering the drug similarity matrix}
 Since the document (or drug) similarity matrix (\ref{eq:document_similarity_matrix}) is not affected by the topic identifiability, I decided to perform clustering on the matrix to identify some common groups of drugs and reference them to the actual descriptions of those drugs.
 I used the Markov Clustering Algorithm (MCL)  \cite{Dongen:2000:CAG:868986}, a simple method that's based on the insight that a document similarity matrix, when normalised, forms a Markov chain. If one simulates multiple ``random walkers" on this chain and slowly starts weakening the links between the elements of the chain, each of them will eventually end up roaming around the final clusters. This is encoded in the following algorithm:
@@ -705,7 +713,9 @@ The algorithm consists of repeatedly performing expansion and inflation on the t
 
 This process is guaranteed to converge on most graphs and the result can be interpreted as follows: if $M_{i,j} > 0$, then $j$ is a member of the cluster whose main ``attractor" is $i$. This value will usually be 1, meaning each element can only be a member of one cluster, but in case of some symmetric graphs it can be a fraction.
 
-todo: about expansion/inflation parameters
+TODO: about expansion/inflation parameters
+
+TODO: pictures + clustering for sigma as well
 
 \subsection{ATC classification}
 
