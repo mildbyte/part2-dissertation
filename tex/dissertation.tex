@@ -610,15 +610,13 @@ It took about 9 hours to train the model on the whole dataset and perform the in
 
 TODO: CTM inference had 1000 theta samples, enough?
 
-To perform a quick sanity check for the results, I took the cosine similarities for the predicted pathway distributions by CTM and LDA for every drug and plotted their distribution (Figure~\ref{fig:ctd-ctm-lda-diffs}). The distribution of cosine similarities between random guessing and LDA is also plotted for comparison. It can be seen that CTM and LDA give very similar results.
-
-TODO: smaller histogram, add CTM-exp
+To perform a quick sanity check for the results, I took the cosine similarities for the predicted pathway distributions by CTM, CTM with exponentiation and LDA for every drug and plotted their distribution (Figure~\ref{fig:ctd-ctm-lda-diffs}). The distribution of cosine similarities between random guessing and LDA is also plotted for comparison. It can be seen that CTM and LDA give very similar results. Interestingly, CTM is closer to LDA than CTM with exponentiation, hinting that CTM with exponentiation might have a considerably different performance from the other two models.
 
 TODO: 1-iteration CTM
 
 \begin{figure}[!htb]
 \includegraphics[width=\textwidth]{ctd-ctm-lda-diffs.eps}
-\caption{Histogram of the cosine similarities between the topics inferred by CTM and LDA}
+\caption{Histograms of cosine similarities between the document-topic distributions $\theta$ inferred by LDA, CTM and CTM with exponentiation, with differences to random guessing plotted as a baseline}
 \label{fig:ctd-ctm-lda-diffs}
 \end{figure}
 
@@ -629,8 +627,6 @@ TODO: What is CTD?
 The CTD dataset is a catalogue of drugs that lists which pathway each one of those affects. Not all pathways and not all drugs used in the KEGG/CMap dataset are mentioned in the CTD, so the final drug-pathway prediction matrices output by LDA and CTM had to be filtered down to the shape of CTD: 495 drugs (thus simply dropping the relevant rows) and 193 pathways (removing the columns and renormalising). The density of the resultant $\theta$ is 0.1231.
 
 The theta values predicted by the models are then used to rank the pathways for every drug.
-
-Figure~\ref{fig:ctm-ctd-heatmap} shows a so-called ``heatmap" for CTM, explained in the beginning of this section.
 
 \begin{figure}[!htb]
 \includegraphics[width=\textwidth]{ctm-ctd-heatmap.eps}
@@ -644,7 +640,8 @@ Figure~\ref{fig:ctm-ctd-heatmap} shows a so-called ``heatmap" for CTM, explained
 \label{fig:lda-ctd-heatmap}
 \end{figure}
 
-The expected behaviour is for the black squares to cluster towards the top of the ``heatmap", since that means the model assigned the top ranks to pathways that are actually correct. However, both LDA (Figure~\ref{fig:lda-ctd-heatmap}) and CTM are very far from that and to see exactly how, a different visualisation is required.
+Figure~\ref{fig:ctm-ctd-heatmap} shows a so-called ``heatmap" for CTM, explained in the beginning of this section. The expected behaviour is for the black squares to cluster towards the top of the ``heatmap", since that means the model assigned the top ranks to pathways that are actually correct. However, both LDA (Figure~\ref{fig:lda-ctd-heatmap}) and CTM are very far from that and to see exactly how, a different visualisation is required.
+
 
 \subsubsection{Precision-recall curves}
 
