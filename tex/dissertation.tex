@@ -579,8 +579,6 @@ Hence, if the real-world drug-gene expression data does follow the generative fr
 
 \section{KEGG and CMap datasets}
 
-TODO: CTM can win on many pathways and lose on few (LDA wins), verify?
-
 \subsection{Description of the dataset}
 
 KEGG (Kyoto Encyclopedia of Genes and Genomes), published by Kyoto Universiy Katehisa Laboratories, is an online collection of databases dealing with various aspects of biology. Of interest to this project is the KEGG PATHWAY database, a collection of pathways and genes which they include.
@@ -684,6 +682,8 @@ Closer inspection, however, reveals that the three models rank a pathway named `
 
 Figure~\ref{fig:ctd-pr-curves-no1100} shows the resultant precision-recall curve. After exclusion, the MAP values for CTM, LDA and CTM with exponentiation are 0.166, 0.176 and 0.213, respectively, whereas the random method achieves a MAP value of 0.172. LDA still beats CTM and the fact that CTM relied on the presence of the removed pathway for most of its performance now has dropped its MAP value below that of random guessing. However, CTM with exponentiation now vastly outperforms all the other models.
 
+TODO: the CTM ``side plot" seems to tend upwards with rank, so its predictions seem to be inverted. This is also confirmed by the Spearman rho: CTM's mean-median correlation is -0.06 (GMRF gets 0.06, LDA -0.02)
+
 \subsubsection{Rho-normalised log scores}
 Figure~\ref{fig:ctd-rho-cdf} shows the CDF plots (fraction of scores below a given value) of the rho-normalised log scores (Equation~\ref{eq:rho-normalised-score}) for CTM, LDA and CTM with exponentiation (with the ``Metabolic pathways" pathway excluded). It can be seen from the plot that the median score of all three models is below that of random guessing. The parameters of this distribution are summarised in table~\ref{tab:ctm-ctf-summary}. The performance of random in this case was obtained by simulating 1000 random drug-pathway distributions and averaging their mean performance.
 
@@ -710,7 +710,7 @@ Random & -0.008 & 0.000 & 0.124 \\
 
 CTM with exponentiation is the only method that achieved a positive mean score, since its performance distribution has a heavy right tail: about 10\% of its predictions achieved a score greater than 1.
 
-TODO: analyse which drugs which model did better on
+TODO: the drug density-rho score plot for LDA and CTM
 
 \subsubsection{Clustering the drug similarity matrix}
 Since the document (or drug) similarity matrix (\ref{eq:document_similarity_matrix}) is not affected by the topic identifiability, I decided to perform clustering on the matrix to identify some common groups of drugs and reference them to the actual descriptions of those drugs.

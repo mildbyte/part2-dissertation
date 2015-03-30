@@ -15,7 +15,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.stats
 import scipy.misc
+
 from itertools import groupby
+from scipy.stats import spearmanr
+
 np.set_printoptions(precision=5, linewidth=120)
 #plt.style.use('ggplot')
 import pygraphviz
@@ -399,13 +402,13 @@ if __name__ == "__main__":
     random_thetas /= np.sum(random_thetas, axis=1)[:, np.newaxis]
 
 #    #Construct thetas implied by the evaluation data
-    eval_thetas = np.zeros((len(drug_names_in_eval), len(pathway_names)))
+    eval_thetas = np.zeros(ctm_thetas_f.shape)
     
     for i, e in enumerate(eval_data):
         for p in e:
             eval_thetas[i, p] = 1
             
-    eval_thetas /= np.sum(eval_thetas, axis=1)[:, np.newaxis]
+    eval_thetas /= np.sum(eval_thetas, axis=1)[:, np.newaxis]    
     theta_sparsity = density(eval_thetas) #0.1231 for ctd dataset
 
     
@@ -466,12 +469,12 @@ if __name__ == "__main__":
     sigma = np.loadtxt(diss_data_root + "ctd-implied-sigma.txt")        
         
     voc_len = 3000
-    K = 100
+    K = len(sigma)
     N_d = 1000
     no_docs = 500
     
     print "Generating a random corpus..."
-    doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs, 0.1231, 0.0138)
+    doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs, 0.1231, 0.0138, mu, sigma)
 #    doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs, 0.25, 0.0138)
     
 #    validation(doc_words, doc_counts, doc_thetas)
