@@ -369,7 +369,7 @@ The second method is dealing with the root cause of this problem: that the topic
 
 To perform that, when the relevant vector is being generated, first, a sample is drawn from $\mathit{Poisson}((1-\rho) \times L)$ where $\rho$ is the density and $L$ is the length of the vector ($V$, the number of words, in case of $\beta$ or $K$, the number of topics, in case of $\theta$). This value is then clamped between 0 and $L$ and that number of smallest items in the vector is set to 0. Finally, the vector is renormalised.
 
-The model is trained with the resultant pattern of zeros in $\beta$ set as its prior, which improves the chances of a successful topic recovery, hence making permuting the parameters based on the inferred-reference $\beta$ similarity matrix redundant (the matrix will have the greatest items on the diagonal (TODO: explain)). While this can be considered making the model's task easier, this is a necessary measure, since the real-world gene-pathway membership dataset is very sparse as well.
+The model is trained with the resultant pattern of zeros in $\beta$ set as its prior, which improves the chances of a successful topic recovery, hence making permuting the parameters based on the inferred-reference $\beta$ similarity matrix redundant (since the matrix will tend to the identity matrix: $\theta_{i, j}$ will be the greatest for any given $i$ when $i = j$, i.e. the inferred and the reference topic structure has the same order). While this can be considered making the model's task easier, this is a necessary measure, since the real-world gene-pathway membership dataset is very sparse as well.
 
 \subsection{Topic prediction}
 
@@ -457,9 +457,7 @@ The following subsections describe the datasets which were generated and describ
 
 \subsection{Description of toy datasets}
 
-TODO: table
-
-The first batch of datasets was generated so that it mimics the properties of the real world KEGG/CMap dataset. All datasets from this batch have the following in common:
+The datasets were generated so that they mimic the properties of the real world KEGG/CMap dataset. All datasets have the following in common:
 
 \begin{itemize}[noitemsep]
 \item Vocabulary length (number of genes): 3000
@@ -471,29 +469,27 @@ The first batch of datasets was generated so that it mimics the properties of th
 
 Densities here refer to the fraction of non-zero elements in each matrix. The KEGG/CMap dataset is very sparse: each pathway only affects, on average 1.38\% of all genes and each drug only affects, on average, 12.3\% of all pathways. The density value for $\beta$ was calculated by taking the matrix of priors (since it explicitly enforces the pattern of zeros in the result), whereas the density value for $\theta$ was calculated by taking the reference (CTD) dataset.
 
-With these parameters, 5 datasets were generated:
+The first four datasets allow to investigate how the performance of the model changes when the number of topics increases:
 
 \begin{itemize}[noitemsep]
-\item 10 topics
-\item 20 topics
-\item 50 topics
-\item 100 topics
+\item Dataset 1: 10 topics
+\item Dataset 2: 20 topics
+\item Dataset 3: 50 topics
+\item Dataset 4: 100 topics
 \end{itemize}
-
-These datasets allow to investigate how the performance of the model changes when the number of topics increases.
 
 The parameters of the fifth dataset were designed to mimic the real-world one as closely as possible in order to determine, by comparing the performance of the model on that dataset against the real-world one, whether the drug gene expression data follows the generative framework described by the CTM. In addition to reusing all the parameters the first 4 datasets were generated with, for this dataset I also approximated the $\mu$ and $\Sigma$ of the reference by first calculating the topic distribution $\theta$ implied by the dataset (assuming all pathways in the resultant matrix are equally weighted) and then calculating the mean and the covariance matrix of the distribution of pathways based on it.
 
 In the last 4 datasets, I varied the density of the covariance matrix: the proportion of pathways in the implied matrix of correlations that are connected:
 
 \begin{itemize}[noitemsep]
-\item No correlations: use the identity matrix as $\Sigma$
-\item Density 10\%
-\item Density 50\%
-\item Density 90\%
+\item Dataset 6: No correlations: use the identity matrix as $\Sigma$
+\item Dataset 7: Density 10\%
+\item Dataset 8: Density 50\%
+\item Dataset 9: Density 90\%
 \end{itemize}
 
-\subsection{Convergence analysis}
+\subsection{Overall analysis}
 
 At every iteration, the model outputs a likelihood bound that it assigns to the data and continues updating the model parameters until the likelihood bound converges (the change is less than a certain threshold). The likelihood bound values over iterations are plotted here.
 
@@ -517,7 +513,7 @@ Figure~\ref{fig:sim-cosine} shows the mean cosine similarity between each $\thet
 
 \begin{figure}[!htb]
 \includegraphics[width=\textwidth]{sim-beta-cosine.eps}
-\caption{Cosine similarities between the inferred and reference topic-word distributions as a function of the number of topics in the toy datasets (TODO: add captions for random)}
+\caption{Cosine similarities between the inferred and reference topic-word distributions as a function of the number of topics in the toy datasets}
 \label{fig:sim-beta-cosine}
 \end{figure}
 
