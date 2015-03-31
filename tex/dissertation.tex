@@ -10,6 +10,7 @@
 \usepackage{mathtools}
 \usepackage{enumitem}
 \usepackage{epstopdf}
+\usepackage{tabu}
 \newcommand{\var}[1]{{\operatorname{\mathit{#1}}}}
 
 \raggedbottom                           % try to avoid widows and orphans
@@ -707,7 +708,46 @@ Random & -0.008 & 0.000 & 0.124 \\
 
 CTM with exponentiation is the only method that achieved a positive mean score, since its performance distribution has a heavy right tail: about 10\% of its predictions achieved a score greater than 1.
 
-TODO: the drug density-rho score plot for LDA and CTM
+\subsubsection{Performance as a function of drug density}
+
+Since CTM takes into account the correlations between pathways, it could be the case that it will perform better with dense drugs (that affect multiple pathways) than LDA and will lose out to LDA on more sparse drugs. Figure~\ref{fig:ctd-ctm-lda-scatter} plots this relationship and there are some interesting observations to be made. The variance of the performance decreases with density, which could be because the final score is normalised by the drug density, so for small densities the variance of the performance is amplified. However, at low densities, the distribution of scores is asymmetric and the normalisation does not explain that. This asymmetry, in fact, causes the correlation between the score and the drug density to be negative.
+
+\begin{figure}[!htb]
+\includegraphics[width=\textwidth]{ctd-ctm-lda-scatter.eps}
+\caption{Scatterplot of the rho-normalised log score versus the drug density for the three models}
+\label{fig:ctd-ctm-lda-scatter}
+\end{figure}
+
+\begin{table}
+\begin{tabu}{| l | l | l |}
+\hline
+Model & Pearson's r & Two-sided p-value \\
+\hline
+CTM & -0.042 & 0.353 \\
+LDA & -0.074 & 0.102 \\
+CTM with exponentiation & -0.186 & $3.60 \times 10^{-5}$ \\
+\hline
+\end{tabu}
+\caption{Pearson's correlation coefficients between the drug density and the rho-normalised log scores}
+\label{tab:ctm-density-correlation}
+\end{table}
+
+Table~\ref{tab:ctm-density-correlation} shows the Pearson's r score and the 2-tailed p-value, calculated by \texttt{SciPy}'s function \texttt{scipy.stats.pearsonr}. The p-value is defined as ``the probability of an uncorrelated system producing datasets that have a Pearson correlation at least as extreme as the one computed from these datasets" and so using this value, we can establish that there is a significant negative correlation between the performance of CTM with exponentiation and the drug density. This is because CTM-exp seems to have improved the worst outliers of CTM at low density levels.
+
+\begin{table}
+\begin{tabu}{| l | l | l |}
+\hline
+Criterion & Number of drugs & Mean density \\
+\hline
+CTM-exp outperforms LDA & 284 (57.7\%) & 0.148 \\
+LDA outperforms CTM-exp & 208 (42.3\%) & 0.154 \\
+\hline
+\end{tabu}
+\caption{Characterisation of drugs on which the models outperform each other}
+\label{tab:ctm-lda-outperform}
+\end{table}
+
+Table~\ref{tab:ctm-lda-outperform} further shows that CTM does not win on higher-density drugs: the average density of drugs on which CTM with exponentiation achieves a higher score than LDA is slightly smaller than of those where LDA beats CTM.
 
 \subsubsection{Clustering the drug similarity matrix}
 Since the document (or drug) similarity matrix (\ref{eq:document_similarity_matrix}) is not affected by the topic identifiability, I decided to perform clustering on the matrix to identify some common groups of drugs and reference them to the actual descriptions of those drugs.
