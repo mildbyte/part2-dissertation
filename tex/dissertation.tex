@@ -140,12 +140,16 @@ $c_n$ & Number of times the nth word occurs in the document \\
 $\mu$ & Mean of the normal distribution of topics in the corpus \\
 $\Sigma$ & Covariance matrix of the normal distribution of topics in the corpus \\
 $\beta$ & $K \times V$ dimensional matrix of topic-word distributions \\
-$\eta$ & Drawn topic distribution for a certain document \\
+$\eta$ & Drawn unnormalised topic distribution for a certain document \\
+$\theta$ & Normalised topic distribution for a certain document \\
 $z$ & Drawn topic assignments for each word in the document \\
 \hline
 \end{tabular}
 \caption{Definitions of the variables used in the Correlated Topic Model}
+\label{tab:ctm-variables}
 \end{table}
+
+Some variables in Table~\ref{tab:ctm-variables} are document-specific, for example, $\theta_d$ refers to the distribution of topics document $d$ is about. When this index is omitted, the document is assumed, for example, $w_n$ is the nth word in the document we are currently considering.
 
 \subsection{Deriving the likelihood bound on the corpus}
 
@@ -307,17 +311,15 @@ Since the variational inference process is independent for every document, it ca
 
 These efforts brought the training time down to about 8-9 hours for the whole dataset.
 
-\chapter{Evaluation}
-
-TODO: move the development of the methods into Implementation: the actual evaluation should contain things like ``I designed these evaluation methods" etc.
+\section{Designing evaluation and validation methods}
 
 There are two ways the evaluation of the model can be performed: firstly, it can be trained on real-world gene expression and pathway membership data (which will be referred to as the KEGG/CMap dataset) and evaluated against another dataset, called CTD, that lists, for every drug, the pathways that it does affect. However, it is not at all certain that the drug gene expression data actually does follow the generative framework defined by the CTM. Therefore, if model had poor performance on the real-world dataset, it would be impossible to find out whether it's because of an error in the implementation of the model or simply because the CTM is not suited to such tasks.
 
-Hence, most of the evaluation was performed on toy datasets, generated as per the CTM's framework. This allowed to explore the capabilities of the CTM as well as employ more effective evaluation methods, since the model parameters and the per-document topic distributions that the corpus was generated with were available.
+Hence, most of the evaluation was performed on toy datasets, generated as per the CTM's framework. However, the CTM was designed to be an exploratory model in the first place: given a corpus of text, the result of the training process would be an assignment of topics to every document, which reduces the dimensionality of data and allows to easier find similar documents. This makes the evaluation of CTM a challenge: how do we know that the values recovered as a result of training and inference make sense? Should they be compared to the reference model parameters and the per-document topic distributions that the corpus was generated with? Or perhaps it is enough to show that the outputs from the model are mutually consistent, for example, the inferred topic distribution for a document indeed spawns similar documents if we use it to generate them?
+
+Here, I propose multiple evaluation methods that try to explore the capabilities of the CTM, determine the performance of my implementation on synthetic datasets and establish whether CTM is useful for the prediction of drug-pathway interactions.
 
 One important point about the evaluation of these kinds of models that should be made is that all the values and distributions that will be obtained as a result of all the methods here will have no meaning unless they can be compared to some sort of a baseline. Random guessing of topic proportions and model parameters provides a good baseline and so its results will feature throughout the analysis.
-
-\section{Evaluation methods}
 
 \subsection{Generating toy datasets}
 
@@ -336,7 +338,7 @@ To generate a single document:
 \item Sample $\eta_d$ from $N(\mu, \Sigma)$ and normalize it to get the topic distribution for the document, $\theta_d = \frac{e^{\eta_d}}{\sum{e^{\eta_d}}}$
 \item Repeat $W$ times where $W$ is the number of words in each document:
 \begin{itemize}[noitemsep]
-\item Sample $z_{d, n}$, the topic the word belongs to, from $\eta_d$
+\item Sample $z_{d, n}$, the topic the word belongs to, from $\theta_d$
 \item Sample $w_{d, n}$ from $\beta{z_{d, n}}$, the word distribution for that topic
 \end{itemize}
 \end{itemize}
@@ -388,7 +390,7 @@ Similarly, if we've ensured that the topics were recovered correctly (through pe
 
 \subsection{Parameter recovery}
 
-Again assuming the topic recovery, the inferred model parameters can be compared to the reference parameters that the dataset was generated with.
+Again assuming successful topic recovery, the inferred model parameters can be compared to the reference parameters that the dataset was generated with.
 
 First, we turn the parameters into a ``canonical" form by normalising them:
 
@@ -452,6 +454,8 @@ M_d = \log(\frac{\sum\limits_{p \in \mathit{ref}_d}{\theta_{d, p}}}{\rho_d})
 
 This value will be referred as the rho-normalised log score further in the analysis.
 
+\chapter{Evaluation}
+
 \section{Toy datasets}
 
 The following subsections describe the datasets which were generated and describes the results of the evaluation as per the aforementioned methods.
@@ -504,7 +508,7 @@ In addition, since the output of every iteration of training are only the refine
 
 \begin{figure}[!htb]
 \includegraphics[width=\textwidth]{sim-cosine.eps}
-\caption{The mean cosine similarity between inferred and reference topic distributions as a function of the number of topics in the toy datasets}
+\caption{The mean cosine similarity between inferred and reference document-topic distributions $\theta$ as a function of the number of topics in the toy datasets}
 \label{fig:sim-cosine}
 \end{figure}
 
@@ -570,9 +574,7 @@ Figure~\ref{fig:sim-average-rho} shows the mean score the model achieved on ever
 
 \subsection{Conclusion}
 
-On the datasets of similar characteristics to the real-world KEGG/CMap dataset (large document-topic and topic-word sparsity levels) the CTM achieves great performance in the prediction of the document-topic distributions $\theta_d$, both when the evaluation method uses the reference distributions and when they have been turned into Boolean matrices. On the other hand, enforcing such large sparsity levels, in essence, breaks the assumptions about the generative process of the CTM which the model's training process relies on and the parameter recovery becomes much worse than random guessing.
-
-TODO: for beta: no distribution assumptions, optimised using gradient ascent, so enforcing zeros doesn't matter?
+On the datasets of similar characteristics to the real-world KEGG/CMap dataset (large document-topic and topic-word sparsity levels) the CTM achieves great performance in the prediction of the document-topic distributions $\theta_d$, both when the evaluation method uses the reference distributions and when they have been turned into Boolean matrices. On the other hand, enforcing such large sparsity levels on $\theta$, in essence, breaks the assumptions about the generative process of the CTM which the model's training process relies on and the parameter recovery becomes much worse than random guessing.
 
 Furthermore, only performing one training iteration of the CTM, as opposed to training the CTM until its likelihood bound on the corpus converges, result in better recovery performance of $\mu$ and $\beta$ and similar performance for $\Sigma$. The performance on the document-topic distribution recovery is rather close (and still much better than random guessing) but diverges from the full CTM as the number of topics increases.
 
