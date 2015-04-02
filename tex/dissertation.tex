@@ -11,6 +11,7 @@
 \usepackage{enumitem}
 \usepackage{epstopdf}
 \usepackage{tabu}
+\usepackage{fancyvrb}
 \newcommand{\var}[1]{{\operatorname{\mathit{#1}}}}
 
 \raggedbottom                           % try to avoid widows and orphans
@@ -296,6 +297,90 @@ TODO: read up on how theta is inferred
 To implement the training process for the model, I used Python, perhaps an unusual choice given the large amount of numerical computation that needs to be done and the poor performance of Python on these kinds of tasks. However, Python allows for extremely dense and expressive code, as well as has a REPL (Read-Eval-Print Loop), which allows for quick prototyping, implementation and debugging. The unsuitability of Python for numerical calculations is fixed by \texttt{NumPy}\cite{DBLP:journals/corr/abs-1102-1523}, a linear algebra library, that allows fast matrix operations in native code (using either routines provided by \texttt{NumPy} or more advanced numerical libraries that support the Basic Linear Algebra Subsystem (BLAS) API, such as ATLAS or OpenBLAS). In addition, NumPy integrates well with \texttt{SciPy}, a scientific computing library that provides useful routines, for example, for working with probability distributions or numerical optimisation.
 
 Despite using \texttt{NumPy}, I still had performance issues which would have made working with the real-world datasets very inconvenient. The training time for 1/10th of the dataset was about 3-4 hours, which implies more than 30-40 hours for the full dataset, since increasing its size would worsen the convergence rate. Using \texttt{cProfile}, a Python profiler, I identified several performance bottlenecks in the code.
+
+\begin{figure}
+\begin{Verbatim}[fontsize=\scriptsize]
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+     5596   56.686    0.010   60.062    0.011 variational_inference.py:34(f_lambda)
+      616   22.737    0.037   57.636    0.094 variational_inference.py:70(likelihood_bound)
+  5599536    9.381    0.000   33.919    0.000 math_utils.py:10(safe_log)
+  5587240    7.286    0.000    7.286    0.000 {method 'clip' of 'numpy.generic' objects}
+  5639219    6.708    0.000    6.708    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+       48    5.111    0.106  118.752    2.474 variational_inference.py:96(variational_inference)
+    40346    4.260    0.000    4.260    0.000 {sum}
+  5587240    4.154    0.000   11.132    0.000 {method 'max' of 'numpy.generic' objects}
+  5602512    3.854    0.000   15.054    0.000 [...]\numpy\core\fromnumeric.py:2050(amax)
+  5599536    2.196    0.000    9.512    0.000 [...]\numpy\core\fromnumeric.py:1566(clip)
+     5243    2.006    0.000    2.970    0.001 variational_inference.py:25(f_dlambda)
+  5602512    1.329    0.000    7.045    0.000 [...]\numpy\core\_methods.py:25(_amax)
+        2    1.127    0.564    1.620    0.810 [...]\numpy\lib\npyio.py:631(loadtxt)
+        5    0.542    0.108  128.322   25.664 expectation_maximization.py:31(expectation_maximization)
+    15759    0.362    0.000    0.362    0.000 {zip}
+    11016    0.221    0.000    0.849    0.000 variational_inference.py:49(f_nu_sq)
+    29299    0.188    0.000    0.188    0.000 {method 'dot' of 'numpy.ndarray' objects}
+    26757    0.176    0.000    0.176    0.000 {numpy.core.multiarray.array}
+      472    0.140    0.000   63.618    0.135 [...]\scipy\optimize\optimize.py:792(_minimize_bfgs)
+     6129    0.135    0.000    0.135    0.000 {method 'split' of 'str' objects}
+    36235    0.132    0.000    1.185    0.000 [...]\numpy\core\fromnumeric.py:1623(sum)
+    11016    0.123    0.000    0.365    0.000 variational_inference.py:64(f_dnu_sq)
+     2531    0.122    0.000   53.814    0.021 [...]\scipy\optimize\linesearch.py:101(scalar_search_wolfe1)
+  1692604    0.118    0.000    0.118    0.000 {len}
+    16354    0.089    0.000    0.089    0.000 {numpy.core._dotblas.dot}
+      472    0.085    0.000    1.356    0.003 [...]\scipy\optimize\lbfgsb.py:198(_minimize_lbfgsb)
+    11632    0.061    0.000    0.061    0.000 {method 'trace' of 'numpy.ndarray' objects}
+    11680    0.060    0.000    0.099    0.000 [...]\numpy\lib\twodim_base.py:242(diag)
+      616    0.048    0.000    0.066    0.000 [...]\numpy\linalg\linalg.py:1679(det)
+    21855    0.047    0.000   63.928    0.003 [...]\scipy\optimize\optimize.py:279(function_wrapper)
+\end{Verbatim}
+\caption{Before}
+\end{figure}
+
+\begin{figure}
+\begin{Verbatim}[fontsize=\scriptsize]
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+   228980   13.626    0.000   16.912    0.000 [...]\numexpr\necompiler.py:662(evaluate)
+  1435488    3.721    0.000    3.721    0.000 {method 'dot' of 'numpy.ndarray' objects}
+   188760    3.406    0.000    8.575    0.000 variational_inference.py:57(f_nu_sq)
+  1001753    3.204    0.000    3.204    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+   197650    3.194    0.000    6.284    0.000 [...]\scipy\optimize\linesearch.py:397(_cubicmin)
+   316328    2.915    0.000    6.099    0.000 variational_inference.py:42(f_lambda)
+    26200    2.786    0.000   15.506    0.001 [...]\scipy\optimize\lbfgsb.py:198(_minimize_lbfgsb)
+    45796    2.373    0.000   24.774    0.001 variational_inference.py:75(likelihood_bound)
+     6532    2.264    0.000   60.768    0.009 variational_inference.py:105(variational_inference)
+   188760    2.159    0.000    2.672    0.000 variational_inference.py:70(f_dnu_sq)
+  1301601    1.595    0.000    1.595    0.000 {numpy.core.multiarray.array}
+    45796    1.554    0.000    2.346    0.000 [...]\numpy\linalg\linalg.py:1599(slogdet)
+   228985    1.441    0.000    1.638    0.000 [...]\numexpr\necompiler.py:462(getContext)
+   896841    1.297    0.000    5.074    0.000 [...]\numpy\core\fromnumeric.py:1623(sum)
+   817792    1.235    0.000    2.615    0.000 [...]\numpy\core\numeric.py:2428(seterr)
+   234556    1.205    0.000    1.205    0.000 {method 'trace' of 'numpy.ndarray' objects}
+   483113    1.195    0.000    1.195    0.000 {numpy.core._dotblas.dot}
+   211246    1.176    0.000    2.974    0.000 [...]\scipy\optimize\linesearch.py:431(_quadmin)
+        2    1.167    0.583    1.659    0.829 [...]\numpy\lib\npyio.py:631(loadtxt)
+   241088    1.152    0.000    1.964    0.000 [...]\numpy\lib\twodim_base.py:242(diag)
+    81828    1.002    0.000    1.197    0.000 variational_inference.py:33(f_dlambda)
+   634846    0.934    0.000    0.934    0.000 {numpy.core.multiarray.zeros}
+    19765    0.928    0.000   15.335    0.001 [...]\scipy\optimize\linesearch.py:452(_zoom)
+   817792    0.893    0.000    0.965    0.000 [...]\numpy\core\numeric.py:2524(geterr)
+   237185    0.766    0.000    5.556    0.000 [...]\scipy\optimize\linesearch.py:237(phi)
+  1196788    0.723    0.000    1.971    0.000 [...]\numpy\core\numeric.py:394(asarray)
+   586916    0.656    0.000   16.526    0.000 [...]\scipy\optimize\optimize.py:279(function_wrapper)
+    26200    0.650    0.000   21.688    0.001 [...]\scipy\optimize\optimize.py:1101(_minimize_cg)
+    52400    0.609    0.000   38.389    0.001 [...]\scipy\optimize\_minimize.py:37(minimize)
+  1194630    0.595    0.000    0.595    0.000 {isinstance}
+    46081    0.529    0.000    2.764    0.000 [...]\scipy\optimize\linesearch.py:101(scalar_search_wolfe1)
+   896841    0.387    0.000    3.259    0.000 [...]\numpy\core\_methods.py:31(_sum)
+   457960    0.354    0.000    0.354    0.000 [...]\numexpr\necompiler.py:611(getType)
+   408896    0.325    0.000    0.382    0.000 [...]\numpy\core\numeric.py:2809(__init__)
+   408896    0.322    0.000    1.714    0.000 [...]\numpy\core\numeric.py:2813(__enter__)
+   408896    0.321    0.000    1.544    0.000 [...]\numpy\core\numeric.py:2818(__exit__)
+   817792    0.308    0.000    0.308    0.000 {numpy.core.umath.seterrobj}
+   228980    0.297    0.000    0.297    0.000 {sorted}
+   188760    0.291    0.000   11.758    0.000 [...]\scipy\optimize\lbfgsb.py:264(func_and_grad)
+   232156    0.290    0.000    0.290    0.000 {zip}
+\end{Verbatim}
+\caption{After}
+\end{figure}
 
 TODO: some examples how the algorithms were converted and optimisation performed
 
