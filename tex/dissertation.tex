@@ -348,7 +348,7 @@ Despite using \texttt{NumPy}, I still had performance issues which would have ma
     36235    0.024    0.000    1.014    0.000 [...]\numpy\core\_methods.py:31(_sum)
         1    0.023    0.023    0.024    0.024 [...]\spyderlib\widgets\externalshell\sitecustomize.py:501(run)
 \end{Verbatim}
-\caption{Before}
+\caption{\texttt{cProfile} output for the CTM training before the optimisation on 12 drugs, 23 pathways, 284 genes}
 \label{fig:ctm-profile-before}
 \end{figure}
 
@@ -356,8 +356,9 @@ Figure~\ref{fig:ctm-profile-before} shows the \texttt{cProfile} output for my im
 
 The training was run on 1/100th of all drugs, 1/10th of all pathways and 1/10th of all genes, resulting in a thinned dataset of 12 drugs, 23 pathways and 284 genes. It took about 2 minutes (\texttt{cumtime} for the EM function \texttt{expectation\_maximization} is 128 seconds), which implies that the training time for the whole dataset would have been more than 20000 minutes (since the process involves matrix multiplications, it is supra-linear in most of the input sizes), which is unacceptable.
 
-It is immediately obvious that the program spends most of its time recalculating the likelihood bound (\texttt{likelihood\_bound}) and the objective function for the optimisation of the bound with respect to $\lambda$ (\texttt{f\_lambda}), which is the negated likelihood bound with just the terms that are dependent on $\lambda$. These two functions in total account for almost all the time (117 seconds) the program runs.
+It is immediately obvious that the program spends most of its time recalculating the likelihood bound (\texttt{likelihood\_bound}) and the objective function for the optimisation of the bound with respect to $\lambda$ (\texttt{f\_lambda}). These two functions in total account for almost all the time (117 seconds) the program runs.
 
+\begin{figure}
 \begin{Verbatim}[fontsize=\scriptsize]
 def likelihood_bound(v_params, m_params, doc, counts):
     N = sum(counts)
@@ -386,16 +387,31 @@ def likelihood_bound(v_params, m_params, doc, counts):
     
     return result
 \end{Verbatim}
+\caption{Code of the likelihood bound calculation before optimisation}
+\label{fig:code-before-optimisation}
+\end{figure}
+
+Since \texttt{f\_lambda} is just the negated likelihood bound calculation with only the terms that depend on $\lambda$, the bulk of the performance improvements will come from optimising \texttt{likelihood\_bound} (Figure~\ref{fig:code-before-optimisation}).
 
 The biggest issue here is the use of various Pythonisms like list comprehensions and the \texttt{zip} function. While the first term does use the \texttt{dot} function (for \texttt{NumPy} matrix multiplication), the calculation of the last 3 terms of the likelihood bound doesn't. It involves performing very similar operations: iterating over all distinct words in the document and all topics (thus creating a tuple \texttt{(n, c, i)} for the word index, word number and the topic index), multiplying \texttt{c * v\_params.phi[n, i]} by a different term (for every term out of these three terms in the likelihood bound), then creating an ad-hoc list of these subterms and then finally summing all items in this list to get to the actual term.
 
 Even if this redundancy were eliminated, this code is still evaluated by the Python interpreter, which is still extremely wasteful. Hence I tried to convert the code to use matrix operations, as these would be evaluated in native code.
 
-First of all, the \texttt{c * v\_params.phi[n, i]} term is converted to a matrix \texttt{weighted\_sum\_phi} that is updated only when \texttt{phi} changes (during the variational inference loop): \texttt{weighted\_sum\_phi = doc\_counts.dot(phi)}. This matrix represents the term $\sum\limits_n\sum\limits_i c_n\phi_{n, i}$. Now the first term can be simply rewritten as \texttt{v\_params.weighted\_sum\_phi.dot(v\_params.lambd)}.
+First of all, the \texttt{c * v\_params.phi[n, i]} term is converted to a vector \texttt{weighted\_sum\_phi} that is updated only when \texttt{phi} changes (during the variational inference loop): \texttt{weighted\_sum\_phi = doc\_counts.dot(phi)}. This vector represents the term $\sum\limits_n\ c_n\phi_{n, i}$. Now the first term can be simply rewritten as \texttt{v\_params.weighted\_sum\_phi.dot(v\_params.lambd)}.
 
 In the \texttt{safe\_log(m\_params.beta[i, doc[n]]} term, it seems as if we do need to perform an explicit iteration over the matrix, as we need to find $\beta_{i, w_n}$. Luckily, \texttt{NumPy} supports indexing a matrix not only with a scalar, but also with a vector. In this case, \texttt{m\_params.beta.T[doc]} will transpose the matrix (notice that in the original expression, \texttt{phi} is indexed by \texttt{[n, i]}, whereas \texttt{beta} has the indices swapped) and return another matrix of the same shape as \texttt{phi}. The final expression is \texttt{np.sum(np.dot(counts, np.multiply(v\_params.phi, safe\_log(m\_params.beta.T[doc]))))}, where \texttt{np.multiply} is the Hadamard product of two matrices.
 
 Similarly, the final term is converted to \texttt{np.sum(np.dot(counts, np.multiply(v\_params.phi, safe\_log(v\_params.phi))))}.
+
+Another bottleneck in the above profile is the \texttt{safe\_log} function. I had to write and use it because the training process requires taking a logarithm of $\beta$: recall that certain positions in $\beta$ are enforced to always be zero, which causes the normal logarithm function to return -infinity. My workaround for this was to clamp the output of the logarithm function to always return at least $-10^5$. However, this essentially meant having to traverse every matrix once again, which added up to massive performance losses since \texttt{safe\_log} had to be called so much. I hence decided to instead set the required entries of $\beta$ to $10^{-100}$ every EM cycle (of which there would be less than 100), which meant that the builtin logarithm function wouldn't break anymore.
+
+Even after rewriting the likelihood bound calculation, it still was a major bottleneck: it had to be performed every variational inference cycle for every document, since the termination criterion is based on the magnitude of changes in the bound. One solution to this would be not calculating the likelihood bound every iteration, but this resulted in worse performance: another variational inference cycle (2500ms in the unoptimised program) was more expensive than checking the bound (94ms). To speed this up, I used \texttt{numexpr}, a package that compiles operations on \texttt{NumPy} arrays into its own internal virtual machine bytecode and supports multithreaded computations on arrays. This involved rewriting some code for the likelihood bound calculation (since \texttt{numexpr} only supports some operators and mathematical functions) and passing it as a string to the evaluator. Interestingly enough, I did not get an improvement when making the objective functions for the $\nu^2$ and $\lambda$ optimisation use \texttt{numexpr}.
+
+In addition, the variational inference process requires calling the \texttt{SciPy} function minimizer for $\lambda$ and $\nu^2$ every training iteration, which requires an initial value to start its search from. Recycling the variational parameters to continue the search from the previous iteration gave yet another performance improvement.
+
+I also recompiled my \texttt{NumPy} distribution to use the Intel Math Kernel Library as its backend. Free for academic and personal use, Intel MKL provides a linear algebra library that implements the BLAS (Basic Linear Algebra Subsystem) API, optimized for manycore Intel CPUs. This benefits not only \texttt{NumPy}'s matrix multiplication, but also \texttt{numexpr}'s VM that can use the Intel Vector Math Library (VML) for faster operations on vectors.
+
+Since the variational inference process is independent for every document, it can be parallelized across multiple cores. However, because of the Python Global Interpreter Lock, only one thread can execute Python bytecode at a time. This meant that I had to launch several Python processes if I wanted to take advantage of my CPU's capabilities. While this did provide an increase in CPU usage, it resulted in worse performance than using \texttt{numexpr} and Intel MKL's natural multithreading capabilities.
 
 \begin{figure}
 \begin{Verbatim}[fontsize=\scriptsize]
@@ -441,22 +457,46 @@ Similarly, the final term is converted to \texttt{np.sum(np.dot(counts, np.multi
    176920    0.141    0.000    0.141    0.000 [...]\numexpr\necompiler.py:611(getType)
      6129    0.134    0.000    0.134    0.000 {method 'split' of 'str' objects}
 \end{Verbatim}
-\caption{After}
+\caption{\texttt{cProfile} output for the CTM training before the optimisation on 117 drugs, 23 pathways, 284 genes}
+\label{fig:ctm-profile-after}
 \end{figure}
 
-TODO: some examples how the algorithms were converted and optimisation performed
+Finally, Figure~\ref{fig:ctm-profile-after} shows the profiling data of the resultant program, with training run on 1/10th of all drugs, 1/10th of all pathways and 1/10th of all genes (in essence, 10 times as many drugs as the previous thinned dataset). The training time was 30 seconds, which is a massive 40x performance improvement on the unoptimised program (indeed, the training time for the whole real-world dataset was about 8-9 hours). The bulk of the time is now spent in \texttt{numexpr}'s evaluator and a single likelihood bound calculation now takes 1ms on average (as opposed to the previous program's 37ms). More calls are now made to \texttt{numpy.core.\_dotblas.dot}, which is the native \texttt{NumPy} matrix multiplication routine.
 
-Firstly, the EM process used explicit Python list comprehensions that are evaluated using the Python interpreter, which I converted into matrix products.
+Interestingly, these changes made the code shorter and perhaps more readable (Figure~\ref{fig:code-after-optimisation}).
 
-Another major bottleneck is the likelihood bound calculation, which has to be performed every variational inference cycle for every document, since the termination criterion is based on the magnitude of changes in the bound. One solution to this would be not calculating the likelihood bound every iteration, but this resulted in worse performance: another variational inference cycle was more expensive than checking the bound. To speed this up, I used \texttt{numexpr}, a package that compiles operations on \texttt{NumPy} arrays into its own internal virtual machine bytecode and supports multithreaded computations on arrays. This involved rewriting some code for the likelihood bound calculation (since \texttt{numexpr} only supports some operators and mathematical functions) and passing it as a string to the evaluator. Interestingly enough, I did not get an improvement when making the objective functions for the $\nu^2$ and $\lambda$ optimisation use \texttt{numexpr}.
-
-The variational inference process requires calling the \texttt{SciPy} function minimizer for some parameters multiple times, which requires an initial value to start its search from. It turned out that in the beginning of the variational inference (every EM iteration) the initial values were the default ones. Recycling the variational parameters to continue the search from the previous iteration gave yet another performance improvement.
-
-I also recompiled my \texttt{NumPy} distribution to use the Intel Math Kernel Library as its backend. Free for academic and personal use, Intel MKL provides a linear algebra library that implements the BLAS (Basic Linear Algebra Subsystem) API, optimized for manycore Intel CPUs.
-
-Since the variational inference process is independent for every document, it can be parallelized across multiple cores. However, because of the Python Global Interpreter Lock, only one thread can execute Python bytecode at a time. This meant that I had to launch several Python processes if I wanted to take advantage of my CPU's capabilities. While this did provide an increase in CPU usage, it resulted in worse performance than using \texttt{numexpr} and Intel MKL's natural multithreading capabilities.
-
-These efforts brought the training time down to about 8-9 hours for the whole dataset.
+\begin{figure}
+\begin{Verbatim}[fontsize=\scriptsize]
+def likelihood_bound(v_params, m_params, doc, counts, N):
+    #E_q(logp(eta|mu,sigma))
+    result = 0.5 * np.linalg.slogdet(m_params.inv_sigma)[1] #slogdet avoids overflow (as opposed to log(det(inv_sigma)))
+    result -= 0.5 * log2pi * len(m_params.beta)
+    result -= 0.5 * (np.diag(v_params.nu_sq).dot(m_params.inv_sigma)).trace()
+    lambd = v_params.lambd
+    mu = m_params.mu
+    lambda_mu = ne.evaluate("lambd - mu")
+    result -= 0.5 * lambda_mu.dot(m_params.inv_sigma.dot(lambda_mu))
+    
+    #E_q(logp(z|eta))
+    result += v_params.weighted_sum_phi.dot(v_params.lambd)
+    nu_sq = v_params.nu_sq
+    zeta = v_params.zeta
+    result -= N * (ne.evaluate("sum(exp(lambd + 0.5 * nu_sq - log(zeta)))") - 1 + np.log(v_params.zeta))
+    
+    #E_q(logp(w|mu,z,beta))
+    phi = v_params.phi
+    betaTdoc = m_params.beta.T[doc]
+    result += np.sum(np.dot(counts, ne.evaluate("phi * log(betaTdoc)")))
+    
+    #H(q)
+    result += ne.evaluate("sum(0.5 * (1 + log2pi + log(nu_sq)))")
+    result -= np.sum(np.dot(counts, ne.evaluate("phi * log(phi)")))
+    
+    return result
+\end{Verbatim}
+\caption{Final code of the likelihood bound calculation after optimisation}
+\label{fig:code-after-optimisation}
+\end{figure}
 
 \section{Designing evaluation and validation methods}
 
