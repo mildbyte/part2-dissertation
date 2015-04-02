@@ -209,7 +209,7 @@ Here, the variational distribution of the per-document topic distribution $\eta$
 
 Minimizing the Kullback-Leibner divergence between the variational distribution and the true posterior is the same as optimizing the parameters of the variational distribution so that it maximizes the probability of the document. This is equivalent to maximizing the log probability of the document, which can be bounded as
 
-\begin{align}
+\begin{align}\label{eq:likelihood-bound}
 \log p(w | \beta, \mu, \Sigma) & \geq E_q[\log p(\eta|\mu, \Sigma)] \\
 & + \sum\limits_{n=1}^N E_q[\log p(z_n | \eta)] \\
 & + \sum\limits_{n=1}^N E_q[\log p(w_n | z_n, \beta)] \\
@@ -278,7 +278,13 @@ Once these variational parameters have been found, they are used to estimate the
 
 \subsection{Final algorithm of the training process}
 
-The overall training process is as follows: set some initial model parameters and use those to perform variational inference on every document (Algorithm \ref{alg:variational_inference}). Use the variational parameters to update the model parameters (Algorithm \ref{alg:expectation_maximisation}) and repeat until the likelihood bound converges (fractional change is less than a certain threshold). In the original paper, this algorithm is called Variational EM (Expectation-Maximisation). The classic EM algorithm consists of two steps: the E step, where some sort of a function of the model parameters is calculated or expressed, and the M step, where that function is maximised. Here, the E step is the variational inference process (where we express the likelihood bound on the document as a function of the parameters of the variational distribution (fit to each document) and the global model parameters) and the M step is where the variational parameters for every document are combined to update the global model parameters.
+To convert these equations to an algorithm, we need to address some performance considerations. The likelihood bound (\ref{eq:likelihood-bound}) has several sums over all words n in the document, which is wasteful, since each term in the sum will be the same for the same word. Hence, we split the document into $w_n$, a vector of distinct words, and $c_n$, a vector of counts of these words. $n$ now will refer to the nth distinct word in the document. The matrix $\phi_{n, i}$ now refers to the nth distinct word in the document and ith topic. Finally, the terms inside the sums only have to be calculated once (for each distinct word) and weighted by the number of times that word appears in the document.
+
+The overall training process is as follows: set some initial model parameters and use those to perform variational inference on every document. Use the variational parameters to update the model parameters and repeat until the likelihood bound converges (fractional change is less than a certain threshold).
+
+These steps are described in algorithms~\ref{alg:variational_inference}) and~\ref{alg:expectation_maximisation}. 
+
+In the original paper, this algorithm is called Variational EM (Expectation-Maximisation). The classic EM algorithm consists of two steps: the E step, where some sort of a function of the model parameters is calculated or expressed, and the M step, where that function is maximised. Here, the E step is the variational inference process (where we express the likelihood bound on the document as a function of the parameters of the variational distribution (fit to each document) and the global model parameters) and the M step is where the variational parameters for every document are combined to update the global model parameters.
 
 \input{variational_inference}
 
@@ -296,7 +302,7 @@ TODO: read up on how theta is inferred
 
 To implement the training process for the model, I used Python, perhaps an unusual choice given the large amount of numerical computation that needs to be done and the poor performance of Python on these kinds of tasks. However, Python allows for extremely dense and expressive code, as well as has a REPL (Read-Eval-Print Loop), which allows for quick prototyping, implementation and debugging. The unsuitability of Python for numerical calculations is fixed by \texttt{NumPy}\cite{DBLP:journals/corr/abs-1102-1523}, a linear algebra library, that allows fast matrix operations in native code (using either routines provided by \texttt{NumPy} or more advanced numerical libraries that support the Basic Linear Algebra Subsystem (BLAS) API, such as ATLAS or OpenBLAS). In addition, NumPy integrates well with \texttt{SciPy}, a scientific computing library that provides useful routines, for example, for working with probability distributions or numerical optimisation.
 
-Despite using \texttt{NumPy}, I still had performance issues which would have made working with the real-world datasets very inconvenient. The training time for 1/10th of the dataset was about 3-4 hours, which implies more than 30-40 hours for the full dataset, since increasing its size would worsen the convergence rate. Using \texttt{cProfile}, a Python profiler, I identified several performance bottlenecks in the code.
+Despite using \texttt{NumPy}, I still had performance issues which would have made working with the real-world datasets very inconvenient. I used \texttt{cProfile}, a Python profiler, to investigate those.
 
 \begin{figure}
 \begin{Verbatim}[fontsize=\scriptsize]
@@ -314,7 +320,7 @@ Despite using \texttt{NumPy}, I still had performance issues which would have ma
      5243    2.006    0.000    2.970    0.001 variational_inference.py:25(f_dlambda)
   5602512    1.329    0.000    7.045    0.000 [...]\numpy\core\_methods.py:25(_amax)
         2    1.127    0.564    1.620    0.810 [...]\numpy\lib\npyio.py:631(loadtxt)
-        5    0.542    0.108  128.322   25.664 expectation_maximization.py:31(expectation_maximization)
+        1    0.542    0.542  128.322  128.322 expectation_maximization.py:31(expectation_maximization)
     15759    0.362    0.000    0.362    0.000 {zip}
     11016    0.221    0.000    0.849    0.000 variational_inference.py:49(f_nu_sq)
     29299    0.188    0.000    0.188    0.000 {method 'dot' of 'numpy.ndarray' objects}
@@ -331,53 +337,109 @@ Despite using \texttt{NumPy}, I still had performance issues which would have ma
     11680    0.060    0.000    0.099    0.000 [...]\numpy\lib\twodim_base.py:242(diag)
       616    0.048    0.000    0.066    0.000 [...]\numpy\linalg\linalg.py:1679(det)
     21855    0.047    0.000   63.928    0.003 [...]\scipy\optimize\optimize.py:279(function_wrapper)
+        1    0.046    0.046  130.036  130.036 D:/Projects/part2-dissertation/ctm-test.py:6(<module>)
+    39010    0.042    0.000    0.042    0.000 {isinstance}
+     4744    0.040    0.000    2.754    0.001 [...]\scipy\optimize\linesearch.py:84(derphi)
+        1    0.039    0.039    0.039    0.039 {method 'round' of 'numpy.ndarray' objects}
+6120/3060    0.038    0.000    0.039    0.000 [...]\numpy\lib\npyio.py:775(pack_items)
+    22465    0.038    0.000    0.038    0.000 {numpy.core.multiarray.zeros}
+     4744    0.027    0.000   50.928    0.011 [...]\scipy\optimize\linesearch.py:80(phi)
+    12296    0.025    0.000    0.025    0.000 {method 'clip' of 'numpy.ndarray' objects}
+    36235    0.024    0.000    1.014    0.000 [...]\numpy\core\_methods.py:31(_sum)
+        1    0.023    0.023    0.024    0.024 [...]\spyderlib\widgets\externalshell\sitecustomize.py:501(run)
 \end{Verbatim}
 \caption{Before}
+\label{fig:ctm-profile-before}
 \end{figure}
+
+Figure~\ref{fig:ctm-profile-before} shows the \texttt{cProfile} output for my implementation of CTM training process before optimisation, sorted by \texttt{totttime}. \texttt{tottime} represents total time spent in just the given function and not in any functions that it calls, whereas \texttt{cumtime} represents the total time spent in the function, from entry to exit.
+
+The training was run on 1/100th of all drugs, 1/10th of all pathways and 1/10th of all genes, resulting in a thinned dataset of 12 drugs, 23 pathways and 284 genes. It took about 2 minutes (\texttt{cumtime} for the EM function \texttt{expectation\_maximization} is 128 seconds), which implies that the training time for the whole dataset would have been more than 20000 minutes (since the process involves matrix multiplications, it is supra-linear in most of the input sizes), which is unacceptable.
+
+It is immediately obvious that the program spends most of its time recalculating the likelihood bound (\texttt{likelihood\_bound}) and the objective function for the optimisation of the bound with respect to $\lambda$ (\texttt{f\_lambda}), which is the negated likelihood bound with just the terms that are dependent on $\lambda$. These two functions in total account for almost all the time (117 seconds) the program runs.
+
+\begin{Verbatim}[fontsize=\scriptsize]
+def likelihood_bound(v_params, m_params, doc, counts):
+    N = sum(counts)
+    
+    #E_q(logp(eta|mu,sigma))
+    result = 0.5 * safe_log(np.linalg.det(m_params.inv_sigma))
+    result -= 0.5 * safe_log(2 * np.pi) * len(m_params.beta)
+    result -= 0.5 * (np.diag(v_params.nu_sq).dot(m_params.inv_sigma)).trace()
+    lambda_mu = v_params.lambd - m_params.mu
+    result -= 0.5 * lambda_mu.dot(m_params.inv_sigma.dot(lambda_mu))
+    
+    #E_q(logp(z|eta))
+    result += sum([c * v_params.lambd[i] * v_params.phi[n, i]\
+        for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
+    result -= N * (1.0 / v_params.zeta * np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq))\
+        - 1 + safe_log(v_params.zeta))
+    
+    #E_q(logp(w|mu,z,beta))
+    result += sum([c * v_params.phi[n, i] * safe_log(m_params.beta[i, doc[n]])\
+        for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
+    
+    #H(q)
+    result += np.sum(0.5 * (1 + safe_log(v_params.nu_sq * 2 * np.pi)))
+    result -= np.sum([c * v_params.phi[n, i] * safe_log(v_params.phi[n, i])\
+        for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
+    
+    return result
+\end{Verbatim}
+
+The biggest issue here is the use of various Pythonisms like list comprehensions and the \texttt{zip} function. While the first term does use the \texttt{dot} function (for \texttt{NumPy} matrix multiplication), the calculation of the last 3 terms of the likelihood bound doesn't. It involves performing very similar operations: iterating over all distinct words in the document and all topics (thus creating a tuple \texttt{(n, c, i)} for the word index, word number and the topic index), multiplying \texttt{c * v\_params.phi[n, i]} by a different term (for every term out of these three terms in the likelihood bound), then creating an ad-hoc list of these subterms and then finally summing all items in this list to get to the actual term.
+
+Even if this redundancy were eliminated, this code is still evaluated by the Python interpreter, which is still extremely wasteful. Hence I tried to convert the code to use matrix operations, as these would be evaluated in native code.
+
+First of all, the \texttt{c * v\_params.phi[n, i]} term is converted to a matrix \texttt{weighted\_sum\_phi} that is updated only when \texttt{phi} changes (during the variational inference loop): \texttt{weighted\_sum\_phi = doc\_counts.dot(phi)}. This matrix represents the term $\sum\limits_n\sum\limits_i c_n\phi_{n, i}$. Now the first term can be simply rewritten as \texttt{v\_params.weighted\_sum\_phi.dot(v\_params.lambd)}.
+
+In the \texttt{safe\_log(m\_params.beta[i, doc[n]]} term, it seems as if we do need to perform an explicit iteration over the matrix, as we need to find $\beta_{i, w_n}$. Luckily, \texttt{NumPy} supports indexing a matrix not only with a scalar, but also with a vector. In this case, \texttt{m\_params.beta.T[doc]} will transpose the matrix (notice that in the original expression, \texttt{phi} is indexed by \texttt{[n, i]}, whereas \texttt{beta} has the indices swapped) and return another matrix of the same shape as \texttt{phi}. The final expression is \texttt{np.sum(np.dot(counts, np.multiply(v\_params.phi, safe\_log(m\_params.beta.T[doc]))))}, where \texttt{np.multiply} is the Hadamard product of two matrices.
+
+Similarly, the final term is converted to \texttt{np.sum(np.dot(counts, np.multiply(v\_params.phi, safe\_log(v\_params.phi))))}.
 
 \begin{figure}
 \begin{Verbatim}[fontsize=\scriptsize]
    ncalls  tottime  percall  cumtime  percall filename:lineno(function)
-   228980   13.626    0.000   16.912    0.000 [...]\numexpr\necompiler.py:662(evaluate)
-  1435488    3.721    0.000    3.721    0.000 {method 'dot' of 'numpy.ndarray' objects}
-   188760    3.406    0.000    8.575    0.000 variational_inference.py:57(f_nu_sq)
-  1001753    3.204    0.000    3.204    0.000 {method 'reduce' of 'numpy.ufunc' objects}
-   197650    3.194    0.000    6.284    0.000 [...]\scipy\optimize\linesearch.py:397(_cubicmin)
-   316328    2.915    0.000    6.099    0.000 variational_inference.py:42(f_lambda)
-    26200    2.786    0.000   15.506    0.001 [...]\scipy\optimize\lbfgsb.py:198(_minimize_lbfgsb)
-    45796    2.373    0.000   24.774    0.001 variational_inference.py:75(likelihood_bound)
-     6532    2.264    0.000   60.768    0.009 variational_inference.py:105(variational_inference)
-   188760    2.159    0.000    2.672    0.000 variational_inference.py:70(f_dnu_sq)
-  1301601    1.595    0.000    1.595    0.000 {numpy.core.multiarray.array}
-    45796    1.554    0.000    2.346    0.000 [...]\numpy\linalg\linalg.py:1599(slogdet)
-   228985    1.441    0.000    1.638    0.000 [...]\numexpr\necompiler.py:462(getContext)
-   896841    1.297    0.000    5.074    0.000 [...]\numpy\core\fromnumeric.py:1623(sum)
-   817792    1.235    0.000    2.615    0.000 [...]\numpy\core\numeric.py:2428(seterr)
-   234556    1.205    0.000    1.205    0.000 {method 'trace' of 'numpy.ndarray' objects}
-   483113    1.195    0.000    1.195    0.000 {numpy.core._dotblas.dot}
-   211246    1.176    0.000    2.974    0.000 [...]\scipy\optimize\linesearch.py:431(_quadmin)
-        2    1.167    0.583    1.659    0.829 [...]\numpy\lib\npyio.py:631(loadtxt)
-   241088    1.152    0.000    1.964    0.000 [...]\numpy\lib\twodim_base.py:242(diag)
-    81828    1.002    0.000    1.197    0.000 variational_inference.py:33(f_dlambda)
-   634846    0.934    0.000    0.934    0.000 {numpy.core.multiarray.zeros}
-    19765    0.928    0.000   15.335    0.001 [...]\scipy\optimize\linesearch.py:452(_zoom)
-   817792    0.893    0.000    0.965    0.000 [...]\numpy\core\numeric.py:2524(geterr)
-   237185    0.766    0.000    5.556    0.000 [...]\scipy\optimize\linesearch.py:237(phi)
-  1196788    0.723    0.000    1.971    0.000 [...]\numpy\core\numeric.py:394(asarray)
-   586916    0.656    0.000   16.526    0.000 [...]\scipy\optimize\optimize.py:279(function_wrapper)
-    26200    0.650    0.000   21.688    0.001 [...]\scipy\optimize\optimize.py:1101(_minimize_cg)
-    52400    0.609    0.000   38.389    0.001 [...]\scipy\optimize\_minimize.py:37(minimize)
-  1194630    0.595    0.000    0.595    0.000 {isinstance}
-    46081    0.529    0.000    2.764    0.000 [...]\scipy\optimize\linesearch.py:101(scalar_search_wolfe1)
-   896841    0.387    0.000    3.259    0.000 [...]\numpy\core\_methods.py:31(_sum)
-   457960    0.354    0.000    0.354    0.000 [...]\numexpr\necompiler.py:611(getType)
-   408896    0.325    0.000    0.382    0.000 [...]\numpy\core\numeric.py:2809(__init__)
-   408896    0.322    0.000    1.714    0.000 [...]\numpy\core\numeric.py:2813(__enter__)
-   408896    0.321    0.000    1.544    0.000 [...]\numpy\core\numeric.py:2818(__exit__)
-   817792    0.308    0.000    0.308    0.000 {numpy.core.umath.seterrobj}
-   228980    0.297    0.000    0.297    0.000 {sorted}
-   188760    0.291    0.000   11.758    0.000 [...]\scipy\optimize\lbfgsb.py:264(func_and_grad)
-   232156    0.290    0.000    0.290    0.000 {zip}
+    88460    5.939    0.000    7.237    0.000 [...]\numexpr\necompiler.py:662(evaluate)
+   639494    1.683    0.000    1.683    0.000 {method 'dot' of 'numpy.ndarray' objects}
+    99000    1.664    0.000    3.280    0.000 [...]\scipy\optimize\linesearch.py:397(_cubicmin)
+   151068    1.475    0.000    3.099    0.000 variational_inference.py:42(f_lambda)
+   413096    1.426    0.000    1.426    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+     2340    1.344    0.001   27.691    0.012 variational_inference.py:105(variational_inference)
+    69397    1.287    0.000    3.232    0.000 variational_inference.py:57(f_nu_sq)
+        2    1.122    0.561    1.587    0.793 [...]\numpy\lib\npyio.py:631(loadtxt)
+    17692    1.121    0.000   10.651    0.001 variational_inference.py:75(likelihood_bound)
+    10672    1.062    0.000    5.928    0.001 [...]\scipy\optimize\lbfgsb.py:198(_minimize_lbfgsb)
+    69397    0.847    0.000    1.040    0.000 variational_inference.py:70(f_dnu_sq)
+   521216    0.771    0.000    0.771    0.000 {numpy.core.multiarray.array}
+   412986    0.636    0.000    1.358    0.000 [...]\numpy\core\numeric.py:2428(seterr)
+    17692    0.635    0.000    0.952    0.000 [...]\numpy\linalg\linalg.py:1599(slogdet)
+   218760    0.632    0.000    0.632    0.000 {numpy.core._dotblas.dot}
+   107493    0.621    0.000    1.557    0.000 [...]\scipy\optimize\linesearch.py:431(_quadmin)
+    88460    0.570    0.000    0.646    0.000 [...]\numexpr\necompiler.py:462(getContext)
+   370334    0.543    0.000    2.203    0.000 [...]\numpy\core\fromnumeric.py:1623(sum)
+     9900    0.475    0.000    8.050    0.001 [...]\scipy\optimize\linesearch.py:452(_zoom)
+   412986    0.460    0.000    0.496    0.000 [...]\numpy\core\numeric.py:2524(geterr)
+    87089    0.455    0.000    0.455    0.000 {method 'trace' of 'numpy.ndarray' objects}
+    89429    0.442    0.000    0.748    0.000 [...]\numpy\lib\twodim_base.py:242(diag)
+    33113    0.437    0.000    0.522    0.000 variational_inference.py:33(f_dlambda)
+   118800    0.409    0.000    2.965    0.000 [...]\scipy\optimize\linesearch.py:237(phi)
+   252950    0.388    0.000    0.388    0.000 {numpy.core.multiarray.zeros}
+   253578    0.291    0.000    7.143    0.000 [...]\scipy\optimize\optimize.py:279(function_wrapper)
+    10672    0.285    0.000   10.910    0.001 [...]\scipy\optimize\optimize.py:1101(_minimize_cg)
+   478523    0.282    0.000    0.829    0.000 [...]\numpy\core\numeric.py:394(asarray)
+    21344    0.264    0.000   17.353    0.001 [...]\scipy\optimize\_minimize.py:37(minimize)
+   490325    0.252    0.000    0.252    0.000 {isinstance}
+    20645    0.240    0.000    1.215    0.000 [...]\scipy\optimize\linesearch.py:101(scalar_search_wolfe1)
+     4743    0.208    0.000    0.208    0.000 {sum}
+    91601    0.206    0.000    0.206    0.000 {zip}
+   412986    0.170    0.000    0.170    0.000 {numpy.core.umath.seterrobj}
+   206493    0.170    0.000    0.198    0.000 [...]\numpy\core\numeric.py:2809(__init__)
+   206493    0.167    0.000    0.892    0.000 [...]\numpy\core\numeric.py:2813(__enter__)
+   206493    0.160    0.000    0.793    0.000 [...]\numpy\core\numeric.py:2818(__exit__)
+   370334    0.157    0.000    1.442    0.000 [...]\numpy\core\_methods.py:31(_sum)
+   176920    0.141    0.000    0.141    0.000 [...]\numexpr\necompiler.py:611(getType)
+     6129    0.134    0.000    0.134    0.000 {method 'split' of 'str' objects}
 \end{Verbatim}
 \caption{After}
 \end{figure}

@@ -12,15 +12,15 @@
    \Comment{$\var{mod-params}$ is a tuple $(\mu, \Sigma, \beta), \var{var-params}$ is a tuple $(\zeta, \phi, \lambda, \nu^2)$.}
    \begin{algorithmic}[1]
       \Function{optimize-zeta}{$\lambda, \nu^2$}
-      \State \Return $\sum{}{e^{\lambda + \frac{1}{2}\nu^2}}$
+      \State \Return $\sum\limits_ie^{\lambda_i + \nu_i^2 / 2}$
       \EndFunction 
-      \Function{optimize-lambda}{$\var{var-params}, \var{mod-params}, w, n$}
+      \Function{optimize-lambda}{$\var{var-params}, \var{mod-params}, w, c$}
       \State The objective functions use the $\lambda$ given in the function parameters instead of the one in $\var{var-params}$.
-    	  \Function{objective-lambda}{$\lambda, \var{var-params}, \var{mod-params}, w, n$}
-		      \State\Return $\frac{1}{2}(\lambda - \mu)^T\Sigma^{-1}(\lambda-\mu) - \sum{}{\phi} + \frac{N}{\zeta}\sum{}{e^{\lambda + \frac{1}{2}\nu^2}}$
+    	  \Function{objective-lambda}{$\lambda, \var{var-params}, \var{mod-params}, w, c$}
+		      \State\Return $\frac{1}{2}(\lambda - \mu)^T\Sigma^{-1}(\lambda-\mu) - \sum\limits_n\sum\limits_i c_n\lambda_i\phi_{n, i} + \frac{N}{\zeta}\sum\limits_i{e^{\lambda_i + \frac{1}{2}\nu_i^2}}$
 	      \EndFunction
-     	  \Function{objective-lambda-gradient}{$\lambda, \var{var-params}, \var{mod-params}, w, n$}
-		      \State\Return $\Sigma^{-1}(\lambda - \mu) - \sum{}{\phi} + \frac{N}{\zeta}\sum{}{e^{\lambda + \frac{1}{2}\nu^2}}$
+     	  \Function{objective-lambda-gradient}{$\lambda, \var{var-params}, \var{mod-params}, w, c$}
+		      \State\Return $\Sigma^{-1}(\lambda - \mu) - \sum\limits_n\sum\limits_i c_n\phi_{n, i} + \frac{N}{\zeta}e^{\lambda + \frac{1}{2}\nu^2}$
 	      \EndFunction
 	  \State $\lambda\gets $ result from a SciPy minimizer using functions \Call{objective-lambda}{} and \Call{objective-lambda-gradient}{}
       \State \Return $\lambda$
@@ -29,7 +29,7 @@
       
 	\State The objective functions use the $\nu^2$ given in the function parameters instead of the one in $\var{var-params}$
     	  \Function{objective-nu-sq}{$\nu^2, \var{var-params}, \var{mod-params}$}
-		      \State\Return $trace(\frac{1}{2}diag(\nu^2)\Sigma^{-1}) + \frac{N}{\zeta}\sum{}{e^{\lambda + \frac{1}{2}\nu^2}} - \frac{1}{2}\sum{}{(1 + ln(2\pi \nu^2))}$
+		      \State\Return $trace(\frac{1}{2}diag(\nu^2)\Sigma^{-1}) + \frac{N}{\zeta}\sum\limits_i{e^{\lambda_i + \frac{1}{2}\nu_i^2}} - \frac{1}{2}\sum\limits_i{(1 + ln(2\pi \nu_i^2))}$
 	      \EndFunction
      	  \Function{objective-nu-sq-gradient}{$\nu^2, \var{var-params}, \var{mod-params}$}
 		      \State\Return $\frac{1}{2}diag(\Sigma^{-1}) + \frac{N}{2\zeta}e^{\lambda + \frac{1}{2}\nu^2} - \frac{1}{2\nu^2}$
@@ -37,8 +37,8 @@
 	  \State $\nu^2\gets $ result from a SciPy minimizer using functions \Call{objective-nu-sq}{} and \Call{objective-nu-sq-gradient}{}
       \State \Return $\nu^2$
       \EndFunction
-      \Function{optimize-phi}{$\var{var-params}, \var{mod-params}, w, n$}
-		\State $\phi_{n,i}\gets e^{\lambda_i}\beta_{i, w_n}n_n$
+      \Function{optimize-phi}{$\var{var-params}, \var{mod-params}, w, c$}
+		\State $\phi_{n,i}\gets e^{\lambda_i}\beta_{i, w_n}c_n$
 	  \State Normalize $\phi$ so that every row sums up to 1
       \State \Return $\phi$
       \EndFunction
@@ -47,11 +47,11 @@
       \State Initialize the variational parameters: $\var{var-params}=(\zeta=10, \phi=1, \lambda=0, \nu^2=1$)
       \While{change in likelihood bound $>$ threshold}
       \State $\zeta\gets \Call{optimize-zeta}{\lambda, \nu^2}$
-      \State $\lambda\gets \Call{optimize-lambda}{\var{var-params}, \var{mod-params}, w, n}$
+      \State $\lambda\gets \Call{optimize-lambda}{\var{var-params}, \var{mod-params}, w, c}$
       \State $\zeta\gets \Call{optimize-zeta}{\lambda, \nu^2}$
       \State $\nu^2\gets \Call{optimize-nu-sq}{\var{var-params}, \var{mod-params}}$
       \State $\zeta\gets \Call{optimize-zeta}{\lambda, \nu^2}$      
-      \State $\phi\gets \Call{optimize-phi}{\var{var-params}, \var{mod-params}, w, n}$
+      \State $\phi\gets \Call{optimize-phi}{\var{var-params}, \var{mod-params}, w, c}$
       \EndWhile
     \State \Return $\var{var-params}$
     \EndFunction
