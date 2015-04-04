@@ -946,6 +946,22 @@ Random & -0.008 & 0.000 & 0.124 \\
 
 CTM with exponentiation is the only method that achieved a positive mean score, since its performance distribution has a heavy right tail: about 10\% of its predictions achieved a score greater than 1.
 
+\subsubsection{1-iteration CTM}
+
+\begin{figure}[!htb]
+\includegraphics[width=\textwidth]{ctd-ctm-1iter-rho.eps}
+\caption{CDF of the rho-normalised log scores for 1-iteration CTM with exponentiation, with full-convergence CTM plotted as reference}
+\label{fig:ctd-ctm-1iter-rho}
+\end{figure}
+
+\begin{figure}[!htb]
+\includegraphics[width=\textwidth]{ctd-ctm-1iter-hist.eps}
+\caption{Distribution of cosine similarities between drug-pathway distributions predicted by 1-iteration and full-convergence CTM-exp}
+\label{fig:ctd-ctm-1iter-hist}
+\end{figure}
+
+Even after only 1 iteration of training, the predictions made by CTM with exponentiation are close to the prediction of CTM-exp after full convergence (Figure~\ref{fig:ctd-ctm-1iter-hist}). Figure~\ref{fig:ctd-ctm-1iter-rho} shows the cumulative plot of the rho-normalised log scores of 1-iteration CTM-exp to illustrate that its performance is also very close to the full-convergence CTM-exp at a fraction of training time. In fact, the mean score of CTM-exp is 0.080 (against full-convergence CTM-exp's 0.064) and it outperforms the previous CTM-exp on 256/492 (52\%) of all drugs in CTD.
+
 \subsubsection{Performance as a function of drug density}
 
 Since CTM takes into account the correlations between pathways, it could be the case that it will perform better with dense drugs (that affect multiple pathways) than LDA and will lose out to LDA on more sparse drugs. Figure~\ref{fig:ctd-ctm-lda-scatter} plots this relationship and there are some interesting observations to be made. The variance of the performance decreases with density, which could be because the final score is normalised by the drug density, so for small densities the variance of the performance is amplified. However, at low densities, the distribution of scores is asymmetric and the normalisation does not explain that. This asymmetry, in fact, causes the correlation between the score and the drug density to be negative.
