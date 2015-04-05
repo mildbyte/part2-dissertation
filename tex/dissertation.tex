@@ -721,7 +721,7 @@ The first four datasets allow to investigate how the performance of the model ch
 
 The parameters of the fifth dataset were designed to mimic the real-world one as closely as possible in order to determine, by comparing the performance of the model on that dataset against the real-world one, whether the drug gene expression data follows the generative framework described by the CTM. In addition to reusing all the parameters the first 4 datasets were generated with, for this dataset I also approximated the $\mu$ and $\Sigma$ of the reference by first calculating the topic distribution $\theta$ implied by the dataset (assuming all pathways in the resultant matrix are equally weighted) and then calculating the mean and the covariance matrix of the distribution of pathways based on it.
 
-In the last 4 datasets, I varied the density of the covariance matrix: the proportion of pathways in the implied matrix of correlations that are connected:
+In the last 4 datasets, the number of topics was kept at 20 and I varied the density of the covariance matrix: the proportion of pathways in the implied matrix of correlations that are connected:
 
 \begin{itemize}[noitemsep]
 \item Dataset 6: No correlations: use the identity matrix as $\Sigma$
@@ -750,6 +750,14 @@ In addition, since the output of every iteration of training are only the refine
 
 Figure~\ref{fig:sim-cosine} shows the mean cosine similarity between each $\theta_d$ in the inferred and the reference dataset. It can be seen that both CTM and 1-iteration CTM vastly outperform random guessing on all numbers of topics, but their performance degrades as the number of topics increases. Furthermore, the 1-iteration CTM is consistently worse than the full CTM, but not by much: it can still provide a good approximation to the CTM in a fraction of the required training time.
 
+\begin{figure}[!htb]
+\includegraphics[width=\textwidth]{sim-sigmadensity-cosine.eps}
+\caption{The mean cosine similarity between inferred and reference document-topic distributions $\theta$ as a function of the density of the global topic covariance matrix $\Sigma$}
+\label{fig:sim-sigmadensity-cosine}
+\end{figure}
+
+Figure~\ref{fig:sim-sigmadensity-cosine}, on the other hand, shows how the performance of CTM changes as the 20 topics in the toy dataset become more correlated. True to its name, the Correlated Topic Model benefits from more correlated topics.
+
 \subsection{Parameter recovery}
 
 \begin{figure}[!htb]
@@ -760,13 +768,13 @@ Figure~\ref{fig:sim-cosine} shows the mean cosine similarity between each $\thet
 
 \begin{figure}[!htb]
 \includegraphics[width=\textwidth]{sim-mu-rmse.eps}
-\caption{RMSE between inferred and reference $\mu$ as a function of the number of topics}
+\caption{Normalised RMSE between inferred and reference $\mu$ as a function of the number of topics}
 \label{fig:sim-mu-rmse}
 \end{figure}
 
 \begin{figure}[!htb]
 \includegraphics[width=\textwidth]{sim-sigma-rmse.eps}
-\caption{RMSE between inferred and reference $\Sigma$ as a function of the number of topics}
+\caption{Normalised RMSE between inferred and reference $\Sigma$ as a function of the number of topics}
 \label{fig:sim-sigma-rmse}
 \end{figure}
 
@@ -779,6 +787,20 @@ Another problem is the poor recoverability of the parameters of the global topic
 The issue here is that every sample $\theta$ from $N(\mu, \Sigma)$ is altered after sampling by enforcing a certain number of zero elements. Hence, the document-topic distributions after generation are not guaranteed to follow a normal distribution with the original parameters.
 
 For example, consider two drawn $\theta_1 = (\theta_{1,1}, \theta_{1,2}, \theta_{1,3}), \theta_2 = (\theta_{2,1}, \theta_{2,2}, \theta_{2,3})$. After the zero enforcement, these two vectors could become $\theta'_1 = (\theta_{1,1}, 0, 0), \theta'_2 = (\theta_{2,1}, 0, \theta_{2,3})$ (unnormalised). They are now more similar than they were (since the second positions have both been set to zero), which introduces a bias into the correlations.
+
+\begin{figure}[!htb]
+\includegraphics[width=\textwidth]{sim-sigmadensity-musigma.eps}
+\caption{Normalised RMSE between inferred and reference $\mu$ and $\Sigma$ as a function of the density of the global topic covariance matrix $\Sigma$}
+\label{fig:sim-sigmadensity-musigma}
+\end{figure}
+
+\begin{figure}[!htb]
+\includegraphics[width=\textwidth]{sim-sigmadensity-beta.eps}
+\caption{Cosime similarities between the inferred and reference topic-word distributions $\beta$ as a function of the density of the global topic covariance matrix $\Sigma$}
+\label{fig:sim-sigmadensity-beta}
+\end{figure}
+
+Figure~\ref{sim-sigmadensity-musigma} shows that as topics become more correlated, the recovery performance for $\mu$ dramatically improves, whereas the recovery of $\Sigma$ itself becomes worse. However, the recovery performance of $\beta$ doesn't significantly change with the correlation density (Figure~\ref{fig:sim-sigmadensity-beta}).
 
 \subsection{Rank recovery}
 
@@ -802,11 +824,21 @@ Figure~\ref{fig:sim-log} shows the cumulative plots (for every value of the scor
 
 \begin{figure}[!htb]
 \includegraphics[width=\textwidth]{sim-average-rho.eps}
-\caption{Average rho-normalised log score as a function of the number of topics in the toy datasets}
+\caption{Mean rho-normalised log score as a function of the number of topics in the toy datasets}
 \label{fig:sim-average-rho}
 \end{figure}
 
 Figure~\ref{fig:sim-average-rho} shows the mean score the model achieved on every dataset, plotted against the number of topics. The performance of the model generally degrades with the number of topics, however there is a peak somewhere between $K=10$ and $K=50$ where the model achieves top performance. Doing just one iteration of CTM brings its scores very close to those of CTM, though they diverge as the number of topics increases.
+
+\begin{figure}[!htb]
+\includegraphics[width=\textwidth]{sim-sigmadensity-rho.eps}
+\caption{Mean rho-normalised log score of CTM on the toy datasets as a function of the density of the global topic covariance matrix $\Sigma$}
+\label{fig:sim-sigmadensity-rho}
+\end{figure}
+
+Figure~\ref{fig:sim-sigmadensity-rho} shows how the mean score changes as the topics become more correlated. It appears the performance of CTM does increase with topic correlations in this case, but the variance in performance between different drugs is too large to draw a meaningful conclusion here.
+
+TODO: why mean rho for K=20 is about 2 here and about 13 in the previous case?
 
 \subsection{Conclusion}
 
@@ -850,8 +882,6 @@ It took about 9 hours to train the model on the whole dataset and perform the in
 TODO: CTM inference had 1000 theta samples, enough?
 
 To perform a quick sanity check for the results, I took the cosine similarities for the predicted pathway distributions by CTM, CTM with exponentiation and LDA for every drug and plotted their distribution (Figure~\ref{fig:ctd-ctm-lda-diffs}). The distribution of cosine similarities between random guessing and LDA is also plotted for comparison. It can be seen that CTM and LDA give very similar results. Interestingly, CTM is closer to LDA than CTM with exponentiation, hinting that CTM with exponentiation might have a considerably different performance from the other two models.
-
-TODO: 1-iteration CTM
 
 \begin{figure}[!htb]
 \includegraphics[width=\textwidth]{ctd-ctm-lda-diffs.eps}
