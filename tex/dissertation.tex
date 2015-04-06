@@ -800,7 +800,7 @@ For example, consider two drawn $\theta_1 = (\theta_{1,1}, \theta_{1,2}, \theta_
 \label{fig:sim-sigmadensity-beta}
 \end{figure}
 
-Figure~\ref{sim-sigmadensity-musigma} shows that as topics become more correlated, the recovery performance for $\mu$ dramatically improves, whereas the recovery of $\Sigma$ itself becomes worse. However, the recovery performance of $\beta$ doesn't significantly change with the correlation density (Figure~\ref{fig:sim-sigmadensity-beta}).
+Figure~\ref{fig:sim-sigmadensity-musigma} shows that as topics become more correlated, the recovery performance for $\mu$ dramatically improves, whereas the recovery of $\Sigma$ itself becomes worse. However, the recovery performance of $\beta$ doesn't significantly change with the correlation density (Figure~\ref{fig:sim-sigmadensity-beta}).
 
 TODO: performance for beta and sigma here seems to be better than for K=20 in the topic number study (mu is fine, around 1.0), the only difference being that the sigma had enforced densities in this case; beta mean cosine similarity has a strong correlation to the standard deviation of the diagonal of the covariance matrix (``deviation of deviations", so the proportions are more varied), but sigma RMSE doesn't, maybe something to do with the values of the matrix? shouldn't affect the correlation matrix
 
@@ -839,8 +839,6 @@ Figure~\ref{fig:sim-average-rho} shows the mean score the model achieved on ever
 \end{figure}
 
 Figure~\ref{fig:sim-sigmadensity-rho} shows how the mean score changes as the topics become more correlated. It appears the performance of CTM does increase with topic correlations in this case, but the variance in performance between different drugs is too large to draw a meaningful conclusion here.
-
-TODO: why mean rho for K=20 is about 2 here and about 13 in the previous case?
 
 \subsection{Conclusion}
 

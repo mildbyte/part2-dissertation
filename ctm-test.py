@@ -16,113 +16,13 @@ import matplotlib.pyplot as plt
 import scipy.stats
 import scipy.misc
 
-from itertools import groupby
 from scipy.stats import spearmanr, pearsonr
 
 np.set_printoptions(precision=5, linewidth=120)
 #plt.style.use('ggplot')
-import pygraphviz
 
 diss_data_root = "D:\\diss-data\\"
 #diss_data_root = "/mnt/B28A02CE8A028ED3/diss-data/"
-
-def connected_subgraph(G, node, max_depth=3):
-    nodes = set([node])
-    depth = 0
-    
-    G2 = pygraphviz.AGraph('graph G {}')
-    G2.node_attr['shape'] = 'box'
-    G2.graph_attr['splines'] = 'spline'
-    G2.graph_attr['overlap'] = 'prism'    
-    
-    while True:
-        depth += 1
-        if depth == max_depth:
-            break
-        
-        newnodes = set(nodes)
-        for n in nodes:
-            for e in G.iteredges(n):
-                G2.add_edge(e, attr=e.attr)
-            newnodes.update(G.iterneighbors(n))
-        
-        if newnodes == nodes:
-            break           
-        
-        nodes = newnodes
-    
-    return G2
-
-def generate_cluster_graph(mcl_result, labels=None):
-    K = mcl_result.shape[0]
-    if labels is None:
-        labels = xrange(K)
-        
-    G = pygraphviz.AGraph('graph G {}')
-    G.node_attr['shape'] = 'box'
-    G.graph_attr['splines'] = 'spline'
-    G.graph_attr['overlap'] = 'prism'
-    
-    for a in xrange(K):
-        for b in xrange(K):
-            if a != b and mcl_result[a, b] > 1e-5:
-                G.add_edge(labels[a], labels[b])
-    
-    degree = G.degree()
-    G.delete_nodes_from([n for i, n in enumerate(G.nodes()) if degree[i] == 0])
-
-    return G
-    
-def generate_graph(corr, threshold=0.1, sigma_labels=None):    
-    K = corr.shape[0]
-    if sigma_labels is None:
-        sigma_labels = xrange(K)
-        
-    G = pygraphviz.AGraph('graph G {}')
-    G.node_attr['shape'] = 'box'
-    G.graph_attr['splines'] = 'spline'
-    G.graph_attr['overlap'] = 'prism'
-    
-    for a in xrange(K):
-        for b in xrange(a):
-            if corr[a, b] > threshold:
-                G.add_edge(sigma_labels[a], sigma_labels[b], len=(1.0 - corr[a, b]), label="%.2f" % corr[a, b])
-    
-    degree = G.degree()
-    G.delete_nodes_from([n for i, n in enumerate (G.nodes()) if degree[n] == 0])
-
-    return G
-
-def plot_correlations(G):
-    G.draw(path="pathways.png", prog='sfdp', args='-Gdpi=200')
-
-def plot_cdf(arr):
-    counts, edges = np.histogram(arr, normed=True, bins=1000)
-    cdf = np.cumsum(counts)
-    cdf /= max(cdf)
-    plt.plot(edges[1:], cdf)
-
-def plot_rank(theta, pathway_labels=None, prune_top=None, drug_name=None):
-    if prune_top is None:
-        prune_top = len(theta)
-    
-    sorted_pathways = range(len(theta))
-    sorted_pathways.sort(key=lambda p: theta[p], reverse=True)
-    
-    if pathway_labels is None:
-        pathway_labels = sorted_pathways[:prune_top]
-    else:
-        pathway_labels = np.array(pathway_labels)[sorted_pathways[:prune_top]]
-    
-    patches = plt.barh(range(prune_top), theta[sorted_pathways[:prune_top]])
-    [plt.text(p.xy[0] + 0.5 * p.get_width(), p.xy[1] + 0.5 * p.get_height(), l, ha='center', va='center') for p, l in zip(patches, pathway_labels)]
-    plt.yticks(np.arange(prune_top), np.arange(prune_top), va='center')
-    
-    if drug_name is not None:
-        plt.title(drug_name)
-    
-    plt.ylabel("Pathway rank")    
-    plt.xlabel("Pathway proportion")
 
 def generate_random_beta(ref_beta):
     result = np.random.uniform(size=ref_beta.shape)
@@ -207,41 +107,9 @@ def evaluate_drug_theta(theta, reference):
 
 def validate_all_thetas(thetas, eval_data):
     return np.array([evaluate_drug_theta(t, e) for t, e in zip(thetas, eval_data)])
-
-#Performs an evaluation cycle for given topic and vocabulary length, returning the performance measure
-def generated_rmse_evaluation(K, voc_len):
-    N_d = 100
-    no_docs = 100
-    doc_words, doc_counts, doc_thetas, mu, sigma, beta = generate_random_corpus(voc_len, K, N_d, no_docs)
-    
-    priors = [np.ones(voc_len) for _ in xrange(K)]
-    for i in xrange(max([K, voc_len])):
-        priors[i % K][i % voc_len] = 0
-    priors = np.array([p / sum(p) for p in priors])
-    m_params, v_params = expectation_maximization(doc_words, doc_counts, K, priors, max_iterations=100)
-    
-    thetas = np.array([expected_theta(v, m_params, w, c) for v, w, c in zip(v_params, doc_words, doc_counts)])
-    reference = document_similarity_matrix(doc_thetas)
-    inferred = document_similarity_matrix(thetas)
-    
-    return dsm_rmse(inferred, reference)
     
 def most_similar_drug_ids(sim_matrix, drug_id):
     return sorted(range(len(sim_matrix)), key=lambda x: sim_matrix[drug_id, x], reverse=True)
-
-def calc_heatmap(thetas, eval_data):
-    
-    ranks = [sorted(range(len(t)), key=lambda x: t[x], reverse=True) for t in thetas]
-    img = np.zeros(thetas.T.shape)
-    
-    for d, reference, rank in zip(xrange(len(eval_data)), eval_data, ranks):
-        for i, pathway in enumerate(rank):
-            img[i, d] = 1 if pathway in reference else 0
-    
-    return img
-    
-def plot_heatmap(thetas, eval_data):
-    imshow(1 - calc_heatmap(thetas, eval_data), cmap="Greys_r", interpolation='nearest')
 
 #Filter the thetas so that they only mention the drugs and the pathways in the reference dataset
 def filter_thetas(thetas, pathways_in_eval, pathway_ids, drug_names_in_eval, drug_names):
@@ -303,27 +171,17 @@ def save_toy_dataset(i, doc_words, doc_counts, doc_thetas, mu, sigma, beta, m_pa
     np.savez_compressed(diss_data_root + "%d-dataset" % i, doc_words, doc_counts, doc_thetas, mu, sigma, beta)
     np.savez_compressed(diss_data_root + "%d-results" % i, m_params, thetas)
 
-#Performs Markov clustering on the similarity matrix
-def mcl(M, power, inflation):
-    while True:
-        Mprev = M
-        M = M / np.sum(M, axis=0)
-        
-        M = np.linalg.matrix_power(M, inflation)
-        M = M ** power
-        
-        if (np.mean(np.abs(M - Mprev)) < 0.00001):
-            return M / np.sum(M, axis=0)
-
-def mcl_it(M, power, inflation, iterations=100):
-    for _ in xrange(iterations):
-        M = M / np.sum(M, axis=0)
-        
-        M = M ** power
-        M = np.linalg.matrix_power(M, inflation)
-        
-    return M / np.sum(M, axis=0)
+def load_pathway_names():
+    pathway_names = {}
     
+    f = open(diss_data_root + "/pathway_names.txt", 'r')
+    
+    for name in list(f):
+        name = name.replace('path:hsa', '').replace(' - Homo sapiens (human)\n', '').split('\t')
+        pathway_names[int(name[0])] = name[0] + " " + name[1]
+    
+    f.close()
+    return pathway_names
     
 #TODO: try the CDF/heatmap/side evaluation on the simulated data
 #writeup the simulated study
