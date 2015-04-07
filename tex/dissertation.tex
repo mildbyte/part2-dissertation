@@ -1067,11 +1067,66 @@ TODO: pictures + clustering for sigma as well
 
 \subsection{ATC classification}
 
-Drugs have a hierarchical code that depends on what they actually do (example). This code is possible to predict from the gene expression data by training a generic classifier on it.
+The World Health Organisation maintains a classification system for drugs called the Anatomical Therapeutic Chemical (ATC) Classification System. It's an hierarchical code that depends on the system in the body on which the drug acts. For example, caffeine has the code N06BC01, composed of:
 
-If the inferred pathway proportions from the models are used instead as inputs, is the performance better?
+\begin{itemize}[noitemsep]
+\item Anatomical main group: \textbf{N} for Nervous system
+\item Therapeutic main group: \textbf{06} for Psychoanaleptics
+\item Therapeutic/pharmacological subgroup: \textbf{B} for Psychostimulants
+\item Chemical/therapeutic/pharmacological subgroup: \textbf{C} for Xanthine derivatives
+\item Actual substance: \textbf{01} for caffeine
+\end{itemize}
 
-\subsection{Drug-target prediction}
+There are a total of 13 anatomical main groups, defining the type of the system the drug is acting on. It is possible to train a powerful generic classifier such as Random Forest\cite{Breiman:2001:RF:570181.570182} that had successes in predicting drug-pathway perturbations\cite{Riddick15012011} on feature vectors $\theta_d$ inferred by LDA and CTM and anatomical main groups (as labels). This is another way to see whether the outputs of the topic models have any predictive power on the real-world data.
+
+A Python package callied \texttt{scikit-learn} \cite{scikit-learn} that's deeply integrated with the \texttt{NumPy}/\texttt{SciPy} stack offers multiple classifiers and evaluation tools. Since implementing a Random Forests classifier was not an aim of this project, I gladly used those (Figure~\ref{fig:atc-python}). I hence performed 10-fold cross-validation on the classifier: split the $\theta_d$--label pairs into 10 sets, train the model on 9 of those and calculate the score reported by the model on the final set (for the Random Forest classifier, it's the fraction of correctly assigned classes). This is repeated another 9 times, each time with a different subset being held out from testing. This allows to evaluate the model on more data than a single cross-validation cycle and also enhances the precision of the estimate.
+
+\begin{figure}
+\begin{Verbatim}[fontsize=\scriptsize]
+def atc(thetas):
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn import cross_validation
+
+    atc = pd.read_csv(diss_data_root + "ATC_codes_and_drug_names.csv")
+
+    #Remove drugs not in ATC
+    drug_names_in_atc = set(atc['DrugName']).intersection(drug_names)
+    filtered_thetas = np.array([t for t, dn in zip(thetas, drug_names) if dn in drug_names_in_atc])
+        
+    #Turn the letter labels into indices
+    labels = list(atc[atc['DrugName'].isin(drug_names_in_atc)]['ATC code'])
+    label_map = {l: i for i, l in enumerate(sorted(set(labels)))}
+    labels = [label_map[l] for l in labels]
+    
+    #Create the classifier (100 trees, 8 threads) and cross-validate
+    forest = RandomForestClassifier(n_estimators=100, n_jobs=8)
+    samples = cross_validation.cross_val_score(forest, filtered_thetas, labels, cv=10)
+    return (np.mean(samples), np.std(samples))
+\end{Verbatim}
+\caption{Python code that performs the evaluation of the drug-pathway distributions using Random Forest}
+\label{fig:atc-python}
+\end{figure}
+
+\begin{table}
+\begin{tabu}{| l | l | l |}
+\hline
+Feature types & Mean RF score & SD of the RF scores \\
+\hline
+$\theta$ of CTM & 0.259 & 0.032 \\
+$\theta$ of CTM-exp & 0.141 & 0.035 \\
+$\theta$ of LDA &  0.201 & 0.035 \\
+Random $\theta$ & 0.148 & 0.034 \\
+Raw gene expression data (not exponentiated) &  0.748 & 0.133 \\
+Raw gene expression data (exponentiated) &  0.746 & 0.131 \\
+\hline
+\end{tabu}
+\caption{10-fold cross-validated mean accuracies for Random Forest on the ATC dataset for various feature sets}
+\label{tab:atc-test-results}
+\end{table}
+
+Table~\ref{tab:atc-test-results} shows the mean scores and their standard deviation for different vectors used as features. The results here are almost the reverse of ranked evaluation on the CTD dataset. First of all, CTM with exponentiation did not perform significantly better than training the classifier on randomly drawn vectors. In fact, from an information-theoretic perspective, if there is no information in the feature vectors, the best score classifier can get is $2^{-H}$ where $H$ is the entropy of the distribution of labels: $2.41$ bits in the case of the ATC anatomical main groups, giving the average probability of guessing the right label of about $0.188$.
+
+Secondly, LDA outperforms CTM-exp, and interestingly, CTM outperforms all other topic models in this case. However, all of these models are dwarfed by the performance of using the raw gene expression data (exponentiated or unexponentiated) to predict the anatomical main group of a drug.
 
 \chapter{Conclusion}
 

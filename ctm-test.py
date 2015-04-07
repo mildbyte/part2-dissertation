@@ -182,6 +182,25 @@ def load_pathway_names():
     
     f.close()
     return pathway_names
+
+def atc():
+    atc = pd.read_csv(diss_data_root + "ATC_codes_and_drug_names.csv")
+    drug_names_in_atc = set(atc['DrugName']).intersection(drug_names)
+    
+    filtered_thetas = filter_thetas(thetas, pathway_ids, pathway_ids, drug_names_in_atc, drug_names)
+    
+    #Turn the letter labels into indices
+    labels = list(atc[atc['DrugName'].isin(drug_names_in_atc)]['ATC code'])
+    label_map = {l: i for i, l in enumerate(sorted(set(labels)))}
+    labels = [label_map[l] for l in labels]
+    
+    #Create the classifier (100 trees, 8 threads) and cross-validate
+    forest = RandomForestClassifier(n_estimators=100, n_jobs=8)
+    samples = cross_validation.cross_val_score(forest, filtered_thetas, labels, cv=10)
+    print "%.3f, %.3f" % (np.mean(samples), np.std(samples))
+    
+    #nb: gmrf gets 0.172, 0.029
+    
     
 #TODO: try the CDF/heatmap/side evaluation on the simulated data
 #writeup the simulated study
