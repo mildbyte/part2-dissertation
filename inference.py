@@ -41,9 +41,7 @@ def expected_theta(v_params, m_params, doc, counts):
 
     #Precalculate some values for the sampling loop
     t1 = 0.5 * np.linalg.slogdet(m_params.inv_sigma)[1]
-    t1 -= 0.5 * (np.diag(v_params.nu_sq).dot(m_params.inv_sigma)).trace()
-    lambda_mu = v_params.lambd - m_params.mu
-    t1 -= 0.5 * lambda_mu.dot(m_params.inv_sigma.dot(lambda_mu))
+    t1 -= 0.5 * len(m_params.beta) * np.log(2 * np.pi)
     
     betaDoc = m_params.beta[:, doc]
     sigma = np.diag(np.sqrt(v_params.nu_sq))
@@ -56,7 +54,10 @@ def expected_theta(v_params, m_params, doc, counts):
         theta = np.exp(eta)
         theta /= sum(theta)
         
-        t = t1 + counts.dot(safe_log(theta.dot(betaDoc)))
+        eta_mu = eta - m_params.mu
+        
+        t = t1 - 0.5 * eta_mu.dot(m_params.inv_sigma.dot(eta_mu)) +\
+            counts.dot(safe_log(theta.dot(betaDoc)))
         t2 = np.sum(safe_log(scipy.stats.multivariate_normal.pdf(eta - v_params.lambd, np.zeros(len(eta)), sigma)))
             
         samples.append(t - t2 + safe_log(theta))

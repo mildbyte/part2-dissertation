@@ -329,7 +329,7 @@ The components of the likelihood bound are then rewritten in terms of the variat
 
 \begin{align}
 E_q[\log p(\eta|\mu, \Sigma)] & = \frac{1}{2} \log |\Sigma^{-1}| - \frac{K}{2} \log 2 \pi - \frac{1}{2}E_q[(\eta - \mu)^T\Sigma^{-1}(\eta - \mu)] \\
-& = \frac{1}{2} \log |\Sigma^{-1}| - \frac{K}{2} \log 2 \pi - \frac{1}{2}(\mathit{Tr}(\mathit{diag}(\nu^2)\Sigma^{-1} + (\lambda - \mu)^T\Sigma^{-1}(\lambda - \mu))
+& = \frac{1}{2} \log |\Sigma^{-1}| - \frac{K}{2} \log 2 \pi - \frac{1}{2}(\mathit{Tr}(\mathit{diag}(\nu^2)\Sigma^{-1}) + (\lambda - \mu)^T\Sigma^{-1}(\lambda - \mu))
 \end{align}
 
 \begin{align}
@@ -397,11 +397,21 @@ In the original paper, this algorithm is called Variational EM (Expectation-Maxi
 
 \section{Incorporating priors into the Model}
 
-In the training process, from \eqref{eq:phiopt} and \eqref{eq:betaopt} it follows that a zero entry in the $\beta$ matrix that the training process is initialized with will carry through to the $\phi$ matrices for every document and will be fed back into the updated $\beta$, thus enforcing that the inferred per-topic word distributions have zeros in the set places. This has the effect of setting pathway-gene membership priors and ensures that the inferred topic structure is referring to the actual pathways, so the results of the inference process will allow us to make judgements about real-world phenomena.
+In the training process, from \eqref{eq:phiopt} and \eqref{eq:betaopt} it follows that a zero entry in the $\beta$ matrix that the training process is initialized with will carry through to the $\phi$ matrices for every document and will be fed back into the updated $\beta$. Since the parameters are optimised using gradient ascent, this essentially enforces a constraint on $\beta$ so that it has zeros in set places.
+
+This has the effect of setting pathway-gene membership priors and ensures that the inferred topic structure is referring to the actual pathways, so the results of the inference process will allow us to make judgements about real-world phenomena.
 
 \section{Classification process}
 
 In this case we aim to find, for every document, a $\theta$. Recall that $\theta$ is just a normalised $\eta$, so it's sufficient to estimate that.
+
+\begin{align}
+= \frac{1}{N}\sum\limits_{s=1}^N \theta_s p(\theta_s | w, ...)
+\end{align}
+
+\begin{align}
+p(\theta_s | w, ...) &= \frac{p(w | \eta, \beta)}{q(\eta | \lambda, \nu)}
+\end{align}
 
 TODO: read up on how theta is inferred
 
