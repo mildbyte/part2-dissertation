@@ -7,6 +7,7 @@
 \usepackage[noend]{algpseudocode}
 \usepackage[]{algorithm}
 \usepackage{amsmath}
+\usepackage{amsfonts}
 \usepackage{mathtools}
 \usepackage{enumitem}
 \usepackage{epstopdf}
@@ -143,35 +144,7 @@ In my project proposal, I claimed that adding the enforcement of topic-word memb
 
 I also reuse the preprocessed gene expression microarray data that was used in the LDA paper \cite{Pratanwanich2014}. This is done so that I spend less time on parts of the project not as relevant to Computer Science and so that the outputs from LDA and CTM can be compared.
 
-\chapter{Implementation}
-
-\section{Training of the Correlated Topic Model}
-
-This section sets up the notation used throughout the whole dissertation and derives the training and the inference process for the Correlated Topic Model. The training process was mostly derived from Blei's original paper, however I provide some additions here so that the derivation is easier to understand. The derivation of the inference process is mine, however I used Blei's CTM implementation in C to verify my method.
-
-\begin{table}
-\begin{tabular}{| l | l |}
-\hline
-Variable & Description \\
-\hline
-$K$ & Number of topics in the corpus \\
-$D$ & Number of documents in the corpus \\
-$V$ & Number of words in the corpus (vocabulary size) \\
-$w_n$ & Nth word in the document \\
-$c_n$ & Number of times the nth word occurs in the document \\
-$\mu$ & Mean of the normal distribution of topics in the corpus \\
-$\Sigma$ & Covariance matrix of the normal distribution of topics in the corpus \\
-$\beta$ & $K \times V$ dimensional matrix of topic-word distributions \\
-$\eta$ & Drawn unnormalised topic distribution for a certain document \\
-$\theta$ & Normalised topic distribution for a certain document \\
-$z$ & Drawn topic assignments for each word in the document \\
-\hline
-\end{tabular}
-\caption{Definitions of the variables used in the Correlated Topic Model}
-\label{tab:ctm-variables}
-\end{table}
-
-Some variables in Table~\ref{tab:ctm-variables} are document-specific, for example, $\theta_d$ refers to the distribution of topics document $d$ is about. When this index is omitted, the document is assumed, for example, $w_n$ is the nth word in the document we are currently considering.
+\section{Introduction to graphical probabilistic models, CTM and LDA}
 
 \begin{figure}
 \begin{tikzpicture}
@@ -259,6 +232,37 @@ and the normalisation function $f$ is defined as
 f(\eta_d) = \frac{e^{\eta_d}}{\sum\limits_i e^{\eta_{d, i}}}
 \end{equation}
 
+\chapter{Implementation}
+
+\section{Training of the Correlated Topic Model}
+
+\begin{table}
+\begin{tabular}{| l | l |}
+\hline
+Variable & Description \\
+\hline
+$K$ & Number of topics in the corpus \\
+$D$ & Number of documents in the corpus \\
+$V$ & Number of words in the corpus (vocabulary size) \\
+$N$ & Number of words in the document \\
+$w_n$ & Nth word in the document \\
+$c_n$ & Number of times the nth word occurs in the document \\
+$\mu$ & Mean of the normal distribution of topics in the corpus \\
+$\Sigma$ & Covariance matrix of the normal distribution of topics in the corpus \\
+$\beta$ & $K \times V$ dimensional matrix of topic-word distributions \\
+$\eta$ & Drawn unnormalised topic distribution for a certain document \\
+$\theta$ & Normalised topic distribution for a certain document \\
+$z$ & Drawn topic assignments for each word in the document \\
+\hline
+\end{tabular}
+\caption{Definitions of the variables used in the Correlated Topic Model}
+\label{tab:ctm-variables}
+\end{table}
+
+This section sets up the notation used throughout the whole dissertation and derives the training and the inference process for the Correlated Topic Model. The training process was mostly derived from Blei's original paper, however I provide some additions here so that the derivation is easier to understand. The derivation of the inference process is mine, however I used Blei's CTM implementation in C to verify my method.
+
+Some variables in Table~\ref{tab:ctm-variables} are document-specific, for example, $\theta_d$ refers to the distribution of topics document $d$ is about. When this index is omitted, the document is assumed, for example, $w_n$ is the nth word in the document we are currently considering.
+
 \subsection{Deriving the posterior distribution}
 
 We aim to find the model parameters that maximise the likelihood bound on the whole corpus. In other words, what are the model parameters that we need to set so that the corpus we're inspecting is the most likely one?
@@ -317,35 +321,35 @@ Here, the variational distribution of the per-document topic distribution $\eta$
 Minimizing the Kullback-Leibner divergence between the variational distribution and the true posterior is the same as optimizing the parameters of the variational distribution so that it maximizes the probability of the document. This is equivalent to maximizing the log probability of the document, which can be bounded as
 
 \begin{align}\label{eq:likelihood-bound}
-\log p(w | \beta, \mu, \Sigma) & \geq E_q[\log p(\eta|\mu, \Sigma)] \\
-& + \sum\limits_{n=1}^N E_q[\log p(z_n | \eta)] \\
-& + \sum\limits_{n=1}^N E_q[\log p(w_n | z_n, \beta)] \\
-& + \mathit{H}(q)
+\log p(w | \beta, \mu, \Sigma) & \geq \mathbb{E}_q[\log p(\eta|\mu, \Sigma)] \\
+& + \sum\limits_{n=1}^N \mathbb{E}_q[\log p(z_n | \eta)] \\
+& + \sum\limits_{n=1}^N \mathbb{E}_q[\log p(w_n | z_n, \beta)] \\
+& + \mathbb{H}(q)
 \end{align}
 
-Here, the expectation is taken with respect to the relevant variational distributions $q$ and $\mathit{H}(q)$ is the entropy of the variational distribution.
+Here, the expectation is taken with respect to the relevant variational distributions $q$ and $\mathbb{H}(q)$ is the entropy of the variational distribution.
 
 The components of the likelihood bound are then rewritten in terms of the variational parameters $\lambda, \nu, \phi$:
 
 \begin{align}
-E_q[\log p(\eta|\mu, \Sigma)] & = \frac{1}{2} \log |\Sigma^{-1}| - \frac{K}{2} \log 2 \pi - \frac{1}{2}E_q[(\eta - \mu)^T\Sigma^{-1}(\eta - \mu)] \\ \label{eq:eta_mu_sigma}
+\mathbb{E}_q[\log p(\eta|\mu, \Sigma)] & = \frac{1}{2} \log |\Sigma^{-1}| - \frac{K}{2} \log 2 \pi - \frac{1}{2}\mathbb{E}_q[(\eta - \mu)^T\Sigma^{-1}(\eta - \mu)] \\ \label{eq:eta_mu_sigma}
 & = \frac{1}{2} \log |\Sigma^{-1}| - \frac{K}{2} \log 2 \pi - \frac{1}{2}(\mathit{Tr}(\mathit{diag}(\nu^2)\Sigma^{-1}) + (\lambda - \mu)^T\Sigma^{-1}(\lambda - \mu))
 \end{align}
 
 \begin{align}
-E_q[\log p(z_n | \eta)] & = E_q[\eta^Tz_n] - E_q[\log \sum\limits_{i=1}^K e^{\eta_i}] \\
-& \geq E_q[\eta^Tz_n] - \zeta^{-1}(\sum\limits_{i=1}^KE_q[e^{\eta_i}] + 1 - \log\zeta \\
+\mathbb{E}_q[\log p(z_n | \eta)] & = \mathbb{E}_q[\eta^Tz_n] - \mathbb{E}_q[\log \sum\limits_{i=1}^K e^{\eta_i}] \\
+& \geq \mathbb{E}_q[\eta^Tz_n] - \zeta^{-1}(\sum\limits_{i=1}^K\mathbb{E}_q[e^{\eta_i}] + 1 - \log\zeta \\
 & = \sum\limits_{i=1}^K\lambda_i\phi_{n, i} - \zeta^{-1}(\sum\limits_{i=1}^Ke^{\lambda_i + \nu_i^2 / 2}) + 1 - \log\zeta
 \end{align}
 
-Here, the term $E_q[\log \sum\limits_{i=1}^K e^{\eta_i}]$ was bound by a Taylor expansion, introducing an extra parameter $\zeta$.
+Here, the term $\mathbb{E}_q[\log \sum\limits_{i=1}^K e^{\eta_i}]$ was bound by a Taylor expansion, introducing an extra parameter $\zeta$.
 
 \begin{equation}
-E_q[\log p(w_n | z_n, \beta)] = \sum\limits_{i=1}^K\phi_{n,i}\log\beta_{i, w_n}
+\mathbb{E}_q[\log p(w_n | z_n, \beta)] = \sum\limits_{i=1}^K\phi_{n,i}\log\beta_{i, w_n}
 \end{equation}
 
 \begin{equation}
-\mathit{H}(q) = \sum\limits_{i=1}^K\frac{1}{2}(\log\nu_i^2 + \log 2 \pi + 1) - \sum\limits_{n=1}^N\sum\limits_{i=1}^K\phi_{n,i}\log\phi_{n,i}
+\mathbb{H}(q) = \sum\limits_{i=1}^K\frac{1}{2}(\log\nu_i^2 + \log 2 \pi + 1) - \sum\limits_{n=1}^N\sum\limits_{i=1}^K\phi_{n,i}\log\phi_{n,i}
 \end{equation}
 
 \subsection{Maximising the likelihood bound}
@@ -378,7 +382,7 @@ Blei's paper suggests using the conjugate gradient algorithm to optimise $\lambd
 Once these variational parameters have been found, they are used to estimate the global model parameters:
 
 \begin{align}
-\hat\beta_i & \propto \sum\limits_d\phi_{d, i}n_d \\ \label{eq:betaopt}
+\hat\beta_i & \propto \sum\limits_d\phi_{d, i}N_d \\ \label{eq:betaopt}
 \hat\mu & = \frac{1}{D} \sum\limits_d\lambda_d \\ 
 \hat\Sigma & = \frac{1}{D} \sum\limits_d I\nu^2_d + (\lambda_d - \hat\mu)(\lambda_d - \hat\mu)^T
 \end{align}
@@ -403,7 +407,7 @@ This has the effect of setting pathway-gene membership priors and ensures that t
 
 \section{Classification process}
 
-Using the variational parameters inferred for every document and the global model parameters, it is possible to find the expected value of $\theta$, the document-topic distribution. Since $\theta = f(\eta)$, a normalised vector, finding the expected value of $\eta$ is sufficient. However, this involves performing an integration over the space of all possible $\eta$, which is intractable. Hence, this integral has to be approximated using Monte Carlo and importance sampling:
+Using the variational parameters inferred for every document and the global model parameters, it is possible to find the expected value of $\theta$, the document-topic distribution. Since $\theta = f(\eta)$, a normalised vector, finding the expected value of $\eta$ is sufficient. However, this involves performing an integration over the space of all possible $\eta$, which is intractable. Hence, this integral has to be approximated using Monte Carlo and importance sampling (TODO: reference an importance sampling paper):
 
 \begin{align}
 \hat\theta \propto \frac{1}{N}\sum\limits_{s=1}^N f(\eta_s) \frac{p(\eta_s | w, \mu, \Sigma, \beta)}{q(\eta_s | \lambda, \nu)}
@@ -411,17 +415,19 @@ Using the variational parameters inferred for every document and the global mode
 
 $\eta$ is sampled $N$ times from the distribution described by a probability density function $q$. The easiest way to sample $\eta$ is from the variational distribution that was fitted to the document: recall that $\eta \sim N(\lambda, \mathit{diag}(\nu))$ and so $q(\eta_s | \lambda, \nu) = \mathit{NormalPDF}(\eta_s, \lambda, \nu)$.
 
+$p$ is the density function of the actual distribution whose expected value we are looking for: in essence, we're trying to estimate $\mathbb{E}(\theta | w, \mu, \Sigma, \beta)$. According to the Bayes' theorem, we can invert the conditioning:
+
 \begin{align}
-p(\eta_s | w, \mu, \Sigma, \beta) &= \frac{p(w | \eta_s, \mu, \Sigma, \beta)p(\eta_s | \mu, \Sigma, \beta}{p(w | \mu, \Sigma, \beta}\\
+p(\eta_s | w, \mu, \Sigma, \beta) &= \frac{p(w | \eta_s, \mu, \Sigma, \beta)p(\eta_s | \mu, \Sigma, \beta)}{p(w | \mu, \Sigma, \beta)}\\
 &= p(w | \eta_s, \beta) p(\eta_s | \mu, \Sigma)
 \end{align}
 
-Here, the conditioning was inverted as per Bayes' theorem and unnecessary conditioning dropped ($w$ only depends on $\eta_s$ and $\beta$ and $\eta_s$ only depends on $\mu$ and $\Sigma$). In addition, the marginal probability $p(w | ...)$ was dropped: it doesn't depend on the sampled value of $\eta_s$ and so will just be a scalar multiplier on the final estimated value of $\hat\eta$, which will be have to be normalised to get $\hat\theta$ anyway, thus the multiplier will be discarded.
+Unnecessary conditioning can also be dropped ($w$ only depends on $\eta_s$ and $\beta$ and $\eta_s$ only depends on $\mu$ and $\Sigma$). In addition, the marginal probability $p(w | \mu, \Sigma, \beta)$ is dropped: it doesn't depend on the sampled value of $\eta_s$ and so will just be a scalar multiplier on the final estimated value of $\hat\eta$, which will be have to be normalised to get $\hat\theta$ anyway, thus the multiplier will be discarded.
 
 It will be easier to express and calculate the logarithm of this value: in that case, the weight assigned to every sample $f(\eta_s)$ will be
 
 \begin{align}
-&\log \frac{p(w | \eta_s, \mu, \Sigma, \beta)p(\eta_s | \mu, \Sigma, \beta}{p(w | \mu, \Sigma, \beta} = \\
+&\log \frac{p(w | \eta_s, \mu, \Sigma, \beta)p(\eta_s | \mu, \Sigma, \beta)}{p(w | \mu, \Sigma, \beta)} = \\
 &\log p(w | \eta_s, \beta) + \log p(\eta_s | \mu, \Sigma) - \log q(\eta_s | \lambda, \nu)
 \end{align}
 
@@ -429,7 +435,7 @@ The remaining terms of this weight are derived as follows:
 
 \begin{align}
 \log p(w | \eta_s, \beta) = \log p(w | \theta_s, \beta) &= \log \prod\limits_{n=1}^N p(w_n | \theta, \beta)^{c_n}\\
-&= \log \prod\limits_{n=1}^N (\sum\limits_{i=1}^K \theta_i \beta_{i, w_n})^{c_n}\\
+&= \log \prod\limits_{n=1}^N \left(\sum\limits_{i=1}^K \theta_i \beta_{i, w_n}\right)^{c_n}\\
 &= \sum\limits_{n=1}^N c_n \log \sum\limits_{i=1}^K \theta_i \beta_{i, w_n}
 \end{align}
 
@@ -440,6 +446,8 @@ The remaining term can be simply copied over from Equation~\ref{eq:eta_mu_sigma}
 \begin{align}
 \log p(\eta_s | \mu, \Sigma) = \frac{1}{2} \log |\Sigma^{-1}| - \frac{K}{2} \log 2 \pi - \frac{1}{2}(\eta - \mu)^T\Sigma^{-1}(\eta - \mu)
 \end{align}
+
+TODO python code or pseudocode
 
 \section{Implementation in code and code optimisation}
 
@@ -1173,7 +1181,7 @@ The World Health Organisation maintains a classification system for drugs called
 
 There are a total of 13 anatomical main groups, defining the type of the system the drug is acting on. It is possible to train a powerful generic classifier such as Random Forest\cite{Breiman:2001:RF:570181.570182} that had successes in predicting drug-pathway perturbations\cite{Riddick15012011} on feature vectors $\theta_d$ inferred by LDA and CTM and anatomical main groups (as labels). This is another way to see whether the outputs of the topic models have any predictive power on the real-world data.
 
-A Python package callied \texttt{scikit-learn} \cite{scikit-learn} that's deeply integrated with the \texttt{NumPy}/\texttt{SciPy} stack offers multiple classifiers and evaluation tools. Since implementing a Random Forest classifier was not an aim of this project, I gladly used those (Figure~\ref{fig:atc-python}). I hence performed 10-fold cross-validation on the classifier: split the $\theta_d$--label pairs into 10 sets, train the model on 9 of those and calculate the score reported by the model on the final set (for the Random Forest classifier, it's the fraction of correctly assigned classes). This is repeated another 9 times, each time with a different subset being held out from testing. This allows to evaluate the model on more data than a single cross-validation cycle and also enhances the precision of the estimate.
+A Python package callied \texttt{scikit-learn} \cite{scikit-learn} that's deeply integrated with the \texttt{NumPy}/\texttt{SciPy} stack offers multiple classifiers and evaluation tools. Since implementing a Random Forest classifier was not an aim of this project, I gladly used those (Figure~\ref{fig:atc-python}). I hence performed 10-fold cross-validation on the classifier: split the $\theta_d$--label pairs into 10 sets, train the model on 9 of those and calculate the score reported by the model on the final set (for the Random Forest classifier, it's the fraction of correctly assigned classes). This is repeated another 9 times, each time with a different subset being held out from training. This allows to evaluate the model on more data than a single cross-validation cycle and also enhances the precision of the estimate.
 
 \begin{figure}
 \begin{Verbatim}[fontsize=\scriptsize]

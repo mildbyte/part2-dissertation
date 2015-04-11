@@ -62,7 +62,7 @@ def expected_theta(v_params, m_params, doc, counts):
             
         samples.append(t - t2 + safe_log(theta))
     
-    e_theta = scipy.misc.logsumexp(samples, axis=0) - safe_log(nsamples)
+    e_theta = scipy.misc.logsumexp(samples, axis=0) - np.log(nsamples)
     norm = scipy.misc.logsumexp(e_theta)
     return np.exp(e_theta - norm)
     

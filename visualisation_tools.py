@@ -6,7 +6,7 @@ Created on Mon Apr 06 21:36:46 2015
 """
 
 import pygraphviz
-import pyplot as plt
+import matplotlib.pyplot as plt
 import numpy as np
 
 def connected_subgraph(G, node, max_depth=3):
