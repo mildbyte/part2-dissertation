@@ -328,7 +328,7 @@ Here, the expectation is taken with respect to the relevant variational distribu
 The components of the likelihood bound are then rewritten in terms of the variational parameters $\lambda, \nu, \phi$:
 
 \begin{align}
-E_q[\log p(\eta|\mu, \Sigma)] & = \frac{1}{2} \log |\Sigma^{-1}| - \frac{K}{2} \log 2 \pi - \frac{1}{2}E_q[(\eta - \mu)^T\Sigma^{-1}(\eta - \mu)] \\
+E_q[\log p(\eta|\mu, \Sigma)] & = \frac{1}{2} \log |\Sigma^{-1}| - \frac{K}{2} \log 2 \pi - \frac{1}{2}E_q[(\eta - \mu)^T\Sigma^{-1}(\eta - \mu)] \\ \label{eq:eta_mu_sigma}
 & = \frac{1}{2} \log |\Sigma^{-1}| - \frac{K}{2} \log 2 \pi - \frac{1}{2}(\mathit{Tr}(\mathit{diag}(\nu^2)\Sigma^{-1}) + (\lambda - \mu)^T\Sigma^{-1}(\lambda - \mu))
 \end{align}
 
@@ -364,7 +364,7 @@ $\phi$ has a maximum at
 \hat\phi_{n, i} \propto e^{\lambda_i}\beta_{i, w_n} \label{eq:phiopt}
 \end{equation}
 
-($\phi$ then has to be normalised)
+($\phi$ then has to be normalised).
 
 For maximisation with respect to $\lambda$ and $\nu^2$, numerical methods are used with derivatives
 
@@ -389,7 +389,7 @@ To convert these equations to an algorithm, we need to address some performance 
 
 The overall training process is as follows: set some initial model parameters and use those to perform variational inference on every document. Use the variational parameters to update the model parameters and repeat until the likelihood bound converges (fractional change is less than a certain threshold).
 
-These steps are described in algorithms~\ref{alg:variational_inference}) and~\ref{alg:expectation_maximisation}. 
+These steps are described in algorithms~\ref{alg:variational_inference} and~\ref{alg:expectation_maximisation}. 
 
 In the original paper, this algorithm is called Variational EM (Expectation-Maximisation). The classic EM algorithm consists of two steps: the E step, where some sort of a function of the model parameters is calculated or expressed, and the M step, where that function is maximised. Here, the E step is the variational inference process (where we express the likelihood bound on the document as a function of the parameters of the variational distribution (fit to each document) and the global model parameters) and the M step is where the variational parameters for every document are combined to update the global model parameters.
 
@@ -403,21 +403,47 @@ This has the effect of setting pathway-gene membership priors and ensures that t
 
 \section{Classification process}
 
-In this case we aim to find, for every document, a $\theta$. Recall that $\theta$ is just a normalised $\eta$, so it's sufficient to estimate that.
+Using the variational parameters inferred for every document and the global model parameters, it is possible to find the expected value of $\theta$, the document-topic distribution. Since $\theta = f(\eta)$, a normalised vector, finding the expected value of $\eta$ is sufficient. However, this involves performing an integration over the space of all possible $\eta$, which is intractable. Hence, this integral has to be approximated using Monte Carlo and importance sampling:
 
 \begin{align}
-= \frac{1}{N}\sum\limits_{s=1}^N \theta_s p(\theta_s | w, ...)
+\hat\theta \propto \frac{1}{N}\sum\limits_{s=1}^N f(\eta_s) \frac{p(\eta_s | w, \mu, \Sigma, \beta)}{q(\eta_s | \lambda, \nu)}
 \end{align}
+
+$\eta$ is sampled $N$ times from the distribution described by a probability density function $q$. The easiest way to sample $\eta$ is from the variational distribution that was fitted to the document: recall that $\eta \sim N(\lambda, \mathit{diag}(\nu))$ and so $q(\eta_s | \lambda, \nu) = \mathit{NormalPDF}(\eta_s, \lambda, \nu)$.
 
 \begin{align}
-p(\theta_s | w, ...) &= \frac{p(w | \eta, \beta)}{q(\eta | \lambda, \nu)}
+p(\eta_s | w, \mu, \Sigma, \beta) &= \frac{p(w | \eta_s, \mu, \Sigma, \beta)p(\eta_s | \mu, \Sigma, \beta}{p(w | \mu, \Sigma, \beta}\\
+&= p(w | \eta_s, \beta) p(\eta_s | \mu, \Sigma)
 \end{align}
 
-TODO: read up on how theta is inferred
+Here, the conditioning was inverted as per Bayes' theorem and unnecessary conditioning dropped ($w$ only depends on $\eta_s$ and $\beta$ and $\eta_s$ only depends on $\mu$ and $\Sigma$). In addition, the marginal probability $p(w | ...)$ was dropped: it doesn't depend on the sampled value of $\eta_s$ and so will just be a scalar multiplier on the final estimated value of $\hat\eta$, which will be have to be normalised to get $\hat\theta$ anyway, thus the multiplier will be discarded.
+
+It will be easier to express and calculate the logarithm of this value: in that case, the weight assigned to every sample $f(\eta_s)$ will be
+
+\begin{align}
+&\log \frac{p(w | \eta_s, \mu, \Sigma, \beta)p(\eta_s | \mu, \Sigma, \beta}{p(w | \mu, \Sigma, \beta} = \\
+&\log p(w | \eta_s, \beta) + \log p(\eta_s | \mu, \Sigma) - \log q(\eta_s | \lambda, \nu)
+\end{align}
+
+The remaining terms of this weight are derived as follows:
+
+\begin{align}
+\log p(w | \eta_s, \beta) = \log p(w | \theta_s, \beta) &= \log \prod\limits_{n=1}^N p(w_n | \theta, \beta)^{c_n}\\
+&= \log \prod\limits_{n=1}^N (\sum\limits_{i=1}^K \theta_i \beta_{i, w_n})^{c_n}\\
+&= \sum\limits_{n=1}^N c_n \log \sum\limits_{i=1}^K \theta_i \beta_{i, w_n}
+\end{align}
+
+The probability of a specific document given its topic distribution $\theta_s$ and the topic-word distribution $\beta$ is easy to express, since all words in the document are independent and we know exactly what is the probability of drawing a specific topic and drawing a specific word from a specific topic. Furthermore, taking the logarithm only leaves sums in the final expression: this will later allow to convert it to a series of vector and matrix products, which helps the speed of the actual implementation.
+
+The remaining term can be simply copied over from Equation~\ref{eq:eta_mu_sigma}:
+
+\begin{align}
+\log p(\eta_s | \mu, \Sigma) = \frac{1}{2} \log |\Sigma^{-1}| - \frac{K}{2} \log 2 \pi - \frac{1}{2}(\eta - \mu)^T\Sigma^{-1}(\eta - \mu)
+\end{align}
 
 \section{Implementation in code and code optimisation}
 
-To implement the training process for the model, I used Python, perhaps an unusual choice given the large amount of numerical computation that needs to be done and the poor performance of Python on these kinds of tasks. However, Python allows for extremely dense and expressive code, as well as has a REPL (Read-Eval-Print Loop), which allows for quick prototyping, implementation and debugging. The unsuitability of Python for numerical calculations is fixed by \texttt{NumPy}\cite{DBLP:journals/corr/abs-1102-1523}, a linear algebra library, that allows fast matrix operations in native code (using either routines provided by \texttt{NumPy} or more advanced numerical libraries that support the Basic Linear Algebra Subsystem (BLAS) API, such as ATLAS or OpenBLAS). In addition, NumPy integrates well with \texttt{SciPy}, a scientific computing library that provides useful routines, for example, for working with probability distributions or numerical optimisation.
+To implement the training process for the model, I used Python, perhaps an unusual choice given the large amount of numerical computation that needs to be done and the poor performance of Python on these kinds of tasks. However, Python allows for extremely dense and expressive code, as well as has a REPL (Read-Eval-Print Loop), which allows for quick prototyping, implementation and debugging. The unsuitability of Python for numerical calculations is fixed by \texttt{NumPy}\cite{DBLP:journals/corr/abs-1102-1523}, a linear algebra library, that allows fast matrix operations in native code (using either routines provided by \texttt{NumPy} or more advanced numerical libraries that support the Basic Linear Algebra Subsystem (BLAS) API, such as ATLAS or OpenBLAS). In addition, \texttt{NumPy} integrates well with \texttt{SciPy}, a scientific computing library that provides useful routines, for example, for working with probability distributions or numerical optimisation.
 
 Despite using \texttt{NumPy}, I still had performance issues which would have made working with the real-world datasets very inconvenient. I used \texttt{cProfile}, a Python profiler, to investigate those.
 
