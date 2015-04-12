@@ -1,0 +1,41 @@
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+     5596   56.686    0.010   60.062    0.011 variational_inference.py:34(f_lambda)
+      616   22.737    0.037   57.636    0.094 variational_inference.py:70(likelihood_bound)
+  5599536    9.381    0.000   33.919    0.000 math_utils.py:10(safe_log)
+  5587240    7.286    0.000    7.286    0.000 {method 'clip' of 'numpy.generic' objects}
+  5639219    6.708    0.000    6.708    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+       48    5.111    0.106  118.752    2.474 variational_inference.py:96(variational_inference)
+    40346    4.260    0.000    4.260    0.000 {sum}
+  5587240    4.154    0.000   11.132    0.000 {method 'max' of 'numpy.generic' objects}
+  5602512    3.854    0.000   15.054    0.000 [...]\numpy\core\fromnumeric.py:2050(amax)
+  5599536    2.196    0.000    9.512    0.000 [...]\numpy\core\fromnumeric.py:1566(clip)
+     5243    2.006    0.000    2.970    0.001 variational_inference.py:25(f_dlambda)
+  5602512    1.329    0.000    7.045    0.000 [...]\numpy\core\_methods.py:25(_amax)
+        2    1.127    0.564    1.620    0.810 [...]\numpy\lib\npyio.py:631(loadtxt)
+        1    0.542    0.542  128.322  128.322 expectation_maximization.py:31(expectation_maximization)
+    15759    0.362    0.000    0.362    0.000 {zip}
+    11016    0.221    0.000    0.849    0.000 variational_inference.py:49(f_nu_sq)
+    29299    0.188    0.000    0.188    0.000 {method 'dot' of 'numpy.ndarray' objects}
+    26757    0.176    0.000    0.176    0.000 {numpy.core.multiarray.array}
+      472    0.140    0.000   63.618    0.135 [...]\scipy\optimize\optimize.py:792(_minimize_bfgs)
+     6129    0.135    0.000    0.135    0.000 {method 'split' of 'str' objects}
+    36235    0.132    0.000    1.185    0.000 [...]\numpy\core\fromnumeric.py:1623(sum)
+    11016    0.123    0.000    0.365    0.000 variational_inference.py:64(f_dnu_sq)
+     2531    0.122    0.000   53.814    0.021 [...]\scipy\optimize\linesearch.py:101(scalar_search_wolfe1)
+  1692604    0.118    0.000    0.118    0.000 {len}
+    16354    0.089    0.000    0.089    0.000 {numpy.core._dotblas.dot}
+      472    0.085    0.000    1.356    0.003 [...]\scipy\optimize\lbfgsb.py:198(_minimize_lbfgsb)
+    11632    0.061    0.000    0.061    0.000 {method 'trace' of 'numpy.ndarray' objects}
+    11680    0.060    0.000    0.099    0.000 [...]\numpy\lib\twodim_base.py:242(diag)
+      616    0.048    0.000    0.066    0.000 [...]\numpy\linalg\linalg.py:1679(det)
+    21855    0.047    0.000   63.928    0.003 [...]\scipy\optimize\optimize.py:279(function_wrapper)
+        1    0.046    0.046  130.036  130.036 D:/Projects/part2-dissertation/ctm-test.py:6(<module>)
+    39010    0.042    0.000    0.042    0.000 {isinstance}
+     4744    0.040    0.000    2.754    0.001 [...]\scipy\optimize\linesearch.py:84(derphi)
+        1    0.039    0.039    0.039    0.039 {method 'round' of 'numpy.ndarray' objects}
+6120/3060    0.038    0.000    0.039    0.000 [...]\numpy\lib\npyio.py:775(pack_items)
+    22465    0.038    0.000    0.038    0.000 {numpy.core.multiarray.zeros}
+     4744    0.027    0.000   50.928    0.011 [...]\scipy\optimize\linesearch.py:80(phi)
+    12296    0.025    0.000    0.025    0.000 {method 'clip' of 'numpy.ndarray' objects}
+    36235    0.024    0.000    1.014    0.000 [...]\numpy\core\_methods.py:31(_sum)
+        1    0.023    0.023    0.024    0.024 [...]\spyderlib\widgets\externalshell\sitecustomize.py:501(run)

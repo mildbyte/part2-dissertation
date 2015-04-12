@@ -407,7 +407,7 @@ This has the effect of setting pathway-gene membership priors and ensures that t
 
 \section{Classification process}
 
-Using the variational parameters inferred for every document and the global model parameters, it is possible to find the expected value of $\theta$, the document-topic distribution. Since $\theta = f(\eta)$, a normalised vector, finding the expected value of $\eta$ is sufficient. However, this involves performing an integration over the space of all possible $\eta$, which is intractable. Hence, this integral has to be approximated using Monte Carlo and importance sampling (TODO: reference an importance sampling paper):
+Using the variational parameters inferred for every document and the global model parameters, it is possible to find the expected value of $\theta$, the document-topic distribution. Since $\theta = f(\eta)$, a normalised vector, finding the expected value of $\eta$ is sufficient. However, this involves performing an integration over the space of all possible $\eta$, which is intractable. Hence, this integral has to be approximated using Monte Carlo and importance sampling \cite{mcbook} (TODO: reference an importance sampling paper):
 
 \begin{align}
 \hat\theta \propto \frac{1}{N}\sum\limits_{s=1}^N f(\eta_s) \frac{p(\eta_s | w, \mu, \Sigma, \beta)}{q(\eta_s | \lambda, \nu)}
@@ -456,49 +456,7 @@ To implement the training process for the model, I used Python, perhaps an unusu
 Despite using \texttt{NumPy}, I still had performance issues which would have made working with the real-world datasets very inconvenient. I used \texttt{cProfile}, a Python profiler, to investigate those.
 
 \begin{figure}
-\begin{Verbatim}[fontsize=\scriptsize]
-   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
-     5596   56.686    0.010   60.062    0.011 variational_inference.py:34(f_lambda)
-      616   22.737    0.037   57.636    0.094 variational_inference.py:70(likelihood_bound)
-  5599536    9.381    0.000   33.919    0.000 math_utils.py:10(safe_log)
-  5587240    7.286    0.000    7.286    0.000 {method 'clip' of 'numpy.generic' objects}
-  5639219    6.708    0.000    6.708    0.000 {method 'reduce' of 'numpy.ufunc' objects}
-       48    5.111    0.106  118.752    2.474 variational_inference.py:96(variational_inference)
-    40346    4.260    0.000    4.260    0.000 {sum}
-  5587240    4.154    0.000   11.132    0.000 {method 'max' of 'numpy.generic' objects}
-  5602512    3.854    0.000   15.054    0.000 [...]\numpy\core\fromnumeric.py:2050(amax)
-  5599536    2.196    0.000    9.512    0.000 [...]\numpy\core\fromnumeric.py:1566(clip)
-     5243    2.006    0.000    2.970    0.001 variational_inference.py:25(f_dlambda)
-  5602512    1.329    0.000    7.045    0.000 [...]\numpy\core\_methods.py:25(_amax)
-        2    1.127    0.564    1.620    0.810 [...]\numpy\lib\npyio.py:631(loadtxt)
-        1    0.542    0.542  128.322  128.322 expectation_maximization.py:31(expectation_maximization)
-    15759    0.362    0.000    0.362    0.000 {zip}
-    11016    0.221    0.000    0.849    0.000 variational_inference.py:49(f_nu_sq)
-    29299    0.188    0.000    0.188    0.000 {method 'dot' of 'numpy.ndarray' objects}
-    26757    0.176    0.000    0.176    0.000 {numpy.core.multiarray.array}
-      472    0.140    0.000   63.618    0.135 [...]\scipy\optimize\optimize.py:792(_minimize_bfgs)
-     6129    0.135    0.000    0.135    0.000 {method 'split' of 'str' objects}
-    36235    0.132    0.000    1.185    0.000 [...]\numpy\core\fromnumeric.py:1623(sum)
-    11016    0.123    0.000    0.365    0.000 variational_inference.py:64(f_dnu_sq)
-     2531    0.122    0.000   53.814    0.021 [...]\scipy\optimize\linesearch.py:101(scalar_search_wolfe1)
-  1692604    0.118    0.000    0.118    0.000 {len}
-    16354    0.089    0.000    0.089    0.000 {numpy.core._dotblas.dot}
-      472    0.085    0.000    1.356    0.003 [...]\scipy\optimize\lbfgsb.py:198(_minimize_lbfgsb)
-    11632    0.061    0.000    0.061    0.000 {method 'trace' of 'numpy.ndarray' objects}
-    11680    0.060    0.000    0.099    0.000 [...]\numpy\lib\twodim_base.py:242(diag)
-      616    0.048    0.000    0.066    0.000 [...]\numpy\linalg\linalg.py:1679(det)
-    21855    0.047    0.000   63.928    0.003 [...]\scipy\optimize\optimize.py:279(function_wrapper)
-        1    0.046    0.046  130.036  130.036 D:/Projects/part2-dissertation/ctm-test.py:6(<module>)
-    39010    0.042    0.000    0.042    0.000 {isinstance}
-     4744    0.040    0.000    2.754    0.001 [...]\scipy\optimize\linesearch.py:84(derphi)
-        1    0.039    0.039    0.039    0.039 {method 'round' of 'numpy.ndarray' objects}
-6120/3060    0.038    0.000    0.039    0.000 [...]\numpy\lib\npyio.py:775(pack_items)
-    22465    0.038    0.000    0.038    0.000 {numpy.core.multiarray.zeros}
-     4744    0.027    0.000   50.928    0.011 [...]\scipy\optimize\linesearch.py:80(phi)
-    12296    0.025    0.000    0.025    0.000 {method 'clip' of 'numpy.ndarray' objects}
-    36235    0.024    0.000    1.014    0.000 [...]\numpy\core\_methods.py:31(_sum)
-        1    0.023    0.023    0.024    0.024 [...]\spyderlib\widgets\externalshell\sitecustomize.py:501(run)
-\end{Verbatim}
+\VerbatimInput[fontsize=\scriptsize]{profile-before.txt}
 \caption{\texttt{cProfile} output for the CTM training before the optimisation on 12 drugs, 23 pathways, 284 genes}
 \label{fig:ctm-profile-before}
 \end{figure}
@@ -510,34 +468,7 @@ The training was run on 1/100th of all drugs, 1/10th of all pathways and 1/10th 
 It is immediately obvious that the program spends most of its time recalculating the likelihood bound (\texttt{likelihood\_bound}) and the objective function for the optimisation of the bound with respect to $\lambda$ (\texttt{f\_lambda}). These two functions in total account for almost all the time (117 seconds) the program runs.
 
 \begin{figure}
-\begin{Verbatim}[fontsize=\scriptsize]
-def likelihood_bound(v_params, m_params, doc, counts):
-    N = sum(counts)
-    
-    #E_q(logp(eta|mu,sigma))
-    result = 0.5 * safe_log(np.linalg.det(m_params.inv_sigma))
-    result -= 0.5 * safe_log(2 * np.pi) * len(m_params.beta)
-    result -= 0.5 * (np.diag(v_params.nu_sq).dot(m_params.inv_sigma)).trace()
-    lambda_mu = v_params.lambd - m_params.mu
-    result -= 0.5 * lambda_mu.dot(m_params.inv_sigma.dot(lambda_mu))
-    
-    #E_q(logp(z|eta))
-    result += sum([c * v_params.lambd[i] * v_params.phi[n, i]\
-        for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
-    result -= N * (1.0 / v_params.zeta * np.sum(np.exp(v_params.lambd + 0.5 * v_params.nu_sq))\
-        - 1 + safe_log(v_params.zeta))
-    
-    #E_q(logp(w|mu,z,beta))
-    result += sum([c * v_params.phi[n, i] * safe_log(m_params.beta[i, doc[n]])\
-        for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
-    
-    #H(q)
-    result += np.sum(0.5 * (1 + safe_log(v_params.nu_sq * 2 * np.pi)))
-    result -= np.sum([c * v_params.phi[n, i] * safe_log(v_params.phi[n, i])\
-        for (n, c) in zip(xrange(len(doc)), counts) for i in xrange(len(m_params.beta))])
-    
-    return result
-\end{Verbatim}
+\VerbatimInput[fontsize=\scriptsize]{likelihood-bound-before.py}
 \caption{Code of the likelihood bound calculation before optimisation}
 \label{fig:code-before-optimisation}
 \end{figure}
@@ -565,49 +496,7 @@ I also recompiled my \texttt{NumPy} distribution to use the Intel Math Kernel Li
 Since the variational inference process is independent for every document, it can be parallelized across multiple cores. However, because of the Python Global Interpreter Lock, only one thread can execute Python bytecode at a time. This meant that I had to launch several Python processes if I wanted to take advantage of my CPU's capabilities. While this did provide an increase in CPU usage, it resulted in worse performance than using \texttt{numexpr} and Intel MKL's natural multithreading capabilities.
 
 \begin{figure}
-\begin{Verbatim}[fontsize=\scriptsize]
-   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
-    88460    5.939    0.000    7.237    0.000 [...]\numexpr\necompiler.py:662(evaluate)
-   639494    1.683    0.000    1.683    0.000 {method 'dot' of 'numpy.ndarray' objects}
-    99000    1.664    0.000    3.280    0.000 [...]\scipy\optimize\linesearch.py:397(_cubicmin)
-   151068    1.475    0.000    3.099    0.000 variational_inference.py:42(f_lambda)
-   413096    1.426    0.000    1.426    0.000 {method 'reduce' of 'numpy.ufunc' objects}
-     2340    1.344    0.001   27.691    0.012 variational_inference.py:105(variational_inference)
-    69397    1.287    0.000    3.232    0.000 variational_inference.py:57(f_nu_sq)
-        2    1.122    0.561    1.587    0.793 [...]\numpy\lib\npyio.py:631(loadtxt)
-    17692    1.121    0.000   10.651    0.001 variational_inference.py:75(likelihood_bound)
-    10672    1.062    0.000    5.928    0.001 [...]\scipy\optimize\lbfgsb.py:198(_minimize_lbfgsb)
-    69397    0.847    0.000    1.040    0.000 variational_inference.py:70(f_dnu_sq)
-   521216    0.771    0.000    0.771    0.000 {numpy.core.multiarray.array}
-   412986    0.636    0.000    1.358    0.000 [...]\numpy\core\numeric.py:2428(seterr)
-    17692    0.635    0.000    0.952    0.000 [...]\numpy\linalg\linalg.py:1599(slogdet)
-   218760    0.632    0.000    0.632    0.000 {numpy.core._dotblas.dot}
-   107493    0.621    0.000    1.557    0.000 [...]\scipy\optimize\linesearch.py:431(_quadmin)
-    88460    0.570    0.000    0.646    0.000 [...]\numexpr\necompiler.py:462(getContext)
-   370334    0.543    0.000    2.203    0.000 [...]\numpy\core\fromnumeric.py:1623(sum)
-     9900    0.475    0.000    8.050    0.001 [...]\scipy\optimize\linesearch.py:452(_zoom)
-   412986    0.460    0.000    0.496    0.000 [...]\numpy\core\numeric.py:2524(geterr)
-    87089    0.455    0.000    0.455    0.000 {method 'trace' of 'numpy.ndarray' objects}
-    89429    0.442    0.000    0.748    0.000 [...]\numpy\lib\twodim_base.py:242(diag)
-    33113    0.437    0.000    0.522    0.000 variational_inference.py:33(f_dlambda)
-   118800    0.409    0.000    2.965    0.000 [...]\scipy\optimize\linesearch.py:237(phi)
-   252950    0.388    0.000    0.388    0.000 {numpy.core.multiarray.zeros}
-   253578    0.291    0.000    7.143    0.000 [...]\scipy\optimize\optimize.py:279(function_wrapper)
-    10672    0.285    0.000   10.910    0.001 [...]\scipy\optimize\optimize.py:1101(_minimize_cg)
-   478523    0.282    0.000    0.829    0.000 [...]\numpy\core\numeric.py:394(asarray)
-    21344    0.264    0.000   17.353    0.001 [...]\scipy\optimize\_minimize.py:37(minimize)
-   490325    0.252    0.000    0.252    0.000 {isinstance}
-    20645    0.240    0.000    1.215    0.000 [...]\scipy\optimize\linesearch.py:101(scalar_search_wolfe1)
-     4743    0.208    0.000    0.208    0.000 {sum}
-    91601    0.206    0.000    0.206    0.000 {zip}
-   412986    0.170    0.000    0.170    0.000 {numpy.core.umath.seterrobj}
-   206493    0.170    0.000    0.198    0.000 [...]\numpy\core\numeric.py:2809(__init__)
-   206493    0.167    0.000    0.892    0.000 [...]\numpy\core\numeric.py:2813(__enter__)
-   206493    0.160    0.000    0.793    0.000 [...]\numpy\core\numeric.py:2818(__exit__)
-   370334    0.157    0.000    1.442    0.000 [...]\numpy\core\_methods.py:31(_sum)
-   176920    0.141    0.000    0.141    0.000 [...]\numexpr\necompiler.py:611(getType)
-     6129    0.134    0.000    0.134    0.000 {method 'split' of 'str' objects}
-\end{Verbatim}
+\VerbatimInput[fontsize=\scriptsize]{profile-after.txt}
 \caption{\texttt{cProfile} output for the CTM training after the optimisation on 117 drugs, 23 pathways, 284 genes}
 \label{fig:ctm-profile-after}
 \end{figure}
@@ -617,34 +506,7 @@ Finally, Figure~\ref{fig:ctm-profile-after} shows the profiling data of the resu
 Interestingly, these changes made the code shorter and perhaps more readable (Figure~\ref{fig:code-after-optimisation}).
 
 \begin{figure}
-\begin{Verbatim}[fontsize=\scriptsize]
-def likelihood_bound(v_params, m_params, doc, counts, N):
-    #E_q(logp(eta|mu,sigma))
-    result = 0.5 * np.linalg.slogdet(m_params.inv_sigma)[1] #slogdet avoids overflow (as opposed to log(det(inv_sigma)))
-    result -= 0.5 * log2pi * len(m_params.beta)
-    result -= 0.5 * (np.diag(v_params.nu_sq).dot(m_params.inv_sigma)).trace()
-    lambd = v_params.lambd
-    mu = m_params.mu
-    lambda_mu = ne.evaluate("lambd - mu")
-    result -= 0.5 * lambda_mu.dot(m_params.inv_sigma.dot(lambda_mu))
-    
-    #E_q(logp(z|eta))
-    result += v_params.weighted_sum_phi.dot(v_params.lambd)
-    nu_sq = v_params.nu_sq
-    zeta = v_params.zeta
-    result -= N * (ne.evaluate("sum(exp(lambd + 0.5 * nu_sq - log(zeta)))") - 1 + np.log(v_params.zeta))
-    
-    #E_q(logp(w|mu,z,beta))
-    phi = v_params.phi
-    betaTdoc = m_params.beta.T[doc]
-    result += np.sum(np.dot(counts, ne.evaluate("phi * log(betaTdoc)")))
-    
-    #H(q)
-    result += ne.evaluate("sum(0.5 * (1 + log2pi + log(nu_sq)))")
-    result -= np.sum(np.dot(counts, ne.evaluate("phi * log(phi)")))
-    
-    return result
-\end{Verbatim}
+\VerbatimInput[fontsize=\scriptsize]{likelihood-bound-after.py}
 \caption{Final code of the likelihood bound calculation after optimisation}
 \label{fig:code-after-optimisation}
 \end{figure}
@@ -972,9 +834,9 @@ Hence, if the real-world drug-gene expression data does follow the generative fr
 
 \subsection{Description of the dataset}
 
-KEGG (Kyoto Encyclopedia of Genes and Genomes), published by Kyoto Universiy Katehisa Laboratories, is an online collection of databases dealing with various aspects of biology. Of interest to this project is the KEGG PATHWAY database, a collection of pathways and genes which they include.
+KEGG (Kyoto Encyclopedia of Genes and Genomes) \cite{KEGG}, published by Kyoto Universiy Kanehisa Laboratories, is an online collection of databases dealing with various aspects of biology. Of interest to this project is the KEGG PATHWAY database, a collection of pathways and genes which they include.
 
-CMap (Connectivity Map), published by the Broad Institute is a catalog of gene-expression data.
+CMap (Connectivity Map) \cite{CMap}, published by the Broad Institute, is a catalog of gene-expression data.
 
 These two datasets are used to derive the following matrices:
 
