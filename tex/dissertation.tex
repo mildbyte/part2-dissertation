@@ -14,6 +14,8 @@
 \usepackage{tabu}
 \usepackage{fancyvrb}
 \usepackage{tikz}
+\usepackage{fixltx2e}
+\MakeRobust{\Call}
 \newcommand{\var}[1]{{\operatorname{\mathit{#1}}}}
 
 \raggedbottom                           % try to avoid widows and orphans
@@ -251,7 +253,7 @@ $\mu$ & Mean of the normal distribution of topics in the corpus \\
 $\Sigma$ & Covariance matrix of the normal distribution of topics in the corpus \\
 $\beta$ & $K \times V$ dimensional matrix of topic-word distributions \\
 $\eta$ & Drawn unnormalised topic distribution for a certain document \\
-$\theta$ & Normalised topic distribution for a certain document \\
+$\theta$ & Normalised topic distribution for a certain document: $\theta = f(\eta)$ \\
 $z$ & Drawn topic assignments for each word in the document \\
 \hline
 \end{tabular}
@@ -316,7 +318,9 @@ The definition of the distribution is
 q(\eta, z | \lambda, \nu, \phi) = \prod\limits_{i=1}^K q(\eta_i|\lambda_i, \nu_i^2) \prod\limits_{n=1}^N q(z_n | \phi_n)
 \end{equation}
 
-Here, the variational distribution of the per-document topic distribution $\eta$ is $K$ independent normal variables with means $\lambda$ and standard deviations $\nu$.
+Here, the variational distribution of the per-document topic distribution $\eta$ is $K$ independent normal variables with means $\lambda_i$ and standard deviations $\nu_i$ (or, alternatively, a normal variable with mean $\lambda$ and a covariance matrix $\mathit{diag}(\nu^2)$.
+
+TODO: VD for phi
 
 Minimizing the Kullback-Leibner divergence between the variational distribution and the true posterior is the same as optimizing the parameters of the variational distribution so that it maximizes the probability of the document. This is equivalent to maximizing the log probability of the document, which can be bounded as
 
@@ -338,8 +342,8 @@ The components of the likelihood bound are then rewritten in terms of the variat
 
 \begin{align}
 \mathbb{E}_q[\log p(z_n | \eta)] & = \mathbb{E}_q[\eta^Tz_n] - \mathbb{E}_q[\log \sum\limits_{i=1}^K e^{\eta_i}] \\
-& \geq \mathbb{E}_q[\eta^Tz_n] - \zeta^{-1}(\sum\limits_{i=1}^K\mathbb{E}_q[e^{\eta_i}] + 1 - \log\zeta \\
-& = \sum\limits_{i=1}^K\lambda_i\phi_{n, i} - \zeta^{-1}(\sum\limits_{i=1}^Ke^{\lambda_i + \nu_i^2 / 2}) + 1 - \log\zeta
+& \geq \mathbb{E}_q[\eta^Tz_n] - \zeta^{-1}\left(\sum\limits_{i=1}^K\mathbb{E}_q[e^{\eta_i}]\right) + 1 - \log\zeta \\
+& = \sum\limits_{i=1}^K\lambda_i\phi_{n, i} - \zeta^{-1}\left(\sum\limits_{i=1}^Ke^{\lambda_i + \nu_i^2 / 2}\right) + 1 - \log\zeta
 \end{align}
 
 Here, the term $\mathbb{E}_q[\log \sum\limits_{i=1}^K e^{\eta_i}]$ was bound by a Taylor expansion, introducing an extra parameter $\zeta$.
@@ -379,6 +383,8 @@ dL/d\nu^2 & = -\mathit{diag}(\Sigma^{-1})/2 - \frac{N}{2\zeta}e^{\lambda + \nu^2
 
 Blei's paper suggests using the conjugate gradient algorithm to optimise $\lambda$ and Newton's method for each coordinate of $\nu^2$, however, I found that I got better performance (both in convergence rates and the speed of the model) when using the limited-memory Broyden-Fletcher-Goldfarb-Shanno algorithm with box constraints (L-BFGS-B) to optimise for the whole vector $\nu^2$. I didn't write my own implementations of the conjugate gradient or the L-BFGS-B algorithm: they were available as a part of SciPy.
 
+In addition, the original paper recommends reoptimising $\zeta$ (the parameter introduced because of the Taylor expansion) after the optimisation with respect to every other parameter.
+
 Once these variational parameters have been found, they are used to estimate the global model parameters:
 
 \begin{align}
@@ -393,7 +399,7 @@ To convert these equations to an algorithm, we need to address some performance 
 
 The overall training process is as follows: set some initial model parameters and use those to perform variational inference on every document. Use the variational parameters to update the model parameters and repeat until the likelihood bound converges (fractional change is less than a certain threshold).
 
-These steps are described in algorithms~\ref{alg:variational_inference} and~\ref{alg:expectation_maximisation}. 
+These steps are described in algorithms~\ref{alg:variational_inference} and~\ref{alg:expectation_maximisation}.
 
 In the original paper, this algorithm is called Variational EM (Expectation-Maximisation). The classic EM algorithm consists of two steps: the E step, where some sort of a function of the model parameters is calculated or expressed, and the M step, where that function is maximised. Here, the E step is the variational inference process (where we express the likelihood bound on the document as a function of the parameters of the variational distribution (fit to each document) and the global model parameters) and the M step is where the variational parameters for every document are combined to update the global model parameters.
 
@@ -407,19 +413,19 @@ This has the effect of setting pathway-gene membership priors and ensures that t
 
 \section{Classification process}
 
-Using the variational parameters inferred for every document and the global model parameters, it is possible to find the expected value of $\theta$, the document-topic distribution. Since $\theta = f(\eta)$, a normalised vector, finding the expected value of $\eta$ is sufficient. However, this involves performing an integration over the space of all possible $\eta$, which is intractable. Hence, this integral has to be approximated using Monte Carlo and importance sampling \cite{mcbook} (TODO: reference an importance sampling paper):
+Using the variational parameters inferred for every document and the global model parameters, it is possible to find the expected value of $\theta$, the document-topic distribution. Since $\theta = f(\eta)$, a normalised vector, finding the expected value of $\eta$ is sufficient. However, this involves performing an integration over the space of all possible $\eta$, which is intractable. Hence, this integral has to be approximated using Monte Carlo and importance sampling \cite{mcbook}:
 
 \begin{align}
-\hat\theta \propto \frac{1}{N}\sum\limits_{s=1}^N f(\eta_s) \frac{p(\eta_s | w, \mu, \Sigma, \beta)}{q(\eta_s | \lambda, \nu)}
+\hat\theta \propto \frac{1}{N}\sum\limits_{s=1}^N f(\eta_s) \frac{p(\eta_s | w, \mu, \Sigma, \beta)}{q(\eta_s | \lambda, \nu^2)}
 \end{align}
 
-$\eta$ is sampled $N$ times from the distribution described by a probability density function $q$. The easiest way to sample $\eta$ is from the variational distribution that was fitted to the document: recall that $\eta \sim N(\lambda, \mathit{diag}(\nu))$ and so $q(\eta_s | \lambda, \nu) = \mathit{NormalPDF}(\eta_s, \lambda, \nu)$.
+$\eta$ is sampled $N$ times from the distribution described by a probability density function $q$. The easiest way to sample $\eta$ is from the variational distribution that was fitted to the document: recall that $\eta \sim N(\lambda, \mathit{diag}(\nu))$ and so $q(\eta_s | \lambda, \nu^2) = \mathit{NormalPDF}(\eta_s, \lambda, \mathit{diag}\nu^2)$.
 
 $p$ is the density function of the actual distribution whose expected value we are looking for: in essence, we're trying to estimate $\mathbb{E}(\theta | w, \mu, \Sigma, \beta)$. According to the Bayes' theorem, we can invert the conditioning:
 
 \begin{align}
 p(\eta_s | w, \mu, \Sigma, \beta) &= \frac{p(w | \eta_s, \mu, \Sigma, \beta)p(\eta_s | \mu, \Sigma, \beta)}{p(w | \mu, \Sigma, \beta)}\\
-&= p(w | \eta_s, \beta) p(\eta_s | \mu, \Sigma)
+&\propto p(w | \eta_s, \beta) p(\eta_s | \mu, \Sigma)
 \end{align}
 
 Unnecessary conditioning can also be dropped ($w$ only depends on $\eta_s$ and $\beta$ and $\eta_s$ only depends on $\mu$ and $\Sigma$). In addition, the marginal probability $p(w | \mu, \Sigma, \beta)$ is dropped: it doesn't depend on the sampled value of $\eta_s$ and so will just be a scalar multiplier on the final estimated value of $\hat\eta$, which will be have to be normalised to get $\hat\theta$ anyway, thus the multiplier will be discarded.
@@ -427,8 +433,8 @@ Unnecessary conditioning can also be dropped ($w$ only depends on $\eta_s$ and $
 It will be easier to express and calculate the logarithm of this value: in that case, the weight assigned to every sample $f(\eta_s)$ will be
 
 \begin{align}
-&\log \frac{p(w | \eta_s, \mu, \Sigma, \beta)p(\eta_s | \mu, \Sigma, \beta)}{p(w | \mu, \Sigma, \beta)} = \\
-&\log p(w | \eta_s, \beta) + \log p(\eta_s | \mu, \Sigma) - \log q(\eta_s | \lambda, \nu)
+&\log \frac{p(w | \eta_s, \mu, \Sigma, \beta)p(\eta_s | \mu, \Sigma, \beta)}{q(\eta_s | \lambda, \nu)} = \\
+&\log p(w | \eta_s, \beta) + \log p(\eta_s | \mu, \Sigma) - \log q(\eta_s | \lambda, \nu^2)
 \end{align}
 
 The remaining terms of this weight are derived as follows:
@@ -441,13 +447,15 @@ The remaining terms of this weight are derived as follows:
 
 The probability of a specific document given its topic distribution $\theta_s$ and the topic-word distribution $\beta$ is easy to express, since all words in the document are independent and we know exactly what is the probability of drawing a specific topic and drawing a specific word from a specific topic. Furthermore, taking the logarithm only leaves sums in the final expression: this will later allow to convert it to a series of vector and matrix products, which helps the speed of the actual implementation.
 
-The remaining term can be simply copied over from Equation~\ref{eq:eta_mu_sigma}:
+The final term can be simply copied over from Equation~\ref{eq:eta_mu_sigma}:
 
 \begin{align}
 \log p(\eta_s | \mu, \Sigma) = \frac{1}{2} \log |\Sigma^{-1}| - \frac{K}{2} \log 2 \pi - \frac{1}{2}(\eta - \mu)^T\Sigma^{-1}(\eta - \mu)
 \end{align}
 
-TODO python code or pseudocode
+Algorithm~\ref{alg:theta_inference} shows the resultant procedure.
+
+\input{theta_inference}
 
 \section{Implementation in code and code optimisation}
 

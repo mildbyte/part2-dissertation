@@ -1,0 +1,39 @@
+\documentclass{article}
+\usepackage[noend]{algpseudocode}
+\usepackage[]{algorithm}
+\usepackage{amsmath}
+\usepackage[cm]{fullpage}
+\newcommand{\var}[1]{{\operatorname{\mathit{#1}}}}
+
+\begin{document}
+\begin{algorithm}
+   \caption{Document-topic proportion $\theta$ inference for a document}
+   \label{alg:theta_inference}
+   \begin{algorithmic}[0]
+      \Function{normalise}{$\eta$}
+      \State \Return $\frac{e^{\eta_d}}{\sum\limits_i e^{\eta_{d, i}}}$
+      \EndFunction
+    \end{algorithmic}
+
+   \begin{algorithmic}[0]
+      \Function{sample-theta}{$\var{var-params}, \var{mod-params}, w, c$}
+      \State $\eta \gets N(\lambda, \var{diag}(\nu^2))$
+      \State $\theta \gets \Call{normalise}{\eta}$
+      \State $p_1 \gets \sum\limits_{n=1}^N c_n \log \sum\limits_{i=1}^K \theta_i \beta_{i, w_n}$
+      \State $p_2 \gets \frac{1}{2} \log |\Sigma^{-1}| - \frac{K}{2} \log 2 \pi - \frac{1}{2}(\eta - \mu)^T\Sigma^{-1}(\eta - \mu)$
+      \State $q \gets \log \left( \var{NormalPDF}(\eta_s, \lambda, \var{diag}(\nu^2)) \right) $
+    \State \Return $\theta \times \exp(p_1 + p_2 - q)$
+    \EndFunction
+    \end{algorithmic}
+    
+   \begin{algorithmic}[0]
+    \Function{expected-theta}{$\var{var-params}, \var{mod-params}, w, c, \var{number-samples}$}
+    \State $\theta \gets 0$
+    \Repeat
+    \State $\theta \gets \theta + \Call{sample-theta}{\var{var-params}, \var{mod-params}, w, c}$
+    \Until {$\var{number-samples}$ has been collected}
+    \State \Return \Call{normalise}{$\theta / \var{number-samples}}$
+    \EndFunction
+    \end{algorithmic}
+\end{algorithm}
+\end{document}
