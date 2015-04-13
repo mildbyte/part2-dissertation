@@ -118,7 +118,7 @@ Topic models come from the realm of natural language processing and are bag-of-w
 
 This framework is very similar to the drug-pathway-gene interactions: drugs (documents) influence pathways (topics), which consist of genes (words), which raises the question: can topic models be used to analyse gene expression data? The benefits from applying topic modelling on documents (inferring the topics of a new document and finding similar documents) could obviously be useful to the drug gene expression data analysis as well: inferring the pathways a drug affects, finding new applications for a known drug or finding drugs with similar effects.
 
-Latent Dirichlet Allocation (LDA) \cite{Blei} is one such topic modelling algorithm. It assumes that the global distribution of topics is a Dirichlet distribution and from it, for every document, a vector that is used to describe the distribution of topics is drawn. Then, for every word in this document, first the topic is drawn from the generated multinomial distribution of topics and then 
+Latent Dirichlet Allocation (LDA) \cite{Blei} is one such topic modelling algorithm. It assumes that the global distribution of topics is a Dirichlet distribution and from it, for every document, a vector that is used to describe the distribution of topics is drawn. A Dirichlet distribution can be imagined as a large bag of differently-coloured balls from which several balls are randomly drawn: in effect, it's a distribution that is used to model proportions.
 
 LDA was applied to the problem of predicting pathways from drug gene expression data by my supervisor \cite{Pratanwanich2014}, with good results. One important augmentation to classic LDA that had to be made was word-topic (gene-pathway) membership priors. Pathways are human-defined to contain specific genes whereas topic models are exploratory and only infer the most likely topic structure. For the topics inferred by a topic model to have meaning, they also need to be enforced during training to only contain specific words: we are interested in how much an exact topic (pathway) is represented in the document (drug), not in what is the best fitting set of topics to the given corpus.
 
@@ -318,9 +318,7 @@ The definition of the distribution is
 q(\eta, z | \lambda, \nu, \phi) = \prod\limits_{i=1}^K q(\eta_i|\lambda_i, \nu_i^2) \prod\limits_{n=1}^N q(z_n | \phi_n)
 \end{equation}
 
-Here, the variational distribution of the per-document topic distribution $\eta$ is $K$ independent normal variables with means $\lambda_i$ and standard deviations $\nu_i$ (or, alternatively, a normal variable with mean $\lambda$ and a covariance matrix $\mathit{diag}(\nu^2)$.
-
-TODO: VD for phi
+Here, the variational distribution of the per-document topic distribution $\eta$ is $K$ independent normal variables with means $\lambda_i$ and standard deviations $\nu_i$ (or, alternatively, a normal variable with mean $\lambda$ and a covariance matrix $\mathit{diag}(\nu^2)$. The variational distribution of the topic assignment for each word in the document $z_n$ is $\mathit{Multinomial}(\phi_n)$.
 
 Minimizing the Kullback-Leibner divergence between the variational distribution and the true posterior is the same as optimizing the parameters of the variational distribution so that it maximizes the probability of the document. This is equivalent to maximizing the log probability of the document, which can be bounded as
 
@@ -372,7 +370,7 @@ $\phi$ has a maximum at
 \hat\phi_{n, i} \propto e^{\lambda_i}\beta_{i, w_n} \label{eq:phiopt}
 \end{equation}
 
-($\phi$ then has to be normalised).
+($\phi$ then has to be normalised: each row forms a parameter of a Multinomal distribution and so has to sum to 1).
 
 For maximisation with respect to $\lambda$ and $\nu^2$, numerical methods are used with derivatives
 
@@ -392,6 +390,8 @@ Once these variational parameters have been found, they are used to estimate the
 \hat\mu & = \frac{1}{D} \sum\limits_d\lambda_d \\ 
 \hat\Sigma & = \frac{1}{D} \sum\limits_d I\nu^2_d + (\lambda_d - \hat\mu)(\lambda_d - \hat\mu)^T
 \end{align}
+
+$\beta$ is then normalised so that each row (distribution of words for a topic) sums to 1.
 
 \subsection{Final algorithm of the training process}
 
@@ -413,13 +413,13 @@ This has the effect of setting pathway-gene membership priors and ensures that t
 
 \section{Classification process}
 
-Using the variational parameters inferred for every document and the global model parameters, it is possible to find the expected value of $\theta$, the document-topic distribution. Since $\theta = f(\eta)$, a normalised vector, finding the expected value of $\eta$ is sufficient. However, this involves performing an integration over the space of all possible $\eta$, which is intractable. Hence, this integral has to be approximated using Monte Carlo and importance sampling \cite{mcbook}:
+Using the variational parameters inferred for every document and the global model parameters, it is possible to find the expected value of $\theta$, the document-topic distribution. Since $\theta = f(\eta)$, a normalised vector, finding the expected value of $\eta$ is sufficient. However, this involves performing an integration over the space of all possible $\eta$, which cannot be performed analytically. Hence, this integral has to be approximated using Monte Carlo and importance sampling \cite{mcbook}:
 
 \begin{align}
 \hat\theta \propto \frac{1}{N}\sum\limits_{s=1}^N f(\eta_s) \frac{p(\eta_s | w, \mu, \Sigma, \beta)}{q(\eta_s | \lambda, \nu^2)}
 \end{align}
 
-$\eta$ is sampled $N$ times from the distribution described by a probability density function $q$. The easiest way to sample $\eta$ is from the variational distribution that was fitted to the document: recall that $\eta \sim N(\lambda, \mathit{diag}(\nu))$ and so $q(\eta_s | \lambda, \nu^2) = \mathit{NormalPDF}(\eta_s, \lambda, \mathit{diag}\nu^2)$.
+$\eta$ is sampled $N$ times from the distribution described by a probability density function $q$. The easiest way to sample $\eta$ is from the variational distribution that was fitted to the document: recall that $\eta \sim N(\lambda, \mathit{diag}(\nu^2))$ and so $q(\eta_s | \lambda, \nu^2) = \mathit{NormalPDF}(\eta_s, \lambda, \mathit{diag}(\nu^2))$.
 
 $p$ is the density function of the actual distribution whose expected value we are looking for: in essence, we're trying to estimate $\mathbb{E}(\theta | w, \mu, \Sigma, \beta)$. According to the Bayes' theorem, we can invert the conditioning:
 
@@ -592,8 +592,6 @@ The performance measure that is not affected by the topic identifiability is the
 M_{i,j} = \frac{\theta_i \cdot \theta_j}{|\theta_i||\theta_j|}
 \end{equation}
 
-TODO: investigate spearman rank recovery: compare inferred and reference ranks
-
 Similarly, if we've ensured that the topics were recovered correctly (through permuting the parameters or having sufficient sparsity in the dataset), the cosine similarities can be taken between inferred and reference $\theta$ for every document and a histogram of these values plotted to evaluate the topic prediction.
 
 \subsection{Parameter recovery}
@@ -605,6 +603,8 @@ First, we turn the parameters into a ``canonical" form by normalising them:
 \begin{equation}
 \mu^{norm}_i = \frac{e^{\mu_i}}{\sum\limits_{i=1}^K{e^{\mu_i}}}
 \end{equation}
+
+(this is the normalisation function $f$ applied to the mean topic distribution instead of a sample $\eta$)
 
 The covariance matrix $\Sigma$ is turned into the correlation matrix so that the correlations inferred by the model and the reference correlations can be compared:
 
@@ -619,6 +619,14 @@ The parameters are then compared to the reference using the normalized root-mean
 \end{equation}
 
 where $I$ is the inferred parameter, $R$ is the reference parameter and $D$ is the size of the matrix/vector.
+
+In addition, there exists a measure of correlation on the rank-transformed data called the Spearman's rank correlation coefficient, which expresses how monotone is the relationship between the two variables. Unlike the Pearson's coefficient which only measures the amount of linear dependence between the variables, it is sensitive to more types of dependencies and might be able to uncover the relationship between the inferred and the reference variables. It's defined as 
+
+\begin{equation}
+\rho  = 1 - \frac{6\sum d^2_i}{n ( n^2-1)}
+\end{equation}
+
+First, the variables $x_i$ and $y_i$ have to be rank-transformed. Then, $d_i = x_i - y_i$ is the difference between ranks. Thus, the correlations between the inferred and reference $\mu$, rows of the correlation matrix $C$ and each topic-word distribution in $\beta$ can be compared.
 
 TODO: add about graph recovery (correlation matrix)
 
@@ -657,10 +665,12 @@ One question about this measure is whether we need to take into account the numb
 This is the reason comparison with random guessing is important: a random pathway distribution can be generated by drawing $K$ values from a uniform distribution and normalising them. On average, such a distribution will score $\rho_d$ on drug $d$, where $\rho_d$ is the drug's density (the fraction of pathways it actually affects). Hence, we can normalise the measure by dividing it by $\rho_d$ to find out by how much the model did better compared to random guessing. Furthermore, we can take the logarithm of this ratio so that the performance of random guessing ends up at 0, that of anything better than random gets a positive score and the performance of worse than random guessing becomes negative:
 
 \begin{equation}\label{eq:rho-normalised-score}
-M_d = \log(\frac{\sum\limits_{p \in \mathit{ref}_d}{\theta_{d, p}}}{\rho_d})
+M_d = \log\left(\frac{\sum\limits_{p \in \mathit{ref}_d}{\theta_{d, p}}}{\rho_d}\right)
 \end{equation}
 
 This value will be referred as the rho-normalised log score further in the analysis.
+
+In addition, it might be possible to calculate the Spearman's rank correlation coefficient between each document-topic distribution in the inferred and the reference $\theta$: each pathway in the reference $\theta$ is ranked $0$ (top rank) if it's affected by the drug and $1$ if it isn't. The inferred $\theta$ is transformed as previously discussed. Since the reference ranks are now tied, some tie-breaking methods for the Spearman's rho will have to be used.
 
 \chapter{Evaluation}
 
@@ -746,7 +756,7 @@ Figure~\ref{fig:sim-cosine} shows the mean cosine similarity between each $\thet
 \label{fig:sim-sigmadensity-cosine}
 \end{figure}
 
-Figure~\ref{fig:sim-sigmadensity-cosine}, on the other hand, shows how the performance of CTM changes as the 20 topics in the toy dataset become more correlated. True to its name, the Correlated Topic Model benefits from more correlated topics.
+Figure~\ref{fig:sim-sigmadensity-cosine}, on the other hand, shows how the performance of CTM changes as the correlation matrix over the 20 topics in the last 4 toy datasets becomes more dense. True to its name, the Correlated Topic Model benefits from more correlated topics.
 
 \subsection{Parameter recovery}
 
@@ -770,7 +780,7 @@ Figure~\ref{fig:sim-sigmadensity-cosine}, on the other hand, shows how the perfo
 
 Figure~\ref{fig:sim-beta-cosine} shows the mean cosine similarity between the inferred and the reference rows of the $\beta$ matrix (the word distributions for every topic). There are $K$ topics in a single dataset and so every data point on this graph has been obtained by averaging the cosine similarities across $K$ samples. The random topic-word matrices here were generated by taking the Boolean matrix of priors and replacing the ``1" values with a draw from a uniform distribution and then renormalising.
 
-As evident from the figure, the recovery of the topic-word matrix gets much worse as the number of topics increases and becomes further away from the reference than a random topic-word matrix after the third dataset. The reason for this is that the pattern of zeros in the resultant matrix differs from the matrix of priors even though the priors have been enforced. If the prior matrix contains a zero in a certain position, the inferred matrix is guaranteed to have a zero in the same position as well, since the zeros propagate through the training process. However, this doesn't mean that a zero in a certain position in the inferred matrix is also in the reference matrix. It appears that the training process can introduce a zero in certain positions and it will stay there throughout the remaining training iterations. This appears to be an issue of the topic recoverability and prior enforcement.
+As evident from the figure, the recovery of the topic-word matrix gets much worse as the number of topics increases and becomes further away from the reference than a random topic-word matrix after the third dataset. The reason for this is that the pattern of zeros in the resultant matrix differs from the matrix of priors even though the priors have been enforced. If the prior matrix contains a zero in a certain position, the inferred matrix is guaranteed to have a zero in the same position as well, since the zeros propagate through the training process. However, this doesn't mean that a zero in a certain position in the inferred matrix is also in the reference matrix. It appears that the training process can introduce a zero in certain positions and it will stay there throughout the remaining training iterations. TODO: how to fix?
 
 Another problem is the poor recoverability of the parameters of the global topic distribution, $\mu$ and $\Sigma$ (Figures~\ref{fig:sim-mu-rmse}~and~\ref{fig:sim-sigma-rmse}, smaller RMSE is better). The performance of random guessing of was found by taking 1000 samples for $\mu$ and 100 samples for $\Sigma$.
 
@@ -791,6 +801,28 @@ For example, consider two drawn $\theta_1 = (\theta_{1,1}, \theta_{1,2}, \theta_
 \end{figure}
 
 Figure~\ref{fig:sim-sigmadensity-musigma} shows that as topics become more correlated, the recovery performance for $\mu$ dramatically improves, whereas the recovery of $\Sigma$ itself becomes worse. However, the recovery performance of $\beta$ doesn't significantly change with the correlation density (Figure~\ref{fig:sim-sigmadensity-beta}).
+
+\begin{table}
+\begin{tabular}{| l | l | l | l | l | l | l |}
+\hline
+Dataset & $\mu$ & $\mu$ mean p-val & $\Sigma$ mean & $\Sigma$ mean p-val & $\beta$ mean & $\beta$ mean p-val\\
+\hline
+1 & -0.515 & 0.128 & 0.407 & 0.305 & 1.00 & 0.000 \\
+2 & -0.057 & 0.811 & 0.200 & 0.400 & 0.944 & 0.000 \\
+3 & 0.095 & 0.513 & 0.104 & 0.460 & 0.796 & 0.000 \\
+4 & 0.093 & 0.357 & 0.034 & 0.559 & 0.841 & 0.000 \\
+5 & -0.073 & 0.265 & 0.060 & 0.374 & 0.872 & 0.000 \\
+6 & -0.776 & $5.80 \times 10 ^ {-5}$ & 0.100 & $5.55 \times 10^{-17}$ & 0.999 & 0.000 \\
+7 & -0.523 & 0.018 & 0.297 & 0.233 & 1.00 & 0.000 \\
+8 & -0.182 & 0.443 & 0.197 & 0.392 & 1.00 & 0.000 \\
+9 & -0.150 & 0.527 & 0.123 & 0.570 & 1.00 & 0.000 \\
+\hline
+\end{tabular}
+\caption{Spearman rank correlations between the inferred and the reference parameters on all datasets}
+\label{tab:sim-spearman-params}
+\end{table}
+
+TODO: comment on spearman
 
 TODO: performance for beta and sigma here seems to be better than for K=20 in the topic number study (mu is fine, around 1.0), the only difference being that the sigma had enforced densities in this case; beta mean cosine similarity has a strong correlation to the standard deviation of the diagonal of the covariance matrix (``deviation of deviations", so the proportions are more varied), but sigma RMSE doesn't, maybe something to do with the values of the matrix? shouldn't affect the correlation matrix
 
@@ -829,6 +861,28 @@ Figure~\ref{fig:sim-average-rho} shows the mean score the model achieved on ever
 \end{figure}
 
 Figure~\ref{fig:sim-sigmadensity-rho} shows how the mean score changes as the topics become more correlated. It appears the performance of CTM does increase with topic correlations in this case, but the variance in performance between different drugs is too large to draw a meaningful conclusion here.
+
+\begin{table}
+\begin{tabular}{| l | l | l | l |}
+\hline
+Dataset & $\theta$ mean & $\theta$ SD & $\theta$ mean p-value \\
+\hline
+1 & 0.597 & 0.111 & 0.086\\
+2 & 0.547 & 0.138 & 0.037 \\
+3 & 0.549 & 0.103 & 0.002 \\
+4 & 0.560 & 0.073 & $8.35 \times 10^{-6}$\\
+5 & 0.567 & 0.046 & $4.09 \times 10^{-14}$\\
+6 & 0.550 & 0.135 & 0.035 \\
+7 & 0.554 & 0.140 & 0.035 \\
+8 & 0.548 & 0.133 & 0.035\\
+9 & 0.529 & 0.132 & 0.044\\
+\hline
+\end{tabular}
+\caption{Spearman rank correlations between each inferred and reference document-topic distribution $\theta$}
+\label{tab:sim-spearman-theta}
+\end{table}
+
+Table~\ref{tab:sim-spearman-theta} shows the mean Spearman rank correlations between each inferred and reference $\theta$ and their standard deviation, calculated b  \texttt{SciPy}'s function \texttt{scipy.stats.spearmanr}. It also includes the mean p-value assigned to each vector, defined as ``the probability of an uncorrelated system producing datasets that have a Spearman correlation at least as extreme as the one computed from these datasets". While the Spearman coefficient does show a positive correlation between the inferred and the reference vectors, it can't distinguish between the performance of CTM on various datasets.
 
 \subsection{Conclusion}
 
@@ -938,10 +992,16 @@ Closer inspection, however, reveals that the three models rank a pathway named `
 
 Figure~\ref{fig:ctd-pr-curves-no1100} shows the resultant precision-recall curve. After exclusion, the MAP values for CTM, LDA and CTM with exponentiation are 0.166, 0.176 and 0.213, respectively, whereas the random method achieves a MAP value of 0.172. LDA still beats CTM and the fact that CTM relied on the presence of the removed pathway for most of its performance now has dropped its MAP value below that of random guessing. However, CTM with exponentiation now vastly outperforms all the other models.
 
-TODO: the CTM ``side plot" seems to tend upwards with rank, so its predictions seem to be inverted. This is also confirmed by the Spearman rho: CTM's mean-median correlation is -0.06 (GMRF gets 0.06, LDA -0.02)
+\begin{figure}[!htb]
+\includegraphics[width=\textwidth]{ctd-side-plots.eps}
+\caption{Number of drugs with correctly identified pathways at each rank}
+\label{fig:ctd-side-plots}
+\end{figure}
+
+A very interesting result is shown in Figure~\ref{fig:ctd-side-plots}, which is a zoomed-out version of Figure~\ref{fig:ctd-side-plot-10}, instead plotting the number of correctly identified pathways at every rank. The result of random guessing is that the rank-transformed pathways are a uniform shuffle and so there's, on average, an equal number of ``black squares" at every row of the ``heatmap". The performance of all topic models, however, is very different from it: apart from having spikes in the low ranks, the graphs also trend upwards, meaning that the models keep inferring consistently low expression levels for pathways that are affected by the drug. Amusingly, since the performance of the models is systematically different from that of random guessing, a better model could be constructed by taking the output of CTM-exp and inverting all ranks below 10!
 
 \subsubsection{Rho-normalised log scores}
-Figure~\ref{fig:ctd-rho-cdf} shows the CDF plots (fraction of scores below a given value) of the rho-normalised log scores (Equation~\ref{eq:rho-normalised-score}) for CTM, LDA and CTM with exponentiation (with the ``Metabolic pathways" pathway excluded). It can be seen from the plot that the median score of all three models is below that of random guessing. The parameters of this distribution are summarised in table~\ref{tab:ctm-ctf-summary}. The performance of random in this case was obtained by simulating 1000 random drug-pathway distributions and averaging their mean performance.
+Figure~\ref{fig:ctd-rho-cdf} shows the CDF plots (fraction of scores below a given value) of the rho-normalised log scores (Equation~\ref{eq:rho-normalised-score}) for CTM, LDA and CTM with exponentiation (with the ``Metabolic pathways" pathway excluded). It can be seen from the plot that the median score of all three models is below that of random guessing. The parameters of this distribution are summarised in table~\ref{tab:ctm-cdf-summary}. The performance of random in this case was obtained by simulating 1000 random drug-pathway distributions and averaging their mean performance.
 
 \begin{figure}[!htb]
 \includegraphics[width=\textwidth]{ctd-rho-cdf.eps}
@@ -961,10 +1021,25 @@ Random & -0.008 & 0.000 & 0.124 \\
 \hline
 \end{tabular}
 \caption{Parameters of the distribution of the rho-normalised log scores}
-\label{tab:ctm-ctf-summary}
+\label{tab:ctm-cdf-summary}
 \end{table}
 
 CTM with exponentiation is the only method that achieved a positive mean score, since its performance distribution has a heavy right tail: about 10\% of its predictions achieved a score greater than 1.
+
+\begin{table}
+\begin{tabular}{| l | l | l | l |}
+\hline
+Model & Spearman rho (mean) & Spearman rho (SD) & Spearman rho (mean p-value) \\
+\hline
+CTM & -0.066 & 0.102\\
+LDA & -0.026 & 0.094\\
+CTM with exponentiation & -0.064 & 0.118 \\
+Random & $7.65 \times 10^{-5}$ & 0.070 \\
+\hline
+\end{tabular}
+\caption{Mean Spearman rank correlation between the inferred and the reference $\theta$}
+\label{tab:ctd-spearman}
+\end{table}
 
 \subsubsection{1-iteration CTM}
 
@@ -1101,6 +1176,16 @@ Table~\ref{tab:atc-test-results} shows the mean scores and their standard deviat
 Secondly, LDA outperforms CTM-exp, and interestingly, CTM outperforms all other topic models in this case. However, all of these models are dwarfed by the performance of using the raw gene expression data (exponentiated or unexponentiated) to predict the anatomical main group of a drug.
 
 \chapter{Conclusion}
+
+Goal: Develop a CTM for drug-pathway prediction
+
+Result: developed, limits of CTM investigated, problems with enforcing priors and densities, good theta and bad parameter recovery + theta inference as an extension goal
+
+Real-world data: Not very good on CTD (should mention GMRF?), but can improve on LDA in speed and performance (with a few hacks), terrible on the ATC (all topic models are: raw gene expression data is much better).
+
+Contributions: exponentiation (improved CTM performance), more evaluation methods, 1-iteration CTM: basically can replicate results of LDA
+
+\section{Future work/improvements}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % the bibliography
