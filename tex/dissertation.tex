@@ -134,7 +134,23 @@ The main aim of this project is to implement the Correlated Topic Model and augm
 
 \section{Requirements analysis}
 
-TODO: ``The chapter will cite any new programming languages and systems which had to be learnt and will mention complicated theories or algorithms which required understanding."
+This project is different from many software and hardware projects in that it's essentially an investigation of an algorithm in the paper and would rather take a form of a library that other researchers can use. The requirements for the project and for the environment I would be working on are:
+
+\begin{itemize}[noitemsep]
+\item Generate random (toy/synthetic) datasets: pathway-gene membership priors and the drug-gene expression data
+\item Train the CTM (that incorporates membership priors) on those datasets and perform topic (pathway) inference for a document (drug)
+\item Export and import datasets (toy and real-world), results of inference and validation datasets to/from a file
+\item Support plotting in order to visualise the performance of the model and produce figures for the dissertation
+\item Faster inference: the full inference process for LDA (written in R) takes about 2 days and it would be desirable to improve on that
+\end{itemize}
+
+I decided to use Python to implement the training and inference process for the model. While it may be considered an unusual choice given the large amount of numerical computation that needs to be done and the poor performance of Python on these kinds of tasks, Python allows for extremely dense and expressive code, as well as has a REPL (Read-Eval-Print Loop), which allows for quick prototyping, implementation and debugging. It also comes with a pickling library that allows to serialise and deserialise objects from/to a file. 
+
+The unsuitability of Python for scientific computing is fixed by \texttt{NumPy}\cite{DBLP:journals/corr/abs-1102-1523}, a linear algebra library that allows fast matrix operations in native code (using either routines provided by \texttt{NumPy} or more advanced numerical libraries that support the Basic Linear Algebra Subsystem (BLAS) API, such as ATLAS or OpenBLAS). In addition, \texttt{NumPy} integrates well with \texttt{SciPy}, a scientific computing library that provides useful routines, for example, for working with probability distributions or numerical optimisation. \texttt{matplotlib} can produce publication-quality vector plots.
+
+All of these libraries are provided by Anaconda, a Python distribution that includes ``over 195 of the most popular Python packages for science, math, engineering, data analysis". In addition, it comes with Spyder, a Python IDE, and IPython, an advanced Python shell. I hence used this distribution for my development.
+
+A major part of this project is learning the theory of Bayesian Networks (which LDA and CTM are) and how inference in them is performed. In addition, I had to familiarise myself with how machine learning models can be evaluated.
 
 \section{Starting point}
 
@@ -379,7 +395,9 @@ dL/d\lambda & = -\Sigma^{-1}(\lambda - \mu) + \sum\limits_{n=1}^N\phi_{n, 1:K} -
 dL/d\nu^2 & = -\mathit{diag}(\Sigma^{-1})/2 - \frac{N}{2\zeta}e^{\lambda + \nu^2/2} + \frac{1}{2\nu^2}
 \end{align}
 
-Blei's paper suggests using the conjugate gradient algorithm to optimise $\lambda$ and Newton's method for each coordinate of $\nu^2$, however, I found that I got better performance (both in convergence rates and the speed of the model) when using the limited-memory Broyden-Fletcher-Goldfarb-Shanno algorithm with box constraints (L-BFGS-B) to optimise for the whole vector $\nu^2$. I didn't write my own implementations of the conjugate gradient or the L-BFGS-B algorithm: they were available as a part of SciPy.
+and with the constraint that $\nu_2 > 0$.
+
+Blei's paper suggests using the conjugate gradient algorithm to optimise $\lambda$ and Newton's method for each coordinate of $\nu^2$, however, I found that I got better performance (both in convergence rates and the speed of the model) when using the limited-memory Broyden-Fletcher-Goldfarb-Shanno algorithm with box constraints (L-BFGS-B)\cite{doi:10.1137/0916069} to optimise for the whole vector $\nu^2$. I didn't write my own implementations of the conjugate gradient or the L-BFGS-B algorithm: they were available as a part of SciPy.
 
 In addition, the original paper recommends reoptimising $\zeta$ (the parameter introduced because of the Taylor expansion) after the optimisation with respect to every other parameter.
 
@@ -458,8 +476,6 @@ Algorithm~\ref{alg:theta_inference} shows the resultant procedure.
 \input{theta_inference}
 
 \section{Implementation in code and code optimisation}
-
-To implement the training process for the model, I used Python, perhaps an unusual choice given the large amount of numerical computation that needs to be done and the poor performance of Python on these kinds of tasks. However, Python allows for extremely dense and expressive code, as well as has a REPL (Read-Eval-Print Loop), which allows for quick prototyping, implementation and debugging. The unsuitability of Python for numerical calculations is fixed by \texttt{NumPy}\cite{DBLP:journals/corr/abs-1102-1523}, a linear algebra library, that allows fast matrix operations in native code (using either routines provided by \texttt{NumPy} or more advanced numerical libraries that support the Basic Linear Algebra Subsystem (BLAS) API, such as ATLAS or OpenBLAS). In addition, \texttt{NumPy} integrates well with \texttt{SciPy}, a scientific computing library that provides useful routines, for example, for working with probability distributions or numerical optimisation.
 
 Despite using \texttt{NumPy}, I still had performance issues which would have made working with the real-world datasets very inconvenient. I used \texttt{cProfile}, a Python profiler, to investigate those.
 
@@ -822,7 +838,11 @@ Dataset & $\mu$ & $\mu$ mean p-val & $\Sigma$ mean & $\Sigma$ mean p-val & $\bet
 \label{tab:sim-spearman-params}
 \end{table}
 
-TODO: comment on spearman
+Table~\ref{tab:sim-spearman-params} shows mean Spearman rho scores for various parameters, calculated by \texttt{SciPy}'s function \texttt{scipy.stats.spearmanr}. It also includes the mean p-value assigned to each vector, defined as ``the probability of an uncorrelated system producing datasets that have a Spearman correlation at least as extreme as the one computed from these datasets". The findings here are slightly different from the previous analyses.
+
+First of all, dataset 6 (with the covariance matrix $\Sigma$ being the identity matrix) has very significant rank correlations between the inferred and the reference parameters, although the mean topic assignment $\mu$ is negatively correlated with the reference. Secondly, while the mean correlations between each row (topic-word distribution) of $\beta$ decrease with the number of topics (first 5 datasets), this performance still can't be replicated by random guessing: the calculated mean p-values were all below $10^{-100}$. However, one thing that should be mentioned is that the calculated p-values were not assuming the topic-word membership priors, which would definitely increase them.
+
+Overall, this analysis confirms poor recovery of $\Sigma$ and $\mu$ but claims that the recovery of $\beta$ is very good.
 
 TODO: performance for beta and sigma here seems to be better than for K=20 in the topic number study (mu is fine, around 1.0), the only difference being that the sigma had enforced densities in this case; beta mean cosine similarity has a strong correlation to the standard deviation of the diagonal of the covariance matrix (``deviation of deviations", so the proportions are more varied), but sigma RMSE doesn't, maybe something to do with the values of the matrix? shouldn't affect the correlation matrix
 
@@ -882,7 +902,7 @@ Dataset & $\theta$ mean & $\theta$ SD & $\theta$ mean p-value \\
 \label{tab:sim-spearman-theta}
 \end{table}
 
-Table~\ref{tab:sim-spearman-theta} shows the mean Spearman rank correlations between each inferred and reference $\theta$ and their standard deviation, calculated b  \texttt{SciPy}'s function \texttt{scipy.stats.spearmanr}. It also includes the mean p-value assigned to each vector, defined as ``the probability of an uncorrelated system producing datasets that have a Spearman correlation at least as extreme as the one computed from these datasets". While the Spearman coefficient does show a positive correlation between the inferred and the reference vectors, it can't distinguish between the performance of CTM on various datasets.
+Table~\ref{tab:sim-spearman-theta} shows the mean Spearman rank correlations between each inferred and reference $\theta$ and their standard deviation, as well as the p-values. While the Spearman coefficient does show a positive correlation between the inferred and the reference vectors, it can't distinguish between the performance of CTM on various datasets.
 
 \subsection{Conclusion}
 
@@ -921,9 +941,7 @@ The parameters of the training dataset are:
 \item Density of $\beta$: 0.0138
 \end{itemize}
 
-It took about 9 hours to train the model on the whole dataset and perform the inference of the pathway structure for every drug.
-
-TODO: CTM inference had 1000 theta samples, enough?
+It took about 9 hours to train the model on the whole dataset and perform the inference of the pathway structure for every drug. The number of samples used to find the expected value of $\theta$ was 1000.
 
 To perform a quick sanity check for the results, I took the cosine similarities for the predicted pathway distributions by CTM, CTM with exponentiation and LDA for every drug and plotted their distribution (Figure~\ref{fig:ctd-ctm-lda-diffs}). The distribution of cosine similarities between random guessing and LDA is also plotted for comparison. It can be seen that CTM and LDA give very similar results. Interestingly, CTM is closer to LDA than CTM with exponentiation, hinting that CTM with exponentiation might have a considerably different performance from the other two models.
 
@@ -939,7 +957,7 @@ TODO: What is CTD?
 
 The CTD dataset is a catalogue of drugs that lists which pathway each one of those affects. Not all pathways and not all drugs used in the KEGG/CMap dataset are mentioned in the CTD, so the final drug-pathway prediction matrices output by LDA and CTM had to be filtered down to the shape of CTD: 495 drugs (thus simply dropping the relevant rows) and 193 pathways (removing the columns and renormalising). The density of the resultant $\theta$ is 0.1231.
 
-The theta values predicted by the models are then used to rank the pathways for every drug.
+The drug-pathway distributions predicted by the models are then rank-transformed.
 
 \begin{figure}[!htb]
 \includegraphics[width=\textwidth]{ctm-ctd-heatmap.eps}
@@ -1027,9 +1045,9 @@ Random & -0.008 & 0.000 & 0.124 \\
 CTM with exponentiation is the only method that achieved a positive mean score, since its performance distribution has a heavy right tail: about 10\% of its predictions achieved a score greater than 1.
 
 \begin{table}
-\begin{tabular}{| l | l | l | l |}
+\begin{tabular}{| l | l | l |}
 \hline
-Model & Spearman rho (mean) & Spearman rho (SD) & Spearman rho (mean p-value) \\
+Model & Spearman rho (mean) & Spearman rho (SD) \\
 \hline
 CTM & -0.066 & 0.102\\
 LDA & -0.026 & 0.094\\
@@ -1177,15 +1195,20 @@ Secondly, LDA outperforms CTM-exp, and interestingly, CTM outperforms all other 
 
 \chapter{Conclusion}
 
-Goal: Develop a CTM for drug-pathway prediction
+The original goal of this project was to implement the training process for a Correlated Topic Model, augmented with topic-word membership priors. The extension goal was to implement the drug-pathway activation inference algorithm, test the model on real-world data and compare it with the results of LDA.
 
-Result: developed, limits of CTM investigated, problems with enforcing priors and densities, good theta and bad parameter recovery + theta inference as an extension goal
+As a result, I have a working implementation of the CTM that can perform full training and inference on the real-world dataset in about 8-9 hours (3 times as fast as LDA). I also derived and implemented the inference algorithm for the distribution of topics in a document (pathways in a drug), which allowed to perform better testing. The model was tested on multiple randomly generated datasets with characteristics similar to those of the real-world datasets with the results that while the actual model parameter recovery is poor, the model still can infer the document-topic distributions extremely well.
 
-Real-world data: Not very good on CTD (should mention GMRF?), but can improve on LDA in speed and performance (with a few hacks), terrible on the ATC (all topic models are: raw gene expression data is much better).
+On the real-world KEGG/CMap dataset, the CTM does have predictive power, but it is outperformed by LDA. However, I proposed multiple augmentations to CTM that result in a performance improvement. First of all, exponentiating the preprocessed gene expression values instead of discarding the sign results in more information available to the model, improving its predictions. Secondly, only performing one expectation-maximisation iteration during the CTM training results in a comparable performance to the full-convergence CTM. Overall, these improvements allow to predict drug-pathway distributions slightly better than LDA in a fraction of required time.
 
-Contributions: exponentiation (improved CTM performance), more evaluation methods, 1-iteration CTM: basically can replicate results of LDA
+I also established that while the outputs from the topic models can be used as inputs to a generic classifier to predict the anatomical main class of a drug, they result in a much worse performance than using the raw gene expression data directly.
 
 \section{Future work/improvements}
+
+There are multiple things I sadly didn't have time to investigate in this project.
+
+The first one is the mysterious phenomenon on Figure~\ref{fig:ctd-side-plots} whereby the topic models consistently predict low expression levels for pathways that are in CTD. I remain convinced that this is not a problem with my plotting (since the plot for the reference dataset does form a monotonically decreasing curve) or the implementation of CTM (since LDA has the same problem).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % the bibliography
