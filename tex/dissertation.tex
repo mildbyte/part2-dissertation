@@ -150,7 +150,15 @@ The unsuitability of Python for scientific computing is fixed by \texttt{NumPy}\
 
 All of these libraries are provided by Anaconda, a Python distribution that includes ``over 195 of the most popular Python packages for science, math, engineering, data analysis". In addition, it comes with Spyder, a Python IDE, and IPython, an advanced Python shell. I hence used this distribution for my development.
 
-A major part of this project is learning the theory of Bayesian Networks (which LDA and CTM are) and how inference in them is performed. In addition, I had to familiarise myself with how machine learning models can be evaluated.
+A major part of this project is learning the theory of Bayesian Networks (which LDA and CTM are) and how inference in them is performed. In addition, I had to familiarise myself with how machine learning models can be evaluated. This involved reading, among other things, the resources mentioned in my proposal: 
+
+\begin{itemize}[noitemsep]
+\item Artificial Intelligence II Lecture notes: introduction to Bayesian networks and inference
+\item Chapters 9 and 10 of Christopher Bishop's book\cite{Bishop:2006:PRM:1162264} on computer vision models: Mixture models (of which LDA and CTM are variations) and the Expectation Maximization algorithm, as well as Variational Inference.
+\item ``Build, Compute, Critique, Repeat: Data Analysis with Latent Variable Models"\cite{doi:10.1146/annurev-statistics-022513-115657}, an introduction to latent variable models that describes how to train the models using mean-field Variational Inference, use them to perform predictions and evaluate them.
+\item The original LDA\cite{Blei} and CTM\cite{2007} papers to understand the structures of the respective generative probabilistic models and their inference based on Variational EM.
+\item Naruemon Pratanwanich and Pietro Lio's paper\cite{Pratanwanich2014}  on adapting LDA in order to familiarize myself with how microarray data is preprocessed into a pseudo-drug ``document", how the gene-pathway membership priors are incorporated into the model, as well as the ranking method used to evaluate its performance.
+\end{itemize}
 
 \section{Starting point}
 
@@ -397,7 +405,7 @@ dL/d\nu^2 & = -\mathit{diag}(\Sigma^{-1})/2 - \frac{N}{2\zeta}e^{\lambda + \nu^2
 
 and with the constraint that $\nu_2 > 0$.
 
-Blei's paper suggests using the conjugate gradient algorithm to optimise $\lambda$ and Newton's method for each coordinate of $\nu^2$, however, I found that I got better performance (both in convergence rates and the speed of the model) when using the limited-memory Broyden-Fletcher-Goldfarb-Shanno algorithm with box constraints (L-BFGS-B)\cite{doi:10.1137/0916069} to optimise for the whole vector $\nu^2$. I didn't write my own implementations of the conjugate gradient or the L-BFGS-B algorithm: they were available as a part of SciPy.
+Blei's paper suggests using the conjugate gradient algorithm to optimise $\lambda$ and Newton's method for each coordinate of $\nu^2$, however, I found that I got better performance (both in convergence rates and the speed of the model) when using the limited-memory Broyden-Fletcher-Goldfarb-Shanno algorithm with box constraints (L-BFGS-B)\cite{doi:10.1137/0916069} to optimise for the whole vector $\nu^2$. I didn't write my own implementations of the conjugate gradient or the L-BFGS-B algorithm: they were available as a part of \texttt{SciPy}.
 
 In addition, the original paper recommends reoptimising $\zeta$ (the parameter introduced because of the Taylor expansion) after the optimisation with respect to every other parameter.
 
@@ -463,7 +471,7 @@ The remaining terms of this weight are derived as follows:
 &= \sum\limits_{n=1}^N c_n \log \sum\limits_{i=1}^K \theta_i \beta_{i, w_n}
 \end{align}
 
-The probability of a specific document given its topic distribution $\theta_s$ and the topic-word distribution $\beta$ is easy to express, since all words in the document are independent and we know exactly what is the probability of drawing a specific topic and drawing a specific word from a specific topic. Furthermore, taking the logarithm only leaves sums in the final expression: this will later allow to convert it to a series of vector and matrix products, which helps the speed of the actual implementation.
+The probability of a specific document given its topic distribution $\theta_s$ and the topic-word distribution $\beta$ is easy to express, since all words in the document are independent and we know exactly what is the probability of drawing a specific topic and drawing a specific word from a specific topic. Furthermore, taking the logarithm only leaves sums in the final expression: this will later allow to convert it to a series of vector and matrix products, which improves the speed of the actual implementation.
 
 The final term can be simply copied over from Equation~\ref{eq:eta_mu_sigma}:
 
@@ -485,7 +493,7 @@ Despite using \texttt{NumPy}, I still had performance issues which would have ma
 \label{fig:ctm-profile-before}
 \end{figure}
 
-Figure~\ref{fig:ctm-profile-before} shows the \texttt{cProfile} output for my implementation of CTM training process before optimisation, sorted by \texttt{totttime}. \texttt{tottime} represents total time spent in just the given function and not in any functions that it calls, whereas \texttt{cumtime} represents the total time spent in the function, from entry to exit.
+Figure~\ref{fig:ctm-profile-before} shows the \texttt{cProfile} output for my implementation of CTM training process before optimisation, sorted by \texttt{tottime}. \texttt{tottime} represents total time spent in just the given function and not in any functions that it calls, whereas \texttt{cumtime} represents the total time spent in the function, from entry to exit.
 
 The training was run on 1/100th of all drugs, 1/10th of all pathways and 1/10th of all genes, resulting in a thinned dataset of 12 drugs, 23 pathways and 284 genes. It took about 2 minutes (\texttt{cumtime} for the EM function \texttt{expectation\_maximization} is 128 seconds), which implies that the training time for the whole dataset would have been more than 20000 minutes (since the process involves matrix multiplications, it is supra-linear in most of the input sizes), which is unacceptable.
 
@@ -1142,7 +1150,7 @@ The World Health Organisation maintains a classification system for drugs called
 \item Actual substance: \textbf{01} for caffeine
 \end{itemize}
 
-There are a total of 13 anatomical main groups, defining the type of the system the drug is acting on. It is possible to train a powerful generic classifier such as Random Forest\cite{Breiman:2001:RF:570181.570182} that had successes in predicting drug-pathway perturbations\cite{Riddick15012011} on feature vectors $\theta_d$ inferred by LDA and CTM and anatomical main groups (as labels). This is another way to see whether the outputs of the topic models have any predictive power on the real-world data.
+There are a total of 14 anatomical main groups, defining the type of the system the drug is acting on. It is possible to train a powerful generic classifier such as Random Forest\cite{Breiman:2001:RF:570181.570182} that had successes in predicting drug-pathway perturbations\cite{Riddick15012011} on feature vectors $\theta_d$ inferred by LDA and CTM and anatomical main groups (as labels). This is another way to see whether the outputs of the topic models have any predictive power on the real-world data.
 
 A Python package callied \texttt{scikit-learn} \cite{scikit-learn} that's deeply integrated with the \texttt{NumPy}/\texttt{SciPy} stack offers multiple classifiers and evaluation tools. Since implementing a Random Forest classifier was not an aim of this project, I gladly used those (Figure~\ref{fig:atc-python}). I hence performed 10-fold cross-validation on the classifier: split the $\theta_d$--label pairs into 10 sets, train the model on 9 of those and calculate the score reported by the model on the final set (for the Random Forest classifier, it's the fraction of correctly assigned classes). This is repeated another 9 times, each time with a different subset being held out from training. This allows to evaluate the model on more data than a single cross-validation cycle and also enhances the precision of the estimate.
 
@@ -1208,6 +1216,8 @@ I also established that while the outputs from the topic models can be used as i
 There are multiple things I sadly didn't have time to investigate in this project.
 
 The first one is the mysterious phenomenon on Figure~\ref{fig:ctd-side-plots} whereby the topic models consistently predict low expression levels for pathways that are in CTD. I remain convinced that this is not a problem with my plotting (since the plot for the reference dataset does form a monotonically decreasing curve) or the implementation of CTM (since LDA has the same problem).
+
+TODO: testing with various theta/beta density levels (better parameter recovery for sparse theta/beta)
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
