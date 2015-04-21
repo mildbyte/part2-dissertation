@@ -104,13 +104,17 @@ extent for a comparable purpose.
 
 \chapter{Introduction}
 
+TODO: move my involvement to the beginning
+
+TODO: mention computational challenges (large dataset size, large training time, both real world and toy datasets)
+
 One important item used in biology to investigate gene activity is called a DNA microarray. A DNA microarray, in essence, is an array of DNA strands. These strands can be treated with various drugs or other compounds, which causes the gene expression process (during which the DNA is converted to proteins) to start. The intensity of gene expression can be measured using gene expression profiling.
 
 TODO: picture of a microarray
 
 The result of such an experiment is a ratio of the level of expression of the gene treated with the drug to the untreated gene expression data. This data can be used for multiple purposes, including, for example, predicting the effects of drugs on the human body.
 
-However, there are tens of thousands of human genes, which makes the data very high-dimensional (the curse of dimensionality). Hence, researchers mostly investigate phenomena in biology using the idea of biological pathways: essentially, series of actions that are all linked to each other that result in a certain activity in a cell. Genes and gene expression are grouped into such pathways, thus providing researchers with an easier way to study various phenomena.
+There are tens of thousands of human genes, which makes the data very high-dimensional (the curse of dimensionality). To combat this, researchers mostly investigate phenomena in biology using the idea of biological pathways: essentially, series of actions that are all linked to each other that result in a certain activity in a cell. Genes and gene expression are grouped into such pathways, thus providing researchers with an easier way to study various phenomena.
 
 Hence, even though drugs influence genes, they can be considered to influence pathways, which makes it easier to investigate drug activity.
 
@@ -252,6 +256,10 @@ f(\eta_d) = \frac{e^{\eta_d}}{\sum\limits_i e^{\eta_{d, i}}}
 
 \chapter{Implementation}
 
+This chapter sets up the notation used throughout the whole dissertation and goes from deriving the formulae for training of and inference in the Correlated Topic Model to turning these formulae into actual algorithms and then to the practical concerns related to implementing the algorithms. Finally, I design multiple evaluation methods for the Model.
+
+The training process was mostly derived from Blei's original paper, however I provide some additions here so that the derivation is easier to understand. The derivation of the inference process is mine, however I used Blei's CTM implementation in C to verify my method.
+
 \section{Training of the Correlated Topic Model}
 
 \begin{table}
@@ -277,9 +285,7 @@ $z$ & Drawn topic assignments for each word in the document \\
 \label{tab:ctm-variables}
 \end{table}
 
-This section sets up the notation used throughout the whole dissertation and derives the training and the inference process for the Correlated Topic Model. The training process was mostly derived from Blei's original paper, however I provide some additions here so that the derivation is easier to understand. The derivation of the inference process is mine, however I used Blei's CTM implementation in C to verify my method.
-
-Some variables in Table~\ref{tab:ctm-variables} are document-specific, for example, $\theta_d$ refers to the distribution of topics document $d$ is about. When this index is omitted, the document is assumed, for example, $w_n$ is the nth word in the document we are currently considering.
+Table~\ref{tab:ctm-variables} defines the variables that will be used throughout the derivation. Some of them are document-specific, for example, $\theta_d$ refers to the distribution of topics document $d$ is about. When this index is omitted, the document is assumed, for example, $w_n$ is the nth word in the document we are currently considering.
 
 \subsection{Deriving the posterior distribution}
 
@@ -477,7 +483,7 @@ Algorithm~\ref{alg:theta_inference} shows the resultant procedure.
 
 \section{Implementation in code and code optimisation}
 
-Despite using \texttt{NumPy}, I still had performance issues which would have made working with the real-world datasets very inconvenient. I used \texttt{cProfile}, a Python profiler, to investigate those.
+Despite using \texttt{NumPy}, I still had performance issues which would have made working with the real-world datasets very inconvenient. I used \texttt{cProfile}, a Python profiler, to investigate and fix those, achieving a 40x speed improvement on the unoptimised program.
 
 \begin{figure}
 \VerbatimInput[fontsize=\scriptsize]{profile-before.txt}
@@ -688,11 +694,15 @@ This value will be referred as the rho-normalised log score further in the analy
 
 In addition, it might be possible to calculate the Spearman's rank correlation coefficient between each document-topic distribution in the inferred and the reference $\theta$: each pathway in the reference $\theta$ is ranked $0$ (top rank) if it's affected by the drug and $1$ if it isn't. The inferred $\theta$ is transformed as previously discussed. Since the reference ranks are now tied, some tie-breaking methods for the Spearman's rho will have to be used.
 
+TODO: a small conclusion paragraph
+
 \chapter{Evaluation}
 
-\section{Toy datasets}
+This chapter presents the results of the evaluation performed as per the previously designed methods. First, the model is trained and evaluated on artificially generated datasets, then the evaluation moves on to the real-world dataset, where the performance of CTM and LDA is compared.
 
-The following subsections describe the datasets which were generated and describes the results of the evaluation as per the aforementioned methods.
+TODO: mention the ``reference" shape for graphs (0.0 for RMSE, 1.0 for cosine similarity)
+
+\section{Toy datasets}
 
 \subsection{Description of toy datasets}
 
