@@ -128,7 +128,7 @@ LDA was applied to the problem of predicting pathways from drug gene expression 
 
 One issue with LDA is that it assumes that topics are uncorrelated, since they are drawn from a Dirichlet distribution. This is not true neither when we are talking about topics nor pathways in the real world: a document about Computer Science is more likely to also be about Mathematics than Geography. In biology, pathway crosstalk is a similar phenomenon: a gene belonging to one pathway can sometimes activate a gene in another pathway, thus triggering the whole pathway as well.
 
-To combat this isssue, the Correlated Topic Model (CTM) \cite{2007} was proposed by David Blei, one of the creators of LDA. The only difference from LDA in the definition of the model is that per-document topic distributions are now drawn from a multivariate normal distribution $N(\mu, \Sigma)$. However, this makes the training process less straightforward: the fact that the Dirichlet distribution is the conjugate prior to the multinomial made it easier to use Gibbs sampling to train LDA. On the other hand, the multivariate normal distribution isn't conjugate to the multinomial and so a method called variational inference is used to train the CTM. Unlike Gibbs sampling, this method is deterministic and so there is no need to perform multiple runs of training to get an estimate of the model parameters.
+To combat this issue, the Correlated Topic Model (CTM) \cite{2007} was proposed by David Blei, one of the creators of LDA. The only difference from LDA in the definition of the model is that per-document topic distributions are now drawn from a multivariate normal distribution $N(\mu, \Sigma)$. However, this makes the training process less straightforward: the fact that the Dirichlet distribution is the conjugate prior to the multinomial made it easier to use Gibbs sampling to train LDA. On the other hand, the multivariate normal distribution isn't conjugate to the multinomial and so a method called variational inference is used to train the CTM. Unlike Gibbs sampling, this method is deterministic and so there is no need to perform multiple runs of training to get an estimate of the model parameters.
 
 The CTM fit the sample corpus (an archive of articles from \textit{Science}) better than LDA due to its assumptions of topic correlations. It is therefore expected that CTM will perform better on the problem of drug-pathway activity prediction than LDA.
 
@@ -310,7 +310,7 @@ p(w | \eta, z, \beta, \mu, \Sigma) &= \prod\limits_{n=1}^N p(w_n | z_n, \eta, \b
 & = \prod\limits_{n=1}^N p(w_n | z_n, \beta) p(z_n | \eta)
 \end{align}
 
-By inspecting the Bayesian plate notation of the model (Figure~\ref{fig:plate-ctm}), it can be seen that $w_n$ is only dependent on the topic assigment $z_n$ and the per-topic word distribution $\beta$, hence all of the other variables we are conditioning on can be removed from consideration. Similarly with $z_n$: it's only dependent on $\eta$.
+By inspecting the Bayesian plate notation of the model (Figure~\ref{fig:plate-ctm}), it can be seen that $w_n$ is only dependent on the topic assignment $z_n$ and the per-topic word distribution $\beta$, hence all of the other variables we are conditioning on can be removed from consideration. Similarly with $z_n$: it's only dependent on $\eta$.
 
 The denominator is the probability of the document given the global model parameters and it has to be calculated by marginalising over all possible distributions of topics and topic assignments:
 
@@ -392,7 +392,7 @@ $\phi$ has a maximum at
 \hat\phi_{n, i} \propto e^{\lambda_i}\beta_{i, w_n} \label{eq:phiopt}
 \end{equation}
 
-($\phi$ then has to be normalised: each row forms a parameter of a Multinomal distribution and so has to sum to 1).
+($\phi$ then has to be normalised: each row forms a parameter of a Multinomial distribution and so has to sum to 1).
 
 For maximisation with respect to $\lambda$ and $\nu^2$, numerical methods are used with derivatives
 
@@ -419,7 +419,7 @@ $\beta$ is then normalised so that each row (distribution of words for a topic) 
 
 \subsection{Final algorithm of the training process}
 
-To convert these equations to an algorithm, we need to address some performance considerations. The likelihood bound (\ref{eq:likelihood-bound}) has several sums over all words n in the document, which is wasteful, since each term in the sum will be the same for the same word. Hence, we split the document into $w_n$, a vector of distinct words, and $c_n$, a vector of counts of these words. $n$ now will refer to the nth distinct word in the document. The matrix $\phi_{n, i}$ now refers to the nth distinct word in the document and ith topic. Finally, the terms inside the sums only have to be calculated once (for each distinct word) and weighted by the number of times that word appears in the document.
+To convert these equations to an algorithm, we need to address some performance considerations. The likelihood bound (\ref{eq:likelihood-bound}) has several sums over all words n in the document, which is wasteful, since each term in the sum will be the same for the same word. Hence, we split the document into $w_n$, a vector of distinct words, and $c_n$, a vector of counts of these words. $n$ now will refer to the $n$th distinct word in the document. The matrix $\phi_{n, i}$ now refers to the $n$th distinct word in the document and $i$th topic. Finally, the terms inside the sums only have to be calculated once (for each distinct word) and weighted by the number of times that word appears in the document.
 
 The overall training process is as follows: set some initial model parameters and use those to perform variational inference on every document. Use the variational parameters to update the model parameters and repeat until the likelihood bound converges (fractional change is less than a certain threshold).
 
@@ -491,7 +491,7 @@ Despite using \texttt{NumPy}, I still had performance issues which would have ma
 \label{fig:ctm-profile-before}
 \end{figure}
 
-Figure~\ref{fig:ctm-profile-before} shows the \texttt{cProfile} output for my implementation of CTM training process before optimisation, sorted by \texttt{totttime}. \texttt{tottime} represents total time spent in just the given function and not in any functions that it calls, whereas \texttt{cumtime} represents the total time spent in the function, from entry to exit.
+Figure~\ref{fig:ctm-profile-before} shows the \texttt{cProfile} output for my implementation of CTM training process before optimisation, sorted by \texttt{tottime}. \texttt{tottime} represents total time spent in just the given function and not in any functions that it calls, whereas \texttt{cumtime} represents the total time spent in the function, from entry to exit.
 
 The training was run on 1/100th of all drugs, 1/10th of all pathways and 1/10th of all genes, resulting in a thinned dataset of 12 drugs, 23 pathways and 284 genes. It took about 2 minutes (\texttt{cumtime} for the EM function \texttt{expectation\_maximization} is 128 seconds), which implies that the training time for the whole dataset would have been more than 20000 minutes (since the process involves matrix multiplications, it is supra-linear in most of the input sizes), which is unacceptable.
 
@@ -505,7 +505,7 @@ It is immediately obvious that the program spends most of its time recalculating
 
 Since \texttt{f\_lambda} is just the negated likelihood bound calculation with only the terms that depend on $\lambda$, the bulk of the performance improvements will come from optimising \texttt{likelihood\_bound} (Figure~\ref{fig:code-before-optimisation}).
 
-The biggest issue here is the use of various Pythonisms like list comprehensions and the \texttt{zip} function. While the first term does use the \texttt{dot} function (for \texttt{NumPy} matrix multiplication), the calculation of the last 3 terms of the likelihood bound doesn't. It involves performing very similar operations: iterating over all distinct words in the document and all topics (thus creating a tuple \texttt{(n, c, i)} for the word index, word number and the topic index), multiplying \texttt{c * v\_params.phi[n, i]} by a different term (for every term out of these three terms in the likelihood bound), then creating an ad-hoc list of these subterms and then finally summing all items in this list to get to the actual term.
+The biggest issue here is the use of various Pythonisms like list comprehensions and the \texttt{zip} function. While the first term does use the \texttt{dot} function (for \texttt{NumPy} matrix multiplication), the calculation of the last 3 terms of the likelihood bound doesn't. It involves performing very similar operations: iterating over all distinct words in the document and all topics (thus creating a tuple \texttt{(n, c, i)} for the word index, word number and the topic index), multiplying \texttt{c * v\_params.phi[n, i]} by a different term (for every term out of these three terms in the likelihood bound), then creating an ad hoc list of these subterms and then finally summing all items in this list to get to the actual term.
 
 Even if this redundancy were eliminated, this code is still evaluated by the Python interpreter, which is still extremely wasteful. Hence I tried to convert the code to use matrix operations, as these would be evaluated in native code.
 
@@ -521,9 +521,9 @@ Even after rewriting the likelihood bound calculation, it still was a major bott
 
 In addition, the variational inference process requires calling the \texttt{SciPy} function minimizer for $\lambda$ and $\nu^2$ every training iteration, which requires an initial value to start its search from. Recycling the variational parameters to continue the search from the previous iteration gave yet another performance improvement.
 
-I also recompiled my \texttt{NumPy} distribution to use the Intel Math Kernel Library as its backend. Free for academic and personal use, Intel MKL provides a linear algebra library that implements the BLAS (Basic Linear Algebra Subsystem) API, optimized for manycore Intel CPUs. This benefits not only \texttt{NumPy}'s matrix multiplication, but also \texttt{numexpr}'s VM that can use the Intel Vector Math Library (VML) for faster operations on vectors.
+I also recompiled my \texttt{NumPy} distribution to use the Intel Math Kernel Library as its backend. Free for academic and personal use, Intel MKL provides a linear algebra library that implements the BLAS (Basic Linear Algebra Subsystem) API, optimized for many-core Intel CPUs. This benefits not only \texttt{NumPy}'s matrix multiplication, but also \texttt{numexpr}'s VM that can use the Intel Vector Math Library (VML) for faster operations on vectors.
 
-Since the variational inference process is independent for every document, it can be parallelized across multiple cores. However, because of the Python Global Interpreter Lock, only one thread can execute Python bytecode at a time. This meant that I had to launch several Python processes if I wanted to take advantage of my CPU's capabilities. While this did provide an increase in CPU usage, it resulted in worse performance than using \texttt{numexpr} and Intel MKL's natural multithreading capabilities.
+Since the variational inference process is independent for every document, it can be parallelised across multiple cores. However, because of the Python Global Interpreter Lock, only one thread can execute Python bytecode at a time. This meant that I had to launch several Python processes if I wanted to take advantage of my CPU's capabilities. While this did provide an increase in CPU usage, it resulted in worse performance than using \texttt{numexpr} and Intel MKL's natural multithreading capabilities.
 
 \begin{figure}
 \VerbatimInput[fontsize=\scriptsize]{profile-after.txt}
@@ -557,7 +557,7 @@ The generative process for a toy dataset proceeds as follows:
 
 \begin{itemize}[noitemsep]
 \item Sample $\mu$ from a $K$-dimensional uniform distribution
-\item Sample $\beta$ from $K$ $V$-dimensional uniform distributions and normalize it
+\item Sample $\beta$ from a $K \times V$-dimensional uniform distribution and normalize it
 \item Sample $\Sigma$ from an inverse Wishart distribution
 \item Generate $D$ random documents
 \end{itemize}
@@ -574,6 +574,8 @@ To generate a single document:
 \end{itemize}
 
 $W$ is chosen to be suffciently large as to provide a good approximation to the distribution of words in each document, since this is what essentially is being sampled.
+
+The inverse Wishart distribution is defined over real-valued positive definite matrices and used to generate covariance matrices.
 
 The generation process returns the model parameters, the counts of words in each document, as well as the topic distribution for every document. Only the word counts are fed into the model: the other outputs are used for evaluation.
 
@@ -822,7 +824,7 @@ For example, consider two drawn $\theta_1 = (\theta_{1,1}, \theta_{1,2}, \theta_
 
 \begin{figure}[!htb]
 \includegraphics[width=\textwidth]{sim-sigmadensity-beta.eps}
-\caption{Cosime similarities between the inferred and reference topic-word distributions $\beta$ as a function of the density of the global topic covariance matrix $\Sigma$}
+\caption{Cosine similarities between the inferred and reference topic-word distributions $\beta$ as a function of the density of the global topic covariance matrix $\Sigma$}
 \label{fig:sim-sigmadensity-beta}
 \end{figure}
 
@@ -926,7 +928,7 @@ Hence, if the real-world drug-gene expression data does follow the generative fr
 
 \subsection{Description of the dataset}
 
-KEGG (Kyoto Encyclopedia of Genes and Genomes) \cite{KEGG}, published by Kyoto Universiy Kanehisa Laboratories, is an online collection of databases dealing with various aspects of biology. Of interest to this project is the KEGG PATHWAY database, a collection of pathways and genes which they include.
+KEGG (Kyoto Encyclopaedia of Genes and Genomes) \cite{KEGG}, published by Kyoto University Kanehisa Laboratories, is an online collection of databases dealing with various aspects of biology. Of interest to this project is the KEGG PATHWAY database, a collection of pathways and genes which they include.
 
 CMap (Connectivity Map) \cite{CMap}, published by the Broad Institute, is a catalog of gene-expression data.
 
@@ -1154,7 +1156,7 @@ The World Health Organisation maintains a classification system for drugs called
 
 There are a total of 13 anatomical main groups, defining the type of the system the drug is acting on. It is possible to train a powerful generic classifier such as Random Forest\cite{Breiman:2001:RF:570181.570182} that had successes in predicting drug-pathway perturbations\cite{Riddick15012011} on feature vectors $\theta_d$ inferred by LDA and CTM and anatomical main groups (as labels). This is another way to see whether the outputs of the topic models have any predictive power on the real-world data.
 
-A Python package callied \texttt{scikit-learn} \cite{scikit-learn} that's deeply integrated with the \texttt{NumPy}/\texttt{SciPy} stack offers multiple classifiers and evaluation tools. Since implementing a Random Forest classifier was not an aim of this project, I gladly used those (Figure~\ref{fig:atc-python}). I hence performed 10-fold cross-validation on the classifier: split the $\theta_d$--label pairs into 10 sets, train the model on 9 of those and calculate the score reported by the model on the final set (for the Random Forest classifier, it's the fraction of correctly assigned classes). This is repeated another 9 times, each time with a different subset being held out from training. This allows to evaluate the model on more data than a single cross-validation cycle and also enhances the precision of the estimate.
+A Python package called \texttt{scikit-learn} \cite{scikit-learn} that's deeply integrated with the \texttt{NumPy}/\texttt{SciPy} stack offers multiple classifiers and evaluation tools. Since implementing a Random Forest classifier was not an aim of this project, I gladly used those (Figure~\ref{fig:atc-python}). I hence performed 10-fold cross-validation on the classifier: split the $\theta_d$--label pairs into 10 sets, train the model on 9 of those and calculate the score reported by the model on the final set (for the Random Forest classifier, it's the fraction of correctly assigned classes). This is repeated another 9 times, each time with a different subset being held out from training. This allows to evaluate the model on more data than a single cross-validation cycle and also enhances the precision of the estimate.
 
 \begin{figure}
 \begin{Verbatim}[fontsize=\scriptsize]
