@@ -104,9 +104,7 @@ extent for a comparable purpose.
 
 \chapter{Introduction}
 
-TODO: move my involvement to the beginning
-
-TODO: mention computational challenges (large dataset size, large training time, both real world and toy datasets)
+The aim of this project is to implement a version of a statistical model called the Correlated Topic Model tuned for the problem of drug-pathway activity prediction. To explain how natural language processing, a seemingly unrelated field to biology, can possibly help with the problem of drug design and testing, I will first provide the summary of the biological background behind this project.
 
 One important item used in biology to investigate gene activity is called a DNA microarray. A DNA microarray, in essence, is an array of DNA strands. These strands can be treated with various drugs or other compounds, which causes the gene expression process (during which the DNA is converted to proteins) to start. The intensity of gene expression can be measured using gene expression profiling.
 
@@ -114,7 +112,7 @@ TODO: picture of a microarray
 
 The result of such an experiment is a ratio of the level of expression of the gene treated with the drug to the untreated gene expression data. This data can be used for multiple purposes, including, for example, predicting the effects of drugs on the human body.
 
-There are tens of thousands of human genes, which makes the data very high-dimensional (the curse of dimensionality). To combat this, researchers mostly investigate phenomena in biology using the idea of biological pathways: essentially, series of actions that are all linked to each other that result in a certain activity in a cell. Genes and gene expression are grouped into such pathways, thus providing researchers with an easier way to study various phenomena.
+There are tens of thousands of human genes, which makes the data very high-dimensional (known as the curse of dimensionality). To combat this, researchers mostly investigate phenomena in biology using the idea of biological pathways: essentially, series of actions that are all linked to each other that result in a certain activity in a cell. Genes and gene expression are grouped into such pathways, thus providing researchers with an easier way to study various phenomena.
 
 Hence, even though drugs influence genes, they can be considered to influence pathways, which makes it easier to investigate drug activity.
 
@@ -128,11 +126,11 @@ LDA was applied to the problem of predicting pathways from drug gene expression 
 
 One issue with LDA is that it assumes that topics are uncorrelated, since they are drawn from a Dirichlet distribution. This is not true neither when we are talking about topics nor pathways in the real world: a document about Computer Science is more likely to also be about Mathematics than Geography. In biology, pathway crosstalk is a similar phenomenon: a gene belonging to one pathway can sometimes activate a gene in another pathway, thus triggering the whole pathway as well.
 
-To combat this issue, the Correlated Topic Model (CTM) \cite{2007} was proposed by David Blei, one of the creators of LDA. The only difference from LDA in the definition of the model is that per-document topic distributions are now drawn from a multivariate normal distribution $N(\mu, \Sigma)$. However, this makes the training process less straightforward: the fact that the Dirichlet distribution is the conjugate prior to the multinomial made it easier to use Gibbs sampling to train LDA. On the other hand, the multivariate normal distribution isn't conjugate to the multinomial and so a method called variational inference is used to train the CTM. Unlike Gibbs sampling, this method is deterministic and so there is no need to perform multiple runs of training to get an estimate of the model parameters.
+To combat this issue, the Correlated Topic Model (CTM) \cite{2007} was proposed by David Blei (one of the creators of LDA) and John Lafferty. The only difference from LDA in the definition of the model is that per-document topic distributions are now drawn from a multivariate normal distribution $N(\mu, \Sigma)$. However, this makes the training process less straightforward: the fact that the Dirichlet distribution is the conjugate prior to the multinomial made it easier to use Gibbs sampling to train LDA. On the other hand, the multivariate normal distribution isn't conjugate to the multinomial and so a method called variational inference is used to train the CTM. Unlike Gibbs sampling, this method is deterministic and so there is no need to perform multiple runs of training to get an estimate of the model parameters.
 
 The CTM fit the sample corpus (an archive of articles from \textit{Science}) better than LDA due to its assumptions of topic correlations. It is therefore expected that CTM will perform better on the problem of drug-pathway activity prediction than LDA.
 
-The main aim of this project is to implement the Correlated Topic Model and augment it with topic-word membership priors. In addition, I implemented the extension goal of inference of topic structure for a new document, developed multiple methods used to evaluate topic models and tested my model on the real-world data, which allowed to compare CTM with LDA.
+In this project, I implement the training process for the CTM augmented with topic-word membership priors, derive and implement the topic distribution inference algorithm, develop multiple methods used to evaluate topic models on drug-pathway prediction problems and test my model on the real-world data, comparing the results with those of LDA.
 
 \chapter{Preparation}
 
@@ -154,7 +152,15 @@ The unsuitability of Python for scientific computing is fixed by \texttt{NumPy}\
 
 All of these libraries are provided by Anaconda, a Python distribution that includes ``over 195 of the most popular Python packages for science, math, engineering, data analysis". In addition, it comes with Spyder, a Python IDE, and IPython, an advanced Python shell. I hence used this distribution for my development.
 
-A major part of this project is learning the theory of Bayesian Networks (which LDA and CTM are) and how inference in them is performed. In addition, I had to familiarise myself with how machine learning models can be evaluated.
+A major part of this project is learning the theory of Bayesian Networks (which LDA and CTM are) and how inference in them is performed. In addition, I had to familiarise myself with how machine learning models can be evaluated. This involved reading, among other things, the resources mentioned in my proposal: 
+
+\begin{itemize}[noitemsep]
+\item Artificial Intelligence II Lecture notes: introduction to Bayesian networks and inference
+\item Chapters 9 and 10 of Christopher Bishop's book\cite{Bishop:2006:PRM:1162264} on computer vision models: Mixture models (of which LDA and CTM are variations) and the Expectation Maximization algorithm, as well as Variational Inference.
+\item ``Build, Compute, Critique, Repeat: Data Analysis with Latent Variable Models"\cite{doi:10.1146/annurev-statistics-022513-115657}, an introduction to latent variable models that describes how to train the models using mean-field Variational Inference, use them to perform predictions and evaluate them.
+\item The original LDA\cite{Blei} and CTM\cite{2007} papers to understand the structures of the respective generative probabilistic models and their inference based on Variational EM.
+\item Naruemon Pratanwanich and Pietro Lio's paper\cite{Pratanwanich2014}  on adapting LDA in order to familiarize myself with how microarray data is preprocessed into a pseudo-drug ``document", how the gene-pathway membership priors are incorporated into the model, as well as the ranking method used to evaluate its performance.
+\end{itemize}
 
 \section{Starting point}
 
@@ -258,7 +264,7 @@ f(\eta_d) = \frac{e^{\eta_d}}{\sum\limits_i e^{\eta_{d, i}}}
 
 This chapter sets up the notation used throughout the whole dissertation and goes from deriving the formulae for training of and inference in the Correlated Topic Model to turning these formulae into actual algorithms and then to the practical concerns related to implementing the algorithms. Finally, I design multiple evaluation methods for the Model.
 
-The training process was mostly derived from Blei's original paper, however I provide some additions here so that the derivation is easier to understand. The derivation of the inference process is mine, however I used Blei's CTM implementation in C to verify my method.
+The training process was mostly derived from Blei's original paper, however I provide some additions here so that the derivation is easier to understand, reconstructing the complete ``route" from the early idea to the final program. The derivation of the inference process is mine, however I used Blei's CTM implementation in C to verify my method.
 
 \section{Training of the Correlated Topic Model}
 
@@ -403,7 +409,7 @@ dL/d\nu^2 & = -\mathit{diag}(\Sigma^{-1})/2 - \frac{N}{2\zeta}e^{\lambda + \nu^2
 
 and with the constraint that $\nu_2 > 0$.
 
-Blei's paper suggests using the conjugate gradient algorithm to optimise $\lambda$ and Newton's method for each coordinate of $\nu^2$, however, I found that I got better performance (both in convergence rates and the speed of the model) when using the limited-memory Broyden-Fletcher-Goldfarb-Shanno algorithm with box constraints (L-BFGS-B)\cite{doi:10.1137/0916069} to optimise for the whole vector $\nu^2$. I didn't write my own implementations of the conjugate gradient or the L-BFGS-B algorithm: they were available as a part of SciPy.
+Blei's paper suggests using the conjugate gradient algorithm to optimise $\lambda$ and Newton's method for each coordinate of $\nu^2$, however, I found that I got better performance (both in number of calls to the objective function and the speed of the model) when using the limited-memory Broyden-Fletcher-Goldfarb-Shanno algorithm with box constraints (L-BFGS-B)\cite{doi:10.1137/0916069} to optimise for the whole vector $\nu^2$. I didn't write my own implementations of the conjugate gradient or the L-BFGS-B algorithm: they were available as a part of \texttt{SciPy}. The objective functions passed to the optimisers are simply the negated (since the routines find the minimum) likelihood bounds with just the relevant terms (dependent on $\lambda$ or $\nu^2$, respectively).
 
 In addition, the original paper recommends reoptimising $\zeta$ (the parameter introduced because of the Taylor expansion) after the optimisation with respect to every other parameter.
 
@@ -437,7 +443,7 @@ This has the effect of setting pathway-gene membership priors and ensures that t
 
 \section{Classification process}
 
-Using the variational parameters inferred for every document and the global model parameters, it is possible to find the expected value of $\theta$, the document-topic distribution. Since $\theta = f(\eta)$, a normalised vector, finding the expected value of $\eta$ is sufficient. However, this involves performing an integration over the space of all possible $\eta$, which cannot be performed analytically. Hence, this integral has to be approximated using Monte Carlo and importance sampling \cite{mcbook}:
+Using the variational parameters inferred for every document and the global model parameters, it is possible to find the expected value of $\theta$, the document-topic distribution. Since it's found from $\eta$ ($\theta = f(\eta)$), finding the expected value of $\eta$ is sufficient. However, this involves performing an integration over the space of all possible $\eta$, which cannot be performed analytically. Hence, this integral has to be approximated using Monte Carlo and importance sampling \cite{mcbook}:
 
 \begin{align}
 \hat\theta \propto \frac{1}{N}\sum\limits_{s=1}^N f(\eta_s) \frac{p(\eta_s | w, \mu, \Sigma, \beta)}{q(\eta_s | \lambda, \nu^2)}
@@ -469,7 +475,7 @@ The remaining terms of this weight are derived as follows:
 &= \sum\limits_{n=1}^N c_n \log \sum\limits_{i=1}^K \theta_i \beta_{i, w_n}
 \end{align}
 
-The probability of a specific document given its topic distribution $\theta_s$ and the topic-word distribution $\beta$ is easy to express, since all words in the document are independent and we know exactly what is the probability of drawing a specific topic and drawing a specific word from a specific topic. Furthermore, taking the logarithm only leaves sums in the final expression: this will later allow to convert it to a series of vector and matrix products, which helps the speed of the actual implementation.
+The probability of a specific document given its topic distribution $\theta_s$ and the topic-word distribution $\beta$ is easy to express, since all words in the document are independent and we know exactly what is the probability of drawing a specific topic and drawing a specific word from a specific topic. Furthermore, taking the logarithm only leaves sums in the final expression: this will later allow to convert it to a series of vector and matrix products, which improves the speed of the actual implementation.
 
 The final term can be simply copied over from Equation~\ref{eq:eta_mu_sigma}:
 
@@ -652,8 +658,6 @@ In addition, there exists a measure of correlation on the rank-transformed data 
 
 First, the variables $x_i$ and $y_i$ have to be rank-transformed. Then, $d_i = x_i - y_i$ is the difference between ranks. Thus, the correlations between the inferred and reference $\mu$, rows of the correlation matrix $C$ and each topic-word distribution in $\beta$ can be compared.
 
-TODO: add about graph recovery (correlation matrix)
-
 \subsection{Rank recovery}
 
 This method is used to validate the model against the real-world dataset (CTD) that does not contain actual drug-pathway distributions: instead, for every drug, it lists the pathways that it does affect. This is the rationale behind adding support for enforcing the sparsity of the document-topic matrix $\theta$: that way datasets with drugs that only affect a few pathways can be generated and so this method can also be used when working with generated datasets.
@@ -696,13 +700,11 @@ This value will be referred as the rho-normalised log score further in the analy
 
 In addition, it might be possible to calculate the Spearman's rank correlation coefficient between each document-topic distribution in the inferred and the reference $\theta$: each pathway in the reference $\theta$ is ranked $0$ (top rank) if it's affected by the drug and $1$ if it isn't. The inferred $\theta$ is transformed as previously discussed. Since the reference ranks are now tied, some tie-breaking methods for the Spearman's rho will have to be used.
 
-TODO: a small conclusion paragraph
+There are many more ways the model can be evaluated, but these essentially cover all aspects of the model: for evaluation on synthetic datasets, the recovery of the parameters a dataset was generated with and recovery of document-topic distributions; and for evaluation on the real-world dataset against LDA, ``rank recovery" (where only a Boolean matrix of document-topic memberships is available).
 
 \chapter{Evaluation}
 
 This chapter presents the results of the evaluation performed as per the previously designed methods. First, the model is trained and evaluated on artificially generated datasets, then the evaluation moves on to the real-world dataset, where the performance of CTM and LDA is compared.
-
-TODO: mention the ``reference" shape for graphs (0.0 for RMSE, 1.0 for cosine similarity)
 
 \section{Toy datasets}
 
@@ -776,7 +778,7 @@ In addition, since the output of every iteration of training are only the refine
 \label{fig:sim-cosine}
 \end{figure}
 
-Figure~\ref{fig:sim-cosine} shows the mean cosine similarity between each $\theta_d$ in the inferred and the reference dataset. It can be seen that both CTM and 1-iteration CTM vastly outperform random guessing on all numbers of topics, but their performance degrades as the number of topics increases. Furthermore, the 1-iteration CTM is consistently worse than the full CTM, but not by much: it can still provide a good approximation to the CTM in a fraction of the required training time.
+Figure~\ref{fig:sim-cosine} shows the mean cosine similarity between each $\theta_d$ in the inferred and the reference dataset (where the perfect result is 1.0: the angle between the ``vectors" is zero, meaning they completely coincide). It can be seen that both CTM and 1-iteration CTM vastly outperform random guessing on all numbers of topics, but their performance degrades as the number of topics increases. Furthermore, the 1-iteration CTM is consistently worse than the full CTM, but not by much: it can still provide a good approximation to the CTM in a fraction of the required training time.
 
 \begin{figure}[!htb]
 \includegraphics[width=\textwidth]{sim-sigmadensity-cosine.eps}
@@ -810,7 +812,7 @@ Figure~\ref{fig:sim-beta-cosine} shows the mean cosine similarity between the in
 
 As evident from the figure, the recovery of the topic-word matrix gets much worse as the number of topics increases and becomes further away from the reference than a random topic-word matrix after the third dataset. The reason for this is that the pattern of zeros in the resultant matrix differs from the matrix of priors even though the priors have been enforced. If the prior matrix contains a zero in a certain position, the inferred matrix is guaranteed to have a zero in the same position as well, since the zeros propagate through the training process. However, this doesn't mean that a zero in a certain position in the inferred matrix is also in the reference matrix. It appears that the training process can introduce a zero in certain positions and it will stay there throughout the remaining training iterations. TODO: how to fix?
 
-Another problem is the poor recoverability of the parameters of the global topic distribution, $\mu$ and $\Sigma$ (Figures~\ref{fig:sim-mu-rmse}~and~\ref{fig:sim-sigma-rmse}, smaller RMSE is better). The performance of random guessing of was found by taking 1000 samples for $\mu$ and 100 samples for $\Sigma$.
+Another problem is the poor recoverability of the parameters of the global topic distribution, $\mu$ and $\Sigma$ (Figures~\ref{fig:sim-mu-rmse}~and~\ref{fig:sim-sigma-rmse}, smaller normalised RMSE is better with 0.0 being the perfect result). The performance of random guessing of was found by taking 1000 samples for $\mu$ and 100 samples for $\Sigma$.
 
 The issue here is that every sample $\theta$ from $N(\mu, \Sigma)$ is altered after sampling by enforcing a certain number of zero elements. Hence, the document-topic distributions after generation are not guaranteed to follow a normal distribution with the original parameters.
 
@@ -1154,7 +1156,7 @@ The World Health Organisation maintains a classification system for drugs called
 \item Actual substance: \textbf{01} for caffeine
 \end{itemize}
 
-There are a total of 13 anatomical main groups, defining the type of the system the drug is acting on. It is possible to train a powerful generic classifier such as Random Forest\cite{Breiman:2001:RF:570181.570182} that had successes in predicting drug-pathway perturbations\cite{Riddick15012011} on feature vectors $\theta_d$ inferred by LDA and CTM and anatomical main groups (as labels). This is another way to see whether the outputs of the topic models have any predictive power on the real-world data.
+There are a total of 14 anatomical main groups, defining the type of the system the drug is acting on. It is possible to train a powerful generic classifier such as Random Forest\cite{Breiman:2001:RF:570181.570182} that had successes in predicting drug-pathway perturbations\cite{Riddick15012011} on feature vectors $\theta_d$ inferred by LDA and CTM and anatomical main groups (as labels). This is another way to see whether the outputs of the topic models have any predictive power on the real-world data.
 
 A Python package called \texttt{scikit-learn} \cite{scikit-learn} that's deeply integrated with the \texttt{NumPy}/\texttt{SciPy} stack offers multiple classifiers and evaluation tools. Since implementing a Random Forest classifier was not an aim of this project, I gladly used those (Figure~\ref{fig:atc-python}). I hence performed 10-fold cross-validation on the classifier: split the $\theta_d$--label pairs into 10 sets, train the model on 9 of those and calculate the score reported by the model on the final set (for the Random Forest classifier, it's the fraction of correctly assigned classes). This is repeated another 9 times, each time with a different subset being held out from training. This allows to evaluate the model on more data than a single cross-validation cycle and also enhances the precision of the estimate.
 
@@ -1220,6 +1222,8 @@ I also established that while the outputs from the topic models can be used as i
 There are multiple things I sadly didn't have time to investigate in this project.
 
 The first one is the mysterious phenomenon on Figure~\ref{fig:ctd-side-plots} whereby the topic models consistently predict low expression levels for pathways that are in CTD. I remain convinced that this is not a problem with my plotting (since the plot for the reference dataset does form a monotonically decreasing curve) or the implementation of CTM (since LDA has the same problem).
+
+TODO: testing with various theta/beta density levels (better parameter recovery for sparse theta/beta)
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
