@@ -37,7 +37,7 @@
 
 \pagestyle{empty}
 
-\rightline{\LARGE \textbf{Artjoms Iskovs}}
+\rightline{\LARGE \textbf{Artjoms I\v{s}kovs}}
 
 \vspace*{60mm}
 \begin{center}
@@ -521,7 +521,7 @@ In the \texttt{safe\_log(m\_params.beta[i, doc[n]]} term, it seems as if we do n
 
 Similarly, the final term is converted to \texttt{np.sum(np.dot(counts, np.multiply(v\_params.phi, safe\_log(v\_params.phi))))}.
 
-Another bottleneck in the above profile is the \texttt{safe\_log} function. I had to write and use it because the training process requires taking a logarithm of $\beta$: recall that certain positions in $\beta$ are enforced to always be zero, which causes the normal logarithm function to return -infinity. My workaround for this was to clamp the output of the logarithm function to always return at least $-10^5$. However, this essentially meant having to traverse every matrix once again, which added up to massive performance losses since \texttt{safe\_log} had to be called so much. I hence decided to instead set the required entries of $\beta$ to $10^{-100}$ every EM cycle (of which there would be less than 100), which meant that the builtin logarithm function wouldn't break anymore.
+Another bottleneck in the above profile is the \texttt{safe\_log} function. I had to write and use it because the training process requires taking a logarithm of $\beta$: recall that certain positions in $\beta$ are enforced to always be zero, which causes the normal logarithm function to return -infinity. My workaround for this was to clamp the output of the logarithm function to always return at least $-10^5$. However, this essentially meant having to traverse every matrix once again, which added up to massive performance losses since \texttt{safe\_log} had to be called so much. I hence decided to instead set the required entries of $\beta$ to $10^{-100}$ every EM cycle (of which there would be less than 100), which meant that the built-in logarithm function wouldn't break anymore.
 
 Even after rewriting the likelihood bound calculation, it still was a major bottleneck: it had to be performed every variational inference cycle for every document, since the termination criterion is based on the magnitude of changes in the bound. One solution to this would be not calculating the likelihood bound every iteration, but this resulted in worse performance: another variational inference cycle (2500ms in the unoptimised program) was more expensive than checking the bound (94ms). To speed this up, I used \texttt{numexpr}, a package that compiles operations on \texttt{NumPy} arrays into its own internal virtual machine bytecode and supports multithreaded computations on arrays. This involved rewriting some code for the likelihood bound calculation (since \texttt{numexpr} only supports some operators and mathematical functions) and passing it as a string to the evaluator. Interestingly enough, I did not get an improvement when making the objective functions for the $\nu^2$ and $\lambda$ optimisation use \texttt{numexpr}.
 
@@ -579,7 +579,7 @@ To generate a single document:
 \end{itemize}
 \end{itemize}
 
-$W$ is chosen to be suffciently large as to provide a good approximation to the distribution of words in each document, since this is what essentially is being sampled.
+$W$ is chosen to be sufficiently large as to provide a good approximation to the distribution of words in each document, since this is what essentially is being sampled.
 
 The inverse Wishart distribution is defined over real-valued positive definite matrices and used to generate covariance matrices.
 
@@ -656,13 +656,13 @@ In addition, there exists a measure of correlation on the rank-transformed data 
 \rho  = 1 - \frac{6\sum d^2_i}{n ( n^2-1)}
 \end{equation}
 
-First, the variables $x_i$ and $y_i$ have to be rank-transformed. Then, $d_i = x_i - y_i$ is the difference between ranks. Thus, the correlations between the inferred and reference $\mu$, rows of the correlation matrix $C$ and each topic-word distribution in $\beta$ can be compared.
+First, the variables $x_i$ and $y_i$ have to be rank-transformed (each value replaced with its rank in the sorted vector). Then, $d_i = x_i - y_i$ is the difference between ranks. Thus, the correlations between the inferred and reference $\mu$, rows of the correlation matrix $C$ and each topic-word distribution in $\beta$ can be compared.
 
 \subsection{Rank recovery}
 
 This method is used to validate the model against the real-world dataset (CTD) that does not contain actual drug-pathway distributions: instead, for every drug, it lists the pathways that it does affect. This is the rationale behind adding support for enforcing the sparsity of the document-topic matrix $\theta$: that way datasets with drugs that only affect a few pathways can be generated and so this method can also be used when working with generated datasets.
 
-The problem of evaluating pathway distributions against a list of relevant pathways strikingly resembles a similar problem from information retrieval: Assume we turn the pathway distribution into a ranking for pathways for every drug (by simply sorting the list of pathways using the activity values inferred by the model as the key). Now, given a ranking for documents (here, pathways) output by a model for various queries (here, drug gene expression profiles) and a judgement as to which documents (pathways) are relevant (actually affected by the drug), how can evaluation be performed?
+The problem of evaluating pathway distributions against a list of relevant pathways strikingly resembles a similar problem from information retrieval: Assume the pathway distribution for every-drug is rank-transformed. Now, given a ranking for documents (here, pathways) output by a model for various queries (here, drug gene expression profiles) and a judgement as to which documents (pathways) are relevant (actually affected by the drug), how can evaluation be performed?
 
 First of all, this can be visualised by plotting a so-called ``heatmap": a $D \times K$ Boolean matrix where the drugs are plotted on the horizontal axis and the vertical axis refers to the rank of the pathway for this drug. The corresponding square on this grid is black if the pathway at this rank is, indeed, affected by the drug and white if it isn't. Hence, the performance of the model can be approximated visually: we expect the black dots to cluster towards the top (correct pathways being given higher ranks by the model). Figure~\ref{fig:ref-ctd-heatmap} shows an example idealised ``heatmap" for the real-world dataset which the model will be evaluated on as well. On this reference ``heatmap", all pathways have been inferred correctly.
 
@@ -778,7 +778,7 @@ In addition, since the output of every iteration of training are only the refine
 \label{fig:sim-cosine}
 \end{figure}
 
-Figure~\ref{fig:sim-cosine} shows the mean cosine similarity between each $\theta_d$ in the inferred and the reference dataset (where the perfect result is 1.0: the angle between the ``vectors" is zero, meaning they completely coincide). It can be seen that both CTM and 1-iteration CTM vastly outperform random guessing on all numbers of topics, but their performance degrades as the number of topics increases. Furthermore, the 1-iteration CTM is consistently worse than the full CTM, but not by much: it can still provide a good approximation to the CTM in a fraction of the required training time.
+Figure~\ref{fig:sim-cosine} shows the mean cosine similarity between each $\theta_d$ in the inferred and the reference dataset (where the perfect result is 1.0: the ``angle" between the vectors is zero, meaning they completely coincide). It can be seen that both CTM and 1-iteration CTM vastly outperform random guessing on all numbers of topics, but their performance degrades as the number of topics increases. Furthermore, the 1-iteration CTM is consistently worse than the full CTM, but not by much: it can still provide a good approximation to the CTM in a fraction of the required training time.
 
 \begin{figure}[!htb]
 \includegraphics[width=\textwidth]{sim-sigmadensity-cosine.eps}
@@ -810,7 +810,7 @@ Figure~\ref{fig:sim-sigmadensity-cosine}, on the other hand, shows how the perfo
 
 Figure~\ref{fig:sim-beta-cosine} shows the mean cosine similarity between the inferred and the reference rows of the $\beta$ matrix (the word distributions for every topic). There are $K$ topics in a single dataset and so every data point on this graph has been obtained by averaging the cosine similarities across $K$ samples. The random topic-word matrices here were generated by taking the Boolean matrix of priors and replacing the ``1" values with a draw from a uniform distribution and then renormalising.
 
-As evident from the figure, the recovery of the topic-word matrix gets much worse as the number of topics increases and becomes further away from the reference than a random topic-word matrix after the third dataset. The reason for this is that the pattern of zeros in the resultant matrix differs from the matrix of priors even though the priors have been enforced. If the prior matrix contains a zero in a certain position, the inferred matrix is guaranteed to have a zero in the same position as well, since the zeros propagate through the training process. However, this doesn't mean that a zero in a certain position in the inferred matrix is also in the reference matrix. It appears that the training process can introduce a zero in certain positions and it will stay there throughout the remaining training iterations. TODO: how to fix?
+As evident from the figure, the recovery of the topic-word matrix gets much worse as the number of topics increases and becomes further away from the reference than a random topic-word matrix after the third dataset. The reason for this is that the pattern of zeros in the resultant matrix differs from the matrix of priors even though the priors have been enforced. If the prior matrix contains a zero in a certain position, the inferred matrix is guaranteed to have a zero in the same position as well, since the zeros propagate through the training process. However, this doesn't mean that a zero in a certain position in the inferred matrix is also in the reference matrix. It appears that the training process can introduce a zero in certain positions and it will stay there throughout the remaining training iterations.
 
 Another problem is the poor recoverability of the parameters of the global topic distribution, $\mu$ and $\Sigma$ (Figures~\ref{fig:sim-mu-rmse}~and~\ref{fig:sim-sigma-rmse}, smaller normalised RMSE is better with 0.0 being the perfect result). The performance of random guessing of was found by taking 1000 samples for $\mu$ and 100 samples for $\Sigma$.
 
@@ -854,11 +854,13 @@ Dataset & $\mu$ & $\mu$ mean p-val & $\Sigma$ mean & $\Sigma$ mean p-val & $\bet
 
 Table~\ref{tab:sim-spearman-params} shows mean Spearman rho scores for various parameters, calculated by \texttt{SciPy}'s function \texttt{scipy.stats.spearmanr}. It also includes the mean p-value assigned to each vector, defined as ``the probability of an uncorrelated system producing datasets that have a Spearman correlation at least as extreme as the one computed from these datasets". The findings here are slightly different from the previous analyses.
 
-First of all, dataset 6 (with the covariance matrix $\Sigma$ being the identity matrix) has very significant rank correlations between the inferred and the reference parameters, although the mean topic assignment $\mu$ is negatively correlated with the reference. Secondly, while the mean correlations between each row (topic-word distribution) of $\beta$ decrease with the number of topics (first 5 datasets), this performance still can't be replicated by random guessing: the calculated mean p-values were all below $10^{-100}$. However, one thing that should be mentioned is that the calculated p-values were not assuming the topic-word membership priors, which would definitely increase them.
+First of all, dataset 6 (with the covariance matrix $\Sigma$ being the identity matrix) has very significant rank correlations between the inferred and the reference parameters, although the mean topic assignment $\mu$ is negatively correlated with the reference.
+
+Secondly, while the mean correlations between each row (topic-word distribution) of $\beta$ decrease with the number of topics (first 5 datasets), this performance still can't be replicated by random guessing: the calculated mean p-values were all below $10^{-100}$. However, one thing that should be mentioned is that the calculated p-values were not assuming the topic-word membership priors, which would definitely increase them.
 
 Overall, this analysis confirms poor recovery of $\Sigma$ and $\mu$ but claims that the recovery of $\beta$ is very good.
 
-TODO: performance for beta and sigma here seems to be better than for K=20 in the topic number study (mu is fine, around 1.0), the only difference being that the sigma had enforced densities in this case; beta mean cosine similarity has a strong correlation to the standard deviation of the diagonal of the covariance matrix (``deviation of deviations", so the proportions are more varied), but sigma RMSE doesn't, maybe something to do with the values of the matrix? shouldn't affect the correlation matrix
+Curiously, since the number of topics for datasets 6-9 is 20, we should expect that the performance on those datasets should in some aspects be comparable to that on dataset 2. While this is true for $\theta$ and $\mu$ (mean cosine similarity of 0.999 and RMSE of about 1.0, respectively), it is not the case for the recovery of $\beta$ and $\Sigma$. This could be because the methods of generation of $\Sigma$ I'm using are different for these two classes of datasets: for the first 4 datasets, the resultant topic proportions are much more varied than for the last 4. Thus the CTM needs more documents to manage this variance, but the number of documents available to each model is fixed.
 
 \subsection{Rank recovery}
 
@@ -1014,7 +1016,7 @@ One curious phenomenon on this graph is the large spike in precision at low reca
 \label{fig:ctd-side-plot-10}
 \end{figure}
 
-Closer inspection, however, reveals that the three models rank a pathway named ``Metabolic pathways" as first for most drugs in the evaluation set (495 (all drugs) for LDA, 480 for CTM and 474 for CTM with exponentiation). This pathway is a ``catch-all" for all metabolic pathways, uniting all pathways in the dataset. Ignoring it in the evaluation process changes the results tremendously.
+Closer inspection, however, reveals that the three models rank a pathway named ``Metabolic pathways" as first for most drugs in the evaluation set (495 (all drugs) for LDA, 480 for CTM and 474 for CTM with exponentiation). The KEGG PATHWAY database is hierarchical and so this pathway is the parent of all metabolic pathways. Ignoring it in the evaluation process changes the results tremendously.
 
 \begin{figure}[!htb]
 \includegraphics[width=\textwidth]{ctd-pr-curves-no1100.eps}
@@ -1087,7 +1089,7 @@ Random & $7.65 \times 10^{-5}$ & 0.070 \\
 \label{fig:ctd-ctm-1iter-hist}
 \end{figure}
 
-Even after only 1 iteration of training, the predictions made by CTM with exponentiation are close to the prediction of CTM-exp after full convergence (Figure~\ref{fig:ctd-ctm-1iter-hist}). Figure~\ref{fig:ctd-ctm-1iter-rho} shows the cumulative plot of the rho-normalised log scores of 1-iteration CTM-exp to illustrate that its performance is also very close to the full-convergence CTM-exp at a fraction of training time. In fact, the mean score of CTM-exp is 0.080 (against full-convergence CTM-exp's 0.064) and it outperforms the previous CTM-exp on 256/492 (52\%) of all drugs in CTD.
+Even after only 1 iteration of training (about 1.5 hours), the predictions made by CTM with exponentiation are close to those of CTM-exp after full convergence (Figure~\ref{fig:ctd-ctm-1iter-hist}). Figure~\ref{fig:ctd-ctm-1iter-rho} shows the cumulative plot of the rho-normalised log scores of 1-iteration CTM-exp to illustrate that its performance is also very close to the full-convergence CTM-exp at a fraction of training time. In fact, its mean score is 0.080 and it outperforms the full-convergence CTM-exp (with mean score of 0.064) on 256/492 (52\%) of all drugs in CTD.
 
 \subsubsection{Performance as a function of drug density}
 
@@ -1224,6 +1226,8 @@ There are multiple things I sadly didn't have time to investigate in this projec
 The first one is the mysterious phenomenon on Figure~\ref{fig:ctd-side-plots} whereby the topic models consistently predict low expression levels for pathways that are in CTD. I remain convinced that this is not a problem with my plotting (since the plot for the reference dataset does form a monotonically decreasing curve) or the implementation of CTM (since LDA has the same problem).
 
 TODO: testing with various theta/beta density levels (better parameter recovery for sparse theta/beta)
+
+TODO: fixing prior enforcement (some sort of smoothing?)
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
