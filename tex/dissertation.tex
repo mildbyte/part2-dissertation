@@ -15,6 +15,7 @@
 \usepackage{fancyvrb}
 \usepackage{tikz}
 \usepackage{fixltx2e}
+\usepackage{lscape}
 \MakeRobust{\Call}
 \newcommand{\var}[1]{{\operatorname{\mathit{#1}}}}
 
@@ -1144,7 +1145,34 @@ This process is guaranteed to converge on most graphs and the result can be inte
 
 TODO: about expansion/inflation parameters
 
-TODO: pictures + clustering for sigma as well
+\begin{landscape}
+\begin{figure}[!htb]
+\includegraphics[height=\textwidth]{drug-cluster.eps}
+\caption{Markov clustering of the drug similarity matrix with $\mathit{expansion}=50, \mathit{inflation}=2$, each drug colour-coded as per its ATC anatomical class}
+\label{fig:drug-cluster}
+\end{figure}
+
+\end{landscape}
+
+\begin{landscape}
+
+\begin{figure}[!htb]
+\includegraphics[height=\textwidth]{pathway-cluster.eps}
+\caption{Markov clustering of the pathway correlation matrix with $\mathit{expansion}=2, \mathit{inflation}=4$}
+\label{fig:pathway-cluster}
+\end{figure}
+
+\end{landscape}
+
+\begin{landscape}
+
+\begin{figure}[!htb]
+\includegraphics[height=\textwidth]{pathway-cluster-small.eps}
+\caption{Markov clustering of the pathway correlation matrix with $\mathit{expansion}=6, \mathit{inflation}=8$}
+\label{fig:pathway-cluster-small}
+\end{figure}
+
+\end{landscape}
 
 \subsection{ATC classification}
 
