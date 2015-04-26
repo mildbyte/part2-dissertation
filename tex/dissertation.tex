@@ -1168,6 +1168,16 @@ I visualised the correlation matrix between pathways using a method from finance
 \begin{landscape}
 
 \begin{figure}[!htb]
+\includegraphics[height=\textwidth]{drug-tree.eps}
+\caption{Minimum spanning tree constructed from the drug similarity matrix}
+\label{fig:drug-tree}
+\end{figure}
+
+\end{landscape}
+
+\begin{landscape}
+
+\begin{figure}[!htb]
 \includegraphics[height=\textwidth]{pathway-cluster.eps}
 \caption{Markov clustering of the pathway correlation matrix with $\mathit{expansion}=4, \mathit{inflation}=2$}
 \label{fig:pathway-cluster}
@@ -1261,7 +1271,7 @@ Interestingly, from an information-theoretic perspective, if there is no informa
 
 The original goal of this project was to implement the training process for a Correlated Topic Model, augmented with topic-word membership priors. The extension goal was to implement the drug-pathway activation inference algorithm, test the model on real-world data and compare it with the results of LDA.
 
-As a result, I have a working implementation of the CTM that can perform full training and inference on the real-world dataset in about 8-9 hours (3 times as fast as LDA). I also derived and implemented the inference algorithm for the distribution of topics in a document (pathways in a drug), which allowed to perform better testing. The model was tested on multiple randomly generated datasets with characteristics similar to those of the real-world datasets with the results that while the actual model parameter recovery is poor, the model still can infer the document-topic distributions extremely well.
+As a result, I have a working implementation of the CTM that can perform full training and inference on the real-world dataset in about 8-9 hours (3 times faster than LDA). I also derived and implemented the inference algorithm for the distribution of topics in a document (pathways in a drug), which allowed to perform better testing. The model was tested on multiple randomly generated datasets with characteristics similar to those of the real-world datasets with the results that while the actual model parameter recovery is poor, the model still can infer the document-topic distributions extremely well.
 
 On the real-world KEGG/CMap dataset, the CTM does have predictive power, but it is outperformed by LDA. However, I proposed multiple augmentations to CTM that result in a performance improvement. First of all, exponentiating the preprocessed gene expression values instead of discarding the sign results in more information available to the model, improving its predictions. Secondly, only performing one expectation-maximisation iteration during the CTM training results in a comparable performance to the full-convergence CTM. Overall, these improvements allow to predict drug-pathway distributions slightly better than LDA in a fraction of required time.
 
