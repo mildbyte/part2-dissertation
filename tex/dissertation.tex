@@ -1143,12 +1143,21 @@ The algorithm consists of repeatedly performing expansion and inflation on the t
 
 This process is guaranteed to converge on most graphs and the result can be interpreted as follows: if $M_{i,j} > 0$, then $j$ is a member of the cluster whose main ``attractor" is $i$. This value will usually be 1, meaning each element can only be a member of one cluster, but in case of some symmetric graphs it can be a fraction.
 
-TODO: about expansion/inflation parameters
+The size of the $\mathit{inflation}$ parameter (the exponent on every element of the matrix) controls the granularity of the clusters.
 
 \begin{landscape}
 \begin{figure}[!htb]
-\includegraphics[height=\textwidth]{drug-cluster.eps}
-\caption{Markov clustering of the drug similarity matrix with $\mathit{expansion}=50, \mathit{inflation}=2$, each drug colour-coded as per its ATC anatomical class}
+\includegraphics[height=\textwidth]{drug-cluster-2.eps}
+\caption{Markov clustering of the drug similarity matrix with $\mathit{expansion}=2, \mathit{inflation}=30$, each drug colour-coded as per its ATC anatomical class}
+\label{fig:drug-cluster}
+\end{figure}
+
+\end{landscape}
+
+\begin{landscape}
+\begin{figure}[!htb]
+\includegraphics[height=\textwidth]{drug-cluster-3.eps}
+\caption{Markov clustering of the drug similarity matrix with $\mathit{expansion}=2, \mathit{inflation}=55$, each drug colour-coded as per its ATC anatomical class}
 \label{fig:drug-cluster}
 \end{figure}
 
@@ -1158,7 +1167,7 @@ TODO: about expansion/inflation parameters
 
 \begin{figure}[!htb]
 \includegraphics[height=\textwidth]{pathway-cluster.eps}
-\caption{Markov clustering of the pathway correlation matrix with $\mathit{expansion}=2, \mathit{inflation}=4$}
+\caption{Markov clustering of the pathway correlation matrix with $\mathit{expansion}=4, \mathit{inflation}=2$}
 \label{fig:pathway-cluster}
 \end{figure}
 
@@ -1168,7 +1177,7 @@ TODO: about expansion/inflation parameters
 
 \begin{figure}[!htb]
 \includegraphics[height=\textwidth]{pathway-cluster-small.eps}
-\caption{Markov clustering of the pathway correlation matrix with $\mathit{expansion}=6, \mathit{inflation}=8$}
+\caption{Markov clustering of the pathway correlation matrix with $\mathit{expansion}=8, \mathit{inflation}=6$}
 \label{fig:pathway-cluster-small}
 \end{figure}
 

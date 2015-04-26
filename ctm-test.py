@@ -10,13 +10,18 @@ from expectation_maximization import expectation_maximization
 from inference import expected_theta, parallel_expected_theta
 from evaluation_tools import generate_random_corpus, document_similarity_matrix, dsm_rmse, normalize_mu_sigma, exp_normalise, cosine_similarity
 from math_utils import cor_mat
+from visualisation_tools import *
 
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.stats
 import scipy.misc
+import pandas as pd
 
 from scipy.stats import spearmanr, pearsonr
+
+from sklearn.ensemble import RandomForestClassifier
+from sklearn import cross_validation
 
 np.set_printoptions(precision=5, linewidth=120)
 #plt.style.use('ggplot')
@@ -122,6 +127,15 @@ def filter_thetas(thetas, pathways_in_eval, pathway_ids, drug_names_in_eval, dru
     
 def calc_ref_ranks(thetas):
     return [np.where(d > 0)[0] for i, d in enumerate(thetas)]
+    
+def calculate_implied_theta(shape, eval_data):
+    eval_thetas = np.zeros(shape)
+    
+    for i, e in enumerate(eval_data):
+        for p in e:
+            eval_thetas[i, p] = 1
+            
+    return eval_thetas / np.sum(eval_thetas, axis=1)[:, np.newaxis]
 
 def plot_avg_pr_curve(thetas, reference):
     
@@ -151,6 +165,17 @@ def calc_all_lda_likelihoods():
 
 def density(M):
     return np.mean((M != 0))
+    
+class ToyDataset():
+    def __init__(self, doc_words, doc_counts, doc_thetas, mu, sigma, beta, m_params, thetas):
+        self.doc_words = doc_words
+        self.doc_counts = doc_counts
+        self.doc_thetas = doc_thetas
+        self.mu = mu
+        self.sigma = sigma
+        self.beta = beta
+        self.m_params = m_params
+        self.thetas = thetas
 
 def load_toy_dataset(i):
     data = np.load(diss_data_root + "%d-dataset.npz" % i)
@@ -165,7 +190,7 @@ def load_toy_dataset(i):
     m_params = data['arr_0'].item()
     thetas = data['arr_1']
     
-    return doc_words, doc_counts, doc_thetas, mu, sigma, beta, m_params, thetas
+    return ToyDataset(doc_words, doc_counts, doc_thetas, mu, sigma, beta, m_params, thetas)
 
 def save_toy_dataset(i, doc_words, doc_counts, doc_thetas, mu, sigma, beta, m_params, thetas):
     np.savez_compressed(diss_data_root + "%d-dataset" % i, doc_words, doc_counts, doc_thetas, mu, sigma, beta)
