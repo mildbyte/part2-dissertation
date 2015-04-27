@@ -8,6 +8,50 @@ Created on Mon Apr 06 21:36:46 2015
 import pygraphviz
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.pyplot import get_cmap
+
+
+def generate_mst_graph(C, labels=None, node_colours=None):
+    c = np.sqrt(2 * (1-C))
+    
+    K = C.shape[0]
+    if labels is None:
+        labels = xrange(K)
+        
+    G = pygraphviz.AGraph('graph G {}')
+    G.node_attr['shape'] = 'box'
+    G.graph_attr['splines'] = 'spline'
+    G.graph_attr['overlap'] = 'prism'
+    
+    Vnew = set([0])
+    
+    while len(Vnew) < K:
+        min_w = 2.0
+        min_v = None
+        
+        for i in Vnew:
+            for j in xrange(K):
+                if j not in Vnew:
+                    if c[i, j] < min_w:
+                        min_w = c[i, j]
+                        min_v = (i, j)
+        G.add_edge(labels[min_v[0]], labels[min_v[1]], label="%.2f" % C[min_v])
+        Vnew.add(min_v[1])
+        
+    if node_colours is not None:
+        cmap = get_cmap('gist_ncar')
+        G.node_attr['style'] = 'filled'
+        G.node_attr['fontcolor'] = 'white'
+        for l, c in zip(labels, node_colours):
+            if l in G.nodes():
+                n = G.get_node(l)
+                n.attr['fillcolor']="%f,%f,%f" % cmap(c)[:3]
+
+    
+#    degree = G.degree()
+#    G.delete_nodes_from([n for i, n in enumerate (G.nodes()) if degree[i] == 0])
+
+    return G
 
 def connected_subgraph(G, node, max_depth=3):
     nodes = set([node])
@@ -36,7 +80,9 @@ def connected_subgraph(G, node, max_depth=3):
     
     return G2
 
-def generate_cluster_graph(mcl_result, labels=None):
+def generate_cluster_graph(mcl_result, labels=None, node_colours=None):
+    cmap = get_cmap('gist_ncar')
+    
     K = mcl_result.shape[0]
     if labels is None:
         labels = xrange(K)
@@ -53,6 +99,14 @@ def generate_cluster_graph(mcl_result, labels=None):
     
     degree = G.degree()
     G.delete_nodes_from([n for i, n in enumerate(G.nodes()) if degree[i] == 0])
+    
+    if node_colours is not None:
+        G.node_attr['style'] = 'filled'
+        G.node_attr['fontcolor'] = 'white'
+        for l, c in zip(labels, node_colours):
+            if l in G.nodes():
+                n = G.get_node(l)
+                n.attr['fillcolor']="%f,%f,%f" % cmap(c)[:3]
 
     return G
     
@@ -72,7 +126,7 @@ def generate_graph(corr, threshold=0.1, sigma_labels=None):
                 G.add_edge(sigma_labels[a], sigma_labels[b], len=(1.0 - corr[a, b]), label="%.2f" % corr[a, b])
     
     degree = G.degree()
-    G.delete_nodes_from([n for i, n in enumerate (G.nodes()) if degree[n] == 0])
+    G.delete_nodes_from([n for i, n in enumerate (G.nodes()) if degree[i] == 0])
 
     return G
 
@@ -123,22 +177,22 @@ def plot_heatmap(thetas, eval_data):
     imshow(1 - calc_heatmap(thetas, eval_data), cmap="Greys_r", interpolation='nearest')
 
 #Performs Markov clustering on the similarity matrix
-def mcl(M, power, inflation):
+def mcl(M, expansion, inflation):
     while True:
         Mprev = M
         M = M / np.sum(M, axis=0)
         
-        M = np.linalg.matrix_power(M, inflation)
-        M = M ** power
+        M = M ** inflation        
+        M = np.linalg.matrix_power(M, expansion)        
         
         if (np.mean(np.abs(M - Mprev)) < 0.00001):
             return M / np.sum(M, axis=0)
 
-def mcl_it(M, power, inflation, iterations=100):
+def mcl_it(M, expansion, inflation, iterations=100):
     for _ in xrange(iterations):
-        M = M / np.sum(M, axis=0)
+        M = M / np.sum(M, axis=1)[:, np.newaxis]
         
-        M = M ** power
-        M = np.linalg.matrix_power(M, inflation)
+        M = M ** inflation        
+        M = np.linalg.matrix_power(M, expansion)
         
-    return M / np.sum(M, axis=0)
+    return M / np.sum(M, axis=1)[:, np.newaxis]

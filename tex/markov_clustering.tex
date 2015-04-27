@@ -12,8 +12,8 @@
 		\Function{markov-clustering}{$M, \var{expansion}, \var{inflation}$}
 			\While{change in $M >$ threshold}
 				\State Normalize $M$
-				\State Expansion step: $M_{i,j} \gets M_{i,j}^{\var{expansion}}$
-				\State Inflation step: $M \gets M^{\var{inflation}}$
+				\State Expansion step: $M \gets M^{\var{expansion}}$
+				\State Inflation step: $M_{i,j} \gets M_{i,j}^{\var{inflation}}$
 			\EndWhile
 			\State Normalize $M$
 			\State\Return $M$

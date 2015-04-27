@@ -15,6 +15,7 @@
 \usepackage{fancyvrb}
 \usepackage{tikz}
 \usepackage{fixltx2e}
+\usepackage{lscape}
 \MakeRobust{\Call}
 \newcommand{\var}[1]{{\operatorname{\mathit{#1}}}}
 
@@ -1132,7 +1133,7 @@ LDA outperforms CTM-exp & 208 (42.3\%) & 0.154 \\
 
 Table~\ref{tab:ctm-lda-outperform} further shows that CTM does not win on higher-density drugs: the average density of drugs on which CTM with exponentiation achieves a higher score than LDA is slightly smaller than of those where LDA beats CTM.
 
-\subsubsection{Clustering the drug similarity matrix}
+\subsubsection{Visualising the resultant similarity matrix}
 Since the document (or drug) similarity matrix (\ref{eq:document_similarity_matrix}) is not affected by the topic identifiability, I decided to perform clustering on the matrix to identify some common groups of drugs and reference them to the actual descriptions of those drugs.
 I used the Markov Clustering Algorithm (MCL)  \cite{Dongen:2000:CAG:868986}, a simple method that's based on the insight that a document similarity matrix, when normalised, forms a Markov chain. If one simulates multiple ``random walkers" on this chain and slowly starts weakening the links between the elements of the chain, each of them will eventually end up roaming around the final clusters. This is encoded in the following algorithm:
 
@@ -1142,9 +1143,67 @@ The algorithm consists of repeatedly performing expansion and inflation on the t
 
 This process is guaranteed to converge on most graphs and the result can be interpreted as follows: if $M_{i,j} > 0$, then $j$ is a member of the cluster whose main ``attractor" is $i$. This value will usually be 1, meaning each element can only be a member of one cluster, but in case of some symmetric graphs it can be a fraction.
 
-TODO: about expansion/inflation parameters
+The size of the $\mathit{inflation}$ parameter (the exponent on every element of the matrix) controls the granularity of the clusters.
 
-TODO: pictures + clustering for sigma as well
+I visualised the correlation matrix between pathways using a method from finance for visualisation of correlations between stocks \cite{doi:10.1007/s100510050929}. First, all correlations between pathways are transformed such that pathways with greater correlations get assigned a lower value: $d_{i,j} = \sqrt{2(1 - C_{i, j})}$. Then, Prim's algorithm \cite{doi:10.1007/BF01386390} is used to build a minimum spanning tree on this graph, which essentially creates a hierarchy of pathways.
+
+\begin{landscape}
+\begin{figure}[!htb]
+\includegraphics[height=\textwidth]{drug-cluster-2.eps}
+\caption{Markov clustering of the drug similarity matrix with $\mathit{expansion}=2, \mathit{inflation}=30$, each drug colour-coded as per its ATC anatomical class}
+\label{fig:drug-cluster}
+\end{figure}
+
+\end{landscape}
+
+\begin{landscape}
+\begin{figure}[!htb]
+\includegraphics[height=\textwidth]{drug-cluster-3.eps}
+\caption{Markov clustering of the drug similarity matrix with $\mathit{expansion}=2, \mathit{inflation}=55$, each drug colour-coded as per its ATC anatomical class}
+\label{fig:drug-cluster}
+\end{figure}
+
+\end{landscape}
+
+\begin{landscape}
+
+\begin{figure}[!htb]
+\includegraphics[height=\textwidth]{drug-tree.eps}
+\caption{Minimum spanning tree constructed from the drug similarity matrix}
+\label{fig:drug-tree}
+\end{figure}
+
+\end{landscape}
+
+\begin{landscape}
+
+\begin{figure}[!htb]
+\includegraphics[height=\textwidth]{pathway-cluster.eps}
+\caption{Markov clustering of the pathway correlation matrix with $\mathit{expansion}=4, \mathit{inflation}=2$}
+\label{fig:pathway-cluster}
+\end{figure}
+
+\end{landscape}
+
+\begin{landscape}
+
+\begin{figure}[!htb]
+\includegraphics[height=\textwidth]{pathway-cluster-small.eps}
+\caption{Markov clustering of the pathway correlation matrix with $\mathit{expansion}=8, \mathit{inflation}=6$}
+\label{fig:pathway-cluster-small}
+\end{figure}
+
+\end{landscape}
+
+\begin{landscape}
+
+\begin{figure}[!htb]
+\includegraphics[height=\textwidth]{pathway-tree.eps}
+\caption{Minimum spanning tree constructed from the pathway correlation matrix}
+\label{fig:pathway-tree}
+\end{figure}
+
+\end{landscape}
 
 \subsection{ATC classification}
 
@@ -1165,24 +1224,23 @@ A Python package called \texttt{scikit-learn} \cite{scikit-learn} that's deeply 
 \begin{figure}
 \begin{Verbatim}[fontsize=\scriptsize]
 def atc(thetas):
-    from sklearn.ensemble import RandomForestClassifier
-    from sklearn import cross_validation
-
     atc = pd.read_csv(diss_data_root + "ATC_codes_and_drug_names.csv")
-
-    #Remove drugs not in ATC
-    drug_names_in_atc = set(atc['DrugName']).intersection(drug_names)
-    filtered_thetas = np.array([t for t, dn in zip(thetas, drug_names) if dn in drug_names_in_atc])
-        
-    #Turn the letter labels into indices
-    labels = list(atc[atc['DrugName'].isin(drug_names_in_atc)]['ATC code'])
-    label_map = {l: i for i, l in enumerate(sorted(set(labels)))}
-    labels = [label_map[l] for l in labels]
+    atc_dict = atc.set_index('DrugName')['ATC code'].to_dict()
     
+    drug_names_in_atc = [d for d in drug_names if d in atc_dict]
+    drug_labels = [atc_dict[d] for d in drug_names_in_atc]
+    filtered_thetas = np.array([t for t, d in zip(thetas, drug_names) if d in drug_names_in_atc])
+    
+    #Turn the letter labels into indices
+    sorted_labels = sorted(set(drug_labels))
+    label_map = {l: i for i, l in enumerate(sorted_labels)}
+    
+    drug_labels = np.array([label_map[l] for l in drug_labels])
+
     #Create the classifier (100 trees, 8 threads) and cross-validate
     forest = RandomForestClassifier(n_estimators=100, n_jobs=8)
-    samples = cross_validation.cross_val_score(forest, filtered_thetas, labels, cv=10)
-    return (np.mean(samples), np.std(samples))
+    samples = cross_validation.cross_val_score(forest, filtered_thetas, drug_labels, cv=10)
+    print "%.3f, %.3f" % (np.mean(samples), np.std(samples))
 \end{Verbatim}
 \caption{Python code that performs the evaluation of the drug-pathway distributions using Random Forest}
 \label{fig:atc-python}
@@ -1193,31 +1251,31 @@ def atc(thetas):
 \hline
 Features & Mean RF score & SD of the RF scores \\
 \hline
-$\theta$ of CTM & 0.259 & 0.032 \\
-$\theta$ of CTM-exp & 0.141 & 0.035 \\
-$\theta$ of LDA &  0.201 & 0.035 \\
-Random $\theta$ & 0.148 & 0.034 \\
-Raw gene expression data (not exponentiated) &  0.748 & 0.133 \\
-Raw gene expression data (exponentiated) &  0.746 & 0.131 \\
+$\theta$ of CTM & 0.163 & 0.032 \\
+$\theta$ of CTM-exp & 0.156 & 0.046 \\
+$\theta$ of LDA & 0.144 & 0.026 \\
+Random $\theta$ & 0.126 & 0.030 \\
+Raw gene expression data (not exponentiated) &  0.165 & 0.040 \\
+Raw gene expression data (exponentiated) & 0.176 & 0.034 \\
 \hline
 \end{tabu}
 \caption{10-fold cross-validated mean accuracies for Random Forest on the ATC dataset for various feature sets}
 \label{tab:atc-test-results}
 \end{table}
 
-Table~\ref{tab:atc-test-results} shows the mean scores and their standard deviation for different vectors used as features. The results here are almost the reverse of ranked evaluation on the CTD dataset. First of all, CTM with exponentiation did not perform significantly better than training the classifier on randomly drawn vectors. In fact, from an information-theoretic perspective, if there is no information in the feature vectors, the best score classifier can get is $2^{-H}$ where $H$ is the entropy of the distribution of labels: $2.41$ bits in the case of the ATC anatomical main groups, giving the average probability of guessing the right label of about $0.188$.
+Table~\ref{tab:atc-test-results} shows the mean scores and their standard deviation for different vectors used as features. All models have comparable performance, within 1 standard deviation of each other, and slightly outperform drawing vectors randomly. Topic models don't bring an improvement on using raw gene expression data to predict the main anatomical group of a drug.
 
-Secondly, LDA outperforms CTM-exp, and interestingly, CTM outperforms all other topic models in this case. However, all of these models are dwarfed by the performance of using the raw gene expression data (exponentiated or unexponentiated) to predict the anatomical main group of a drug.
+Interestingly, from an information-theoretic perspective, if there is no information in the feature vectors, the best score a classifier can get is $2^{-H}$ where $H$ is the entropy of the distribution of labels: $2.41$ bits in the case of the ATC anatomical main groups, giving the average probability of guessing the right label of about $0.188$.
 
 \chapter{Conclusion}
 
 The original goal of this project was to implement the training process for a Correlated Topic Model, augmented with topic-word membership priors. The extension goal was to implement the drug-pathway activation inference algorithm, test the model on real-world data and compare it with the results of LDA.
 
-As a result, I have a working implementation of the CTM that can perform full training and inference on the real-world dataset in about 8-9 hours (3 times as fast as LDA). I also derived and implemented the inference algorithm for the distribution of topics in a document (pathways in a drug), which allowed to perform better testing. The model was tested on multiple randomly generated datasets with characteristics similar to those of the real-world datasets with the results that while the actual model parameter recovery is poor, the model still can infer the document-topic distributions extremely well.
+As a result, I have a working implementation of the CTM that can perform full training and inference on the real-world dataset in about 8-9 hours (3 times faster than LDA). I also derived and implemented the inference algorithm for the distribution of topics in a document (pathways in a drug), which allowed to perform better testing. The model was tested on multiple randomly generated datasets with characteristics similar to those of the real-world datasets with the results that while the actual model parameter recovery is poor, the model still can infer the document-topic distributions extremely well.
 
 On the real-world KEGG/CMap dataset, the CTM does have predictive power, but it is outperformed by LDA. However, I proposed multiple augmentations to CTM that result in a performance improvement. First of all, exponentiating the preprocessed gene expression values instead of discarding the sign results in more information available to the model, improving its predictions. Secondly, only performing one expectation-maximisation iteration during the CTM training results in a comparable performance to the full-convergence CTM. Overall, these improvements allow to predict drug-pathway distributions slightly better than LDA in a fraction of required time.
 
-I also established that while the outputs from the topic models can be used as inputs to a generic classifier to predict the anatomical main class of a drug, they result in a much worse performance than using the raw gene expression data directly.
+I also established that while the outputs from the topic models can be used as inputs to a generic classifier to predict the anatomical main class of a drug, they don't improve on using the raw gene expression data directly.
 
 \section{Future work/improvements}
 

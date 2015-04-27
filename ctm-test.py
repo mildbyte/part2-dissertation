@@ -10,13 +10,18 @@ from expectation_maximization import expectation_maximization
 from inference import expected_theta, parallel_expected_theta
 from evaluation_tools import generate_random_corpus, document_similarity_matrix, dsm_rmse, normalize_mu_sigma, exp_normalise, cosine_similarity
 from math_utils import cor_mat
+from visualisation_tools import *
 
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.stats
 import scipy.misc
+import pandas as pd
 
 from scipy.stats import spearmanr, pearsonr
+
+from sklearn.ensemble import RandomForestClassifier
+from sklearn import cross_validation
 
 np.set_printoptions(precision=5, linewidth=120)
 #plt.style.use('ggplot')
@@ -122,6 +127,15 @@ def filter_thetas(thetas, pathways_in_eval, pathway_ids, drug_names_in_eval, dru
     
 def calc_ref_ranks(thetas):
     return [np.where(d > 0)[0] for i, d in enumerate(thetas)]
+    
+def calculate_implied_theta(shape, eval_data):
+    eval_thetas = np.zeros(shape)
+    
+    for i, e in enumerate(eval_data):
+        for p in e:
+            eval_thetas[i, p] = 1
+            
+    return eval_thetas / np.sum(eval_thetas, axis=1)[:, np.newaxis]
 
 def plot_avg_pr_curve(thetas, reference):
     
@@ -151,6 +165,17 @@ def calc_all_lda_likelihoods():
 
 def density(M):
     return np.mean((M != 0))
+    
+class ToyDataset():
+    def __init__(self, doc_words, doc_counts, doc_thetas, mu, sigma, beta, m_params, thetas):
+        self.doc_words = doc_words
+        self.doc_counts = doc_counts
+        self.doc_thetas = doc_thetas
+        self.mu = mu
+        self.sigma = sigma
+        self.beta = beta
+        self.m_params = m_params
+        self.thetas = thetas
 
 def load_toy_dataset(i):
     data = np.load(diss_data_root + "%d-dataset.npz" % i)
@@ -165,7 +190,7 @@ def load_toy_dataset(i):
     m_params = data['arr_0'].item()
     thetas = data['arr_1']
     
-    return doc_words, doc_counts, doc_thetas, mu, sigma, beta, m_params, thetas
+    return ToyDataset(doc_words, doc_counts, doc_thetas, mu, sigma, beta, m_params, thetas)
 
 def save_toy_dataset(i, doc_words, doc_counts, doc_thetas, mu, sigma, beta, m_params, thetas):
     np.savez_compressed(diss_data_root + "%d-dataset" % i, doc_words, doc_counts, doc_thetas, mu, sigma, beta)
@@ -185,31 +210,22 @@ def load_pathway_names():
 
 def atc(thetas):
     atc = pd.read_csv(diss_data_root + "ATC_codes_and_drug_names.csv")
-    drug_names_in_atc = set(atc['DrugName']).intersection(drug_names)
+    atc_dict = atc.set_index('DrugName')['ATC code'].to_dict()
     
-#    filtered_thetas = filter_thetas(thetas, pathway_ids, pathway_ids, drug_names_in_atc, drug_names)
+    drug_names_in_atc = [d for d in drug_names if d in atc_dict]
+    drug_labels = [atc_dict[d] for d in drug_names_in_atc]
+    filtered_thetas = np.array([t for t, d in zip(thetas, drug_names) if d in drug_names_in_atc])
     
     #Turn the letter labels into indices
-    labels = list(atc[atc['DrugName'].isin(drug_names_in_atc)]['ATC code'])
     
-    sorted_labels = sorted(set(labels))
+    sorted_labels = sorted(set(drug_labels))
     label_map = {l: i for i, l in enumerate(sorted_labels)}
     
-    label_map[sorted_labels[0]] = True
-    for l in sorted_labels[1:]:
-        label_map[l] = False
-    
-    labels = np.array([label_map[l] for l in labels])
-    
-    indices = range(len(labels))
-    np.random.shuffle(indices)
+    drug_labels = np.array([label_map[l] for l in drug_labels])
 
-    thetas = thetas[indices]
-    labels = labels[indices]
-    
     #Create the classifier (100 trees, 8 threads) and cross-validate
     forest = RandomForestClassifier(n_estimators=100, n_jobs=8)
-    samples = cross_validation.cross_val_score(forest, thetas, labels, cv=10)
+    samples = cross_validation.cross_val_score(forest, filtered_thetas, drug_labels, cv=10)
     print "%.3f, %.3f" % (np.mean(samples), np.std(samples))
     
     #nb: gmrf gets 0.172, 0.029
