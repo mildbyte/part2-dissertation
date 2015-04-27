@@ -990,7 +990,6 @@ The drug-pathway distributions predicted by the models are then rank-transformed
 
 Figure~\ref{fig:ctm-ctd-heatmap} shows a so-called ``heatmap" for CTM, explained in the beginning of this section. The expected behaviour is for the black squares to cluster towards the top of the ``heatmap", since that means the model assigned the top ranks to pathways that are actually correct. However, both LDA (Figure~\ref{fig:lda-ctd-heatmap}) and CTM are very far from that and to see exactly how, a different visualisation is required.
 
-
 \subsubsection{Precision-recall curves}
 
 The precision-recall curves for the whole dataset are plotted in Figure~\ref{fig:ctd-pr-curves}.
@@ -1000,12 +999,6 @@ The precision-recall curves for the whole dataset are plotted in Figure~\ref{fig
 \caption{Precision-recall curves on the validation dataset (CTD) for CTM, LDA, and random topic assignments (baseline)}
 \label{fig:ctd-pr-curves}
 \end{figure}
-
-TODO: what are MAP values?
-
-TODO: move MAP values to a table
-
-The MAP values for CTM, LDA and CTM with exponentiation are 0.181, 0.189 and 0.204, respectively. The average MAP value for random guessing is 0.172.
 
 The main conclusion to be made from this is that while CTM does have some predictive power, since its performance is significantly different from the baseline, it, in fact, does not outperform LDA on this dataset. Exponentiating the gene expression data prior to training (and thus not discarding the sign), however, improves the performance of CTM beyond that of LDA.
 
@@ -1025,7 +1018,27 @@ Closer inspection, however, reveals that the three models rank a pathway named `
 \label{fig:ctd-pr-curves-no1100}
 \end{figure}
 
-Figure~\ref{fig:ctd-pr-curves-no1100} shows the resultant precision-recall curve. After exclusion, the MAP values for CTM, LDA and CTM with exponentiation are 0.166, 0.176 and 0.213, respectively, whereas the random method achieves a MAP value of 0.172. LDA still beats CTM and the fact that CTM relied on the presence of the removed pathway for most of its performance now has dropped its MAP value below that of random guessing. However, CTM with exponentiation now vastly outperforms all the other models.
+
+\begin{table}
+	\begin{tabular}{| l | l | l |}
+		\hline
+		Model & MAP before exclusion & MAP after exclusion \\
+		\hline
+		CTM & 0.181 & 0.166 \\
+		LDA & 0.189 & 0.176 \\
+		CTM with exponentiation & 0.204 & 0.213 \\
+		Random & 0.172 & 0.172 \\
+		\hline
+	\end{tabular}
+	\caption{MAP values for the models}
+	\label{tab:ctd-map}
+\end{table}
+
+Figure~\ref{fig:ctd-pr-curves-no1100} shows the resultant precision-recall curve. 
+
+The area under the precision-recall curve for a given drug is called the Average Precision (AP) and taking the mean of the AP values for all drugs results in Mean Average Precision (MAP). Table~\ref{tab:ctd-map} shows these values for the models before and after exclusion.
+
+LDA still beats CTM and the fact that CTM relied on the presence of the removed pathway for most of its performance now has dropped its MAP value below that of random guessing. However, CTM with exponentiation now vastly outperforms all the other models.
 
 \begin{figure}[!htb]
 \includegraphics[width=\textwidth]{ctd-side-plots.eps}
@@ -1133,78 +1146,6 @@ LDA outperforms CTM-exp & 208 (42.3\%) & 0.154 \\
 
 Table~\ref{tab:ctm-lda-outperform} further shows that CTM does not win on higher-density drugs: the average density of drugs on which CTM with exponentiation achieves a higher score than LDA is slightly smaller than of those where LDA beats CTM.
 
-\subsubsection{Visualising the resultant similarity matrix}
-Since the document (or drug) similarity matrix (\ref{eq:document_similarity_matrix}) is not affected by the topic identifiability, I decided to perform clustering on the matrix to identify some common groups of drugs and reference them to the actual descriptions of those drugs.
-I used the Markov Clustering Algorithm (MCL)  \cite{Dongen:2000:CAG:868986}, a simple method that's based on the insight that a document similarity matrix, when normalised, forms a Markov chain. If one simulates multiple ``random walkers" on this chain and slowly starts weakening the links between the elements of the chain, each of them will eventually end up roaming around the final clusters. This is encoded in the following algorithm:
-
-\input{markov_clustering}
-
-The algorithm consists of repeatedly performing expansion and inflation on the transition matrix: in the expansion step, we exponentiate every element of the matrix (thus weakening the links between different elements) and in the inflation step, we exponentiate the matrix itself (thus turning it into an $\mathit{inflation}$-step transition matrix and simulating the ``random walkers").
-
-This process is guaranteed to converge on most graphs and the result can be interpreted as follows: if $M_{i,j} > 0$, then $j$ is a member of the cluster whose main ``attractor" is $i$. This value will usually be 1, meaning each element can only be a member of one cluster, but in case of some symmetric graphs it can be a fraction.
-
-The size of the $\mathit{inflation}$ parameter (the exponent on every element of the matrix) controls the granularity of the clusters.
-
-I visualised the correlation matrix between pathways using a method from finance for visualisation of correlations between stocks \cite{doi:10.1007/s100510050929}. First, all correlations between pathways are transformed such that pathways with greater correlations get assigned a lower value: $d_{i,j} = \sqrt{2(1 - C_{i, j})}$. Then, Prim's algorithm \cite{doi:10.1007/BF01386390} is used to build a minimum spanning tree on this graph, which essentially creates a hierarchy of pathways.
-
-\begin{landscape}
-\begin{figure}[!htb]
-\includegraphics[height=\textwidth]{drug-cluster-2.eps}
-\caption{Markov clustering of the drug similarity matrix with $\mathit{expansion}=2, \mathit{inflation}=30$, each drug colour-coded as per its ATC anatomical class}
-\label{fig:drug-cluster}
-\end{figure}
-
-\end{landscape}
-
-\begin{landscape}
-\begin{figure}[!htb]
-\includegraphics[height=\textwidth]{drug-cluster-3.eps}
-\caption{Markov clustering of the drug similarity matrix with $\mathit{expansion}=2, \mathit{inflation}=55$, each drug colour-coded as per its ATC anatomical class}
-\label{fig:drug-cluster}
-\end{figure}
-
-\end{landscape}
-
-\begin{landscape}
-
-\begin{figure}[!htb]
-\includegraphics[height=\textwidth]{drug-tree.eps}
-\caption{Minimum spanning tree constructed from the drug similarity matrix}
-\label{fig:drug-tree}
-\end{figure}
-
-\end{landscape}
-
-\begin{landscape}
-
-\begin{figure}[!htb]
-\includegraphics[height=\textwidth]{pathway-cluster.eps}
-\caption{Markov clustering of the pathway correlation matrix with $\mathit{expansion}=4, \mathit{inflation}=2$}
-\label{fig:pathway-cluster}
-\end{figure}
-
-\end{landscape}
-
-\begin{landscape}
-
-\begin{figure}[!htb]
-\includegraphics[height=\textwidth]{pathway-cluster-small.eps}
-\caption{Markov clustering of the pathway correlation matrix with $\mathit{expansion}=8, \mathit{inflation}=6$}
-\label{fig:pathway-cluster-small}
-\end{figure}
-
-\end{landscape}
-
-\begin{landscape}
-
-\begin{figure}[!htb]
-\includegraphics[height=\textwidth]{pathway-tree.eps}
-\caption{Minimum spanning tree constructed from the pathway correlation matrix}
-\label{fig:pathway-tree}
-\end{figure}
-
-\end{landscape}
-
 \subsection{ATC classification}
 
 The World Health Organisation maintains a classification system for drugs called the Anatomical Therapeutic Chemical (ATC) Classification System. It's an hierarchical code that depends on the system in the body on which the drug acts. For example, caffeine has the code N06BC01, composed of:
@@ -1267,21 +1208,102 @@ Table~\ref{tab:atc-test-results} shows the mean scores and their standard deviat
 
 Interestingly, from an information-theoretic perspective, if there is no information in the feature vectors, the best score a classifier can get is $2^{-H}$ where $H$ is the entropy of the distribution of labels: $2.41$ bits in the case of the ATC anatomical main groups, giving the average probability of guessing the right label of about $0.188$.
 
+\subsection{Visualising the resultant similarity matrices}
+Since the document (or drug) similarity matrix (\ref{eq:document_similarity_matrix}) is not affected by the topic identifiability, I decided to perform clustering on the matrix to identify some common groups of drugs and reference them to the actual descriptions of those drugs.
+I used the Markov Clustering Algorithm (MCL)  \cite{Dongen:2000:CAG:868986}, a simple method that's based on the insight that a document similarity matrix, when normalised, forms a Markov chain. If one simulates multiple ``random walkers" on this chain and slowly starts weakening the links between the elements of the chain, each of them will eventually end up roaming around the final clusters. This is encoded in the following algorithm:
+
+\input{markov_clustering}
+
+The algorithm consists of repeatedly performing expansion and inflation on the transition matrix: in the expansion step, we exponentiate every element of the matrix (thus weakening the links between different elements) and in the inflation step, we exponentiate the matrix itself (thus turning it into an $\mathit{inflation}$-step transition matrix and simulating the ``random walkers").
+
+This process is guaranteed to converge on most graphs and the result can be interpreted as follows: if $M_{i,j} > 0$, then $j$ is a member of the cluster whose main ``attractor" is $i$. This value will usually be 1, meaning each element can only be a member of one cluster, but in case of some symmetric graphs it can be a fraction.
+
+The size of the $\mathit{inflation}$ parameter (the exponent on every element of the matrix) controls the granularity of the clusters.
+
+Since all drugs have multiple common pathways and hence similarity values close to 1, I first preprocessed the drug-pathway distributions and removed top 10 most expressed pathways from consideration. Despite that, the process gave few resultant clusters unless the $\mathit{inflation}$ parameter was large.
+
+TODO: drug clusterings have miscoloured ATC
+
+Figures~\ref{fig:drug-cluster-2}~and~\ref{fig:drug-cluster-3} show the resultant graphs where each drug was also coloured as per its ATC class.
+
+To visualise the matrix of correlations between pathways, I used a method from finance for visualisation of correlations between stocks \cite{doi:10.1007/s100510050929}. First, all correlations between pathways are transformed such that pathways with greater correlations get assigned a lower value: $d_{i,j} = \sqrt{2(1 - C_{i, j})}$. Then, Prim's algorithm \cite{doi:10.1007/BF01386390} is used to build a minimum spanning tree on this graph, which essentially creates a hierarchy of pathways/drugs.
+
+The resultant tree is shown in Figure~\ref{fig:pathway-tree}. Interestingly, the root of the tree (middle) became the pathway for lupus, an autoimmune disease in which the body's immune system attacks healthy tissue. Some other phenomena are connected in the tree, such as Alzheimer's, Parkinson's and Huntington's, three neurodegenerative diseases on the right hand side. Alternatively, a branch in the top left hand side mentions various pathways related to diabetes, including the pathway for beta-Alanine metabolism (which is used in treatment of diabetes \cite{buckley1996glp}).
+
+\begin{landscape}
+	\begin{figure}[!htb]
+		\includegraphics[height=\textwidth]{drug-cluster-2.eps}
+		\caption{Markov clustering of the drug similarity matrix with $\mathit{expansion}=2, \mathit{inflation}=30$, each drug colour-coded as per its ATC anatomical class}
+		\label{fig:drug-cluster-2}
+	\end{figure}
+	
+\end{landscape}
+
+\begin{landscape}
+	\begin{figure}[!htb]
+		\includegraphics[height=\textwidth]{drug-cluster-3.eps}
+		\caption{Markov clustering of the drug similarity matrix with $\mathit{expansion}=2, \mathit{inflation}=55$, each drug colour-coded as per its ATC anatomical class}
+		\label{fig:drug-cluster-3}
+	\end{figure}
+	
+\end{landscape}
+
+\begin{landscape}
+	
+	\begin{figure}[!htb]
+		\includegraphics[height=\textwidth]{drug-tree.eps}
+		\caption{Minimum spanning tree constructed from the drug similarity matrix}
+		\label{fig:drug-tree}
+	\end{figure}
+	
+\end{landscape}
+
+%\begin{landscape}
+%	
+%	\begin{figure}[!htb]
+%		\includegraphics[height=\textwidth]{pathway-cluster.eps}
+%		\caption{Markov clustering of the pathway correlation matrix with $\mathit{expansion}=4, \mathit{inflation}=2$}
+%		\label{fig:pathway-cluster}
+%	\end{figure}
+%	
+%\end{landscape}
+%
+%\begin{landscape}
+%	
+%	\begin{figure}[!htb]
+%		\includegraphics[height=\textwidth]{pathway-cluster-small.eps}
+%		\caption{Markov clustering of the pathway correlation matrix with $\mathit{expansion}=8, \mathit{inflation}=6$}
+%		\label{fig:pathway-cluster-small}
+%	\end{figure}
+%	
+%\end{landscape}
+
+\begin{landscape}
+	
+	\begin{figure}[!htb]
+		\includegraphics[height=\textwidth]{pathway-tree.eps}
+		\caption{Minimum spanning tree constructed from the pathway correlation matrix}
+		\label{fig:pathway-tree}
+	\end{figure}
+	
+\end{landscape}
+
+
 \chapter{Conclusion}
 
 The original goal of this project was to implement the training process for a Correlated Topic Model, augmented with topic-word membership priors. The extension goal was to implement the drug-pathway activation inference algorithm, test the model on real-world data and compare it with the results of LDA.
 
-As a result, I have a working implementation of the CTM that can perform full training and inference on the real-world dataset in about 8-9 hours (3 times faster than LDA). I also derived and implemented the inference algorithm for the distribution of topics in a document (pathways in a drug), which allowed to perform better testing. The model was tested on multiple randomly generated datasets with characteristics similar to those of the real-world datasets with the results that while the actual model parameter recovery is poor, the model still can infer the document-topic distributions extremely well.
+As a result, I have a working implementation of the CTM that can perform full training and inference on the real-world dataset in about 8-9 hours (3 times faster than LDA). I also derived and implemented the inference algorithm for the distribution of topics in a document (pathways in a drug), which allowed to perform better testing. The model was tested on multiple randomly generated datasets with characteristics similar to those of the real-world datasets. While the actual model parameter recovery is poor because the enforcement of density on the generated document-topic distributions $\theta$ breaks the assumptions of CTM, the model still can infer $\theta$ extremely well.
 
-On the real-world KEGG/CMap dataset, the CTM does have predictive power, but it is outperformed by LDA. However, I proposed multiple augmentations to CTM that result in a performance improvement. First of all, exponentiating the preprocessed gene expression values instead of discarding the sign results in more information available to the model, improving its predictions. Secondly, only performing one expectation-maximisation iteration during the CTM training results in a comparable performance to the full-convergence CTM. Overall, these improvements allow to predict drug-pathway distributions slightly better than LDA in a fraction of required time.
+On the real-world KEGG/CMap dataset, the CTM does have predictive power, but it is outperformed by LDA. However, I proposed multiple augmentations to CTM that result in a performance improvement. First of all, exponentiating the preprocessed gene expression values instead of discarding the sign results in more information available to the model, improving its predictions. Secondly, only performing one expectation-maximisation iteration during the CTM training results in a comparable performance to the full-convergence CTM. Overall, these improvements allow to predict drug-pathway distributions slightly better than LDA in a fraction of required time (about 2 hours).
 
 I also established that while the outputs from the topic models can be used as inputs to a generic classifier to predict the anatomical main class of a drug, they don't improve on using the raw gene expression data directly.
 
 \section{Future work/improvements}
 
-There are multiple things I sadly didn't have time to investigate in this project.
+There are multiple things I didn't have time to investigate in this project.
 
-The first one is the mysterious phenomenon on Figure~\ref{fig:ctd-side-plots} whereby the topic models consistently predict low expression levels for pathways that are in CTD. I remain convinced that this is not a problem with my plotting (since the plot for the reference dataset does form a monotonically decreasing curve) or the implementation of CTM (since LDA has the same problem).
+The first one is the mysterious phenomenon on Figure~\ref{fig:ctd-side-plots} whereby all topic models consistently predict low expression levels for pathways that are in CTD. I remain convinced that this is not a problem with my plotting (since the plot for the reference dataset does form a monotonically decreasing curve) or the implementation of CTM (since LDA has the same problem).
 
 TODO: testing with various theta/beta density levels (better parameter recovery for sparse theta/beta)
 
