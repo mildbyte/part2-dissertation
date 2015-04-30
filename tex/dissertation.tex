@@ -58,7 +58,7 @@ Trinity College \\[5mm]
 
 {\large
 \begin{tabular}{ll}
-Name:               & \bf Artjoms Iskovs                       \\
+Name:               & \bf Artjoms I\v{s}kovs                       \\
 College:            & \bf Trinity College                     \\
 Project Title:     & \bf Predicting drug-pathway interactions using \\ & \bf the Correlated Topic Model\\
 Examination:        & \bf Computer Science Tripos -- Part II, July 2015  \\
@@ -79,7 +79,7 @@ None
 \newpage
 \section*{Declaration}
 
-I, Artjoms Iskovs of Trinity College, being a candidate for Part II of the Computer
+I, Artjoms I\v{s}kovs of Trinity College, being a candidate for Part II of the Computer
 Science Tripos, hereby declare that this dissertation and the work described in it are my own work,
 unaided except as may be specified below, and that the dissertation does not contain material that has already been used to any substantial
 extent for a comparable purpose.
@@ -552,7 +552,9 @@ Interestingly, these changes made the code shorter and perhaps more readable (Fi
 
 There are two ways the evaluation of the model can be performed: firstly, it can be trained on real-world gene expression and pathway membership data (which will be referred to as the KEGG/CMap dataset) and evaluated against another dataset, called CTD, that lists, for every drug, the pathways that it does affect. However, it is not at all certain that the drug gene expression data actually does follow the generative framework defined by the CTM. Therefore, if model had poor performance on the real-world dataset, it would be impossible to find out whether it's because of an error in the implementation of the model or simply because the CTM is not suited to such tasks.
 
-Hence, most of the evaluation was performed on toy datasets, generated as per the CTM's framework. However, the CTM was designed to be an exploratory model in the first place: given a corpus of text, the result of the training process would be an assignment of topics to every document, which reduces the dimensionality of data and allows to easier find similar documents. This makes the evaluation of CTM a challenge: how do we know that the values recovered as a result of training and inference make sense? Should they be compared to the reference model parameters and the per-document topic distributions that the corpus was generated with? Or perhaps it is enough to show that the outputs from the model are mutually consistent, for example, the inferred topic distribution for a document indeed spawns similar documents if we use it to generate them?
+Hence, most of the evaluation was performed on toy datasets, generated as per the CTM's framework. However, the CTM was designed to be an exploratory model in the first place: given a corpus of text, the result of the training process would be an assignment of topics to every document, which reduces the dimensionality of data and allows to easier find similar documents. This makes the evaluation of CTM a challenge: how do we know that the values recovered as a result of training and inference make sense?
+
+% Should they be compared to the reference model parameters and the per-document topic distributions that the corpus was generated with? Or perhaps it is enough to show that the outputs from the model are mutually consistent, for example, the inferred topic distribution for a document indeed spawns similar documents if we use it to generate them?
 
 Here, I propose multiple evaluation methods that try to explore the capabilities of the CTM, determine the performance of my implementation on synthetic datasets and establish whether CTM is useful for the prediction of drug-pathway interactions.
 
@@ -611,7 +613,7 @@ The second method is dealing with the root cause of this problem: that the topic
 
 To perform that, when the relevant vector is being generated, first, a sample is drawn from $\mathit{Poisson}((1-\rho) \times L)$ where $\rho$ is the density and $L$ is the length of the vector ($V$, the number of words, in case of $\beta$ or $K$, the number of topics, in case of $\theta$). This value is then clamped between 0 and $L$ and that number of smallest items in the vector is set to 0. Finally, the vector is renormalised.
 
-The model is trained with the resultant pattern of zeros in $\beta$ set as its prior, which improves the chances of a successful topic recovery, hence making permuting the parameters based on the inferred-reference $\beta$ similarity matrix redundant (since the matrix will tend to the identity matrix: $\theta_{i, j}$ will be the greatest for any given $i$ when $i = j$, i.e. the inferred and the reference topic structure has the same order). While this can be considered making the model's task easier, this is a necessary measure, since the real-world gene-pathway membership dataset is very sparse as well.
+The model is trained with the resultant pattern of zeros in $\beta$ set as its prior, which improves the chances of a successful topic recovery, hence making permuting the parameters based on the inferred-reference $\beta$ similarity matrix redundant (since the matrix will tend to the identity matrix: $M_{i, j}$ will be the greatest when $i = j$, i.e. the inferred and the reference topic structure has the same order). While this can be considered making the model's task easier, this is a necessary measure, since the real-world gene-pathway membership dataset is very sparse as well.
 
 \subsection{Topic prediction}
 
@@ -1158,9 +1160,11 @@ The World Health Organisation maintains a classification system for drugs called
 \item Actual substance: \textbf{01} for caffeine
 \end{itemize}
 
-There are a total of 14 anatomical main groups, defining the type of the system the drug is acting on. It is possible to train a powerful generic classifier such as Random Forest\cite{Breiman:2001:RF:570181.570182} that had successes in predicting drug-pathway perturbations\cite{Riddick15012011} on feature vectors $\theta_d$ inferred by LDA and CTM and anatomical main groups (as labels). This is another way to see whether the outputs of the topic models have any predictive power on the real-world data.
+There are a total of 14 anatomical main groups, defining the type of the system the drug is acting on. It is possible to train a powerful generic classifier such as Random Forests\cite{Breiman:2001:RF:570181.570182} that had successes in predicting drug-pathway perturbations\cite{Riddick15012011} on feature vectors $\theta_d$ inferred by LDA and CTM and anatomical main groups (as labels). This is another way to see whether the outputs of the topic models have any predictive power on the real-world data.
 
-A Python package called \texttt{scikit-learn} \cite{scikit-learn} that's deeply integrated with the \texttt{NumPy}/\texttt{SciPy} stack offers multiple classifiers and evaluation tools. Since implementing a Random Forest classifier was not an aim of this project, I gladly used those (Figure~\ref{fig:atc-python}). I hence performed 10-fold cross-validation on the classifier: split the $\theta_d$--label pairs into 10 sets, train the model on 9 of those and calculate the score reported by the model on the final set (for the Random Forest classifier, it's the fraction of correctly assigned classes). This is repeated another 9 times, each time with a different subset being held out from training. This allows to evaluate the model on more data than a single cross-validation cycle and also enhances the precision of the estimate.
+A Python package called \texttt{scikit-learn} \cite{scikit-learn} that's deeply integrated with the \texttt{NumPy}/\texttt{SciPy} stack offers multiple classifiers and evaluation tools. Since implementing a Random Forests classifier was not an aim of this project, I gladly used those (Figure~\ref{fig:atc-python}). I only considered the 4 majority classes (A, C, J and N) that had approximately equal numbers of drugs in them, since RF has poor performance on imbalanced data.
+
+I performed 10-fold cross-validation on the classifier: split the $\theta_d$--label pairs into 10 sets, train the model on 9 of those and calculate the score reported by the model on the final set (for the Random Forest classifier, it's the fraction of correctly assigned classes). This is repeated another 9 times, each time with a different subset being held out from training. This allows to evaluate the model on more data than a single cross-validation cycle and also enhances the precision of the estimate. In addition, the cross-validation is performed 10 times, shuffling the label and feature vectors each time, which increases the number of samples.
 
 \begin{figure}
 \begin{Verbatim}[fontsize=\scriptsize]
@@ -1168,49 +1172,62 @@ def atc(thetas):
     atc = pd.read_csv(diss_data_root + "ATC_codes_and_drug_names.csv")
     atc_dict = atc.set_index('DrugName')['ATC code'].to_dict()
     
-    drug_names_in_atc = [d for d in drug_names if d in atc_dict]
-    drug_labels = [atc_dict[d] for d in drug_names_in_atc]
-    filtered_thetas = np.array([t for t, d in zip(thetas, drug_names) if d in drug_names_in_atc])
+    drug_labels = [atc_dict[d] for d in drug_names if d in atc_dict]
+    filtered_thetas = np.array([t for t, d in zip(thetas, drug_names) if d in atc_dict])
     
     #Turn the letter labels into indices
     sorted_labels = sorted(set(drug_labels))
     label_map = {l: i for i, l in enumerate(sorted_labels)}
-    
     drug_labels = np.array([label_map[l] for l in drug_labels])
+    
+    #Keep only the majority classes (A, C, J, N)
+    relevant_ind = [i for i, l in enumerate(drug_labels) if l in {0, 2, 6, 9}]
+    drug_labels = drug_labels[relevant_ind]
+    filtered_thetas = filtered_thetas[relevant_ind]
 
-    #Create the classifier (100 trees, 8 threads) and cross-validate
-    forest = RandomForestClassifier(n_estimators=100, n_jobs=8)
-    samples = cross_validation.cross_val_score(forest, filtered_thetas, drug_labels, cv=10)
-    print "%.3f, %.3f" % (np.mean(samples), np.std(samples))
+    #Create the classifier (100 trees, 8 threads), cross-validate 10 times
+    #(vectors are shuffled every time) and return all resultant accuracies
+    samples = []
+    for _ in xrange(10):
+        forest = RandomForestClassifier(n_estimators=100, n_jobs=8)
+        samples.extend(cross_validation.cross_val_score(forest, filtered_thetas, drug_labels, cv=10))
+    
+    return samples
 \end{Verbatim}
-\caption{Python code that performs the evaluation of the drug-pathway distributions using Random Forest}
+\caption{Python code that performs the evaluation of the drug-pathway distributions using Random Forests}
 \label{fig:atc-python}
 \end{figure}
 
-\begin{table}
-\begin{tabu}{| l | l | l |}
-\hline
-Features & Mean RF score & SD of the RF scores \\
-\hline
-$\theta$ of CTM & 0.163 & 0.032 \\
-$\theta$ of CTM-exp & 0.156 & 0.046 \\
-$\theta$ of LDA & 0.144 & 0.026 \\
-Random $\theta$ & 0.126 & 0.030 \\
-Raw gene expression data (not exponentiated) &  0.165 & 0.040 \\
-Raw gene expression data (exponentiated) & 0.176 & 0.034 \\
-\hline
-\end{tabu}
-\caption{10-fold cross-validated mean accuracies for Random Forest on the ATC dataset for various feature sets}
-\label{tab:atc-test-results}
-\end{table}
+%\begin{table}
+%\begin{tabu}{| l | l | l |}
+%\hline
+%Features & Mean RF score & SD of the RF scores \\
+%\hline
+%$\theta$ of CTM & 0.163 & 0.032 \\
+%$\theta$ of CTM-exp & 0.156 & 0.046 \\
+%$\theta$ of LDA & 0.144 & 0.026 \\
+%Random $\theta$ & 0.126 & 0.030 \\
+%Raw gene expression data (not exponentiated) &  0.165 & 0.040 \\
+%Raw gene expression data (exponentiated) & 0.176 & 0.034 \\
+%\hline
+%\end{tabu}
+%\caption{10-fold cross-validated mean accuracies for Random Forest on the ATC dataset for various feature sets}
+%\label{tab:atc-test-results}
+%\end{table}
 
-Table~\ref{tab:atc-test-results} shows the mean scores and their standard deviation for different vectors used as features. All models have comparable performance, within 1 standard deviation of each other, and slightly outperform drawing vectors randomly. Topic models don't bring an improvement on using raw gene expression data to predict the main anatomical group of a drug.
+\begin{figure}[!htb]
+\includegraphics[width=\textwidth]{atc-boxplot.eps}
+\caption{Box plot of the precisions (fraction of classes predicted correctly) of Random Forests on the ATC dataset for various feature sets. Raw stands for raw gene expression data.}
+\label{fig:atc-boxplot}
+\end{figure}
 
-Interestingly, from an information-theoretic perspective, if there is no information in the feature vectors, the best score a classifier can get is $2^{-H}$ where $H$ is the entropy of the distribution of labels: $2.41$ bits in the case of the ATC anatomical main groups, giving the average probability of guessing the right label of about $0.188$.
+Figure~\ref{fig:atc-boxplot} shows the so-called box plot of the precisions of Random Forests on the ATC dataset, with the red line showing the median, the box showing the first and third quartiles (covering all but the lowest and the highest 25\% of all observations) and the whiskers show the 1st and the 99th percentiles. While the performance of the topic models is comparable and slightly better than using random vectors as features, Random Forests works better on raw gene expression data.
+
+Interestingly, from an information-theoretic perspective, if there is no information in the feature vectors, the best score a classifier can get is $2^{-H}$ where $H$ is the entropy of the distribution of labels: $1.38$ bits in the case of the four majority ATC anatomical main groups, giving the average probability of guessing the right label of about $0.383$.
 
 \subsection{Visualising the resultant similarity matrices}
 Since the document (or drug) similarity matrix (\ref{eq:document_similarity_matrix}) is not affected by the topic identifiability, I decided to perform clustering on the matrix to identify some common groups of drugs and reference them to the actual descriptions of those drugs.
-I used the Markov Clustering Algorithm (MCL)  \cite{Dongen:2000:CAG:868986}, a simple method that's based on the insight that a document similarity matrix, when normalised, forms a Markov chain. If one simulates multiple ``random walkers" on this chain and slowly starts weakening the links between the elements of the chain, each of them will eventually end up roaming around the final clusters. This is encoded in the following algorithm:
+I used the Markov Clustering Algorithm (MCL)  \cite{Dongen:2000:CAG:868986}, a simple method that's based on the insight that a document similarity matrix, when normalised, forms a Markov chain. If one simulates multiple ``random walkers" on this chain and slowly starts weakening the links between the elements of the chain, each of them will eventually end up roaming around the final clusters. This is encoded in Algorithm~\ref{markov-clustering}.
 
 \input{markov_clustering}
 
@@ -1226,7 +1243,7 @@ TODO: drug clusterings have miscoloured ATC
 
 Figures~\ref{fig:drug-cluster-2}~and~\ref{fig:drug-cluster-3} show the resultant graphs where each drug was also coloured as per its ATC class.
 
-To visualise the matrix of correlations between pathways, I used a method from finance for visualisation of correlations between stocks \cite{doi:10.1007/s100510050929}. First, all correlations between pathways are transformed such that pathways with greater correlations get assigned a lower value: $d_{i,j} = \sqrt{2(1 - C_{i, j})}$. Then, Prim's algorithm \cite{doi:10.1007/BF01386390} is used to build a minimum spanning tree on this graph, which essentially creates a hierarchy of pathways/drugs.
+To visualise the matrix of correlations between pathways, I used a method from finance for visualisation of correlations between stocks \cite{doi:10.1007/s100510050929}. First, all correlations between pathways are transformed such that pathways with greater correlations get assigned a lower value: $d_{i,j} = \sqrt{2(1 - C_{i, j})}$. Then, Prim's algorithm \cite{doi:10.1007/BF01386390} is used to build a minimum spanning tree on this graph, which allows to explore the hierarchical relationships between pathways.
 
 The resultant tree is shown in Figure~\ref{fig:pathway-tree}. Interestingly, the root of the tree (middle) became the pathway for lupus, an autoimmune disease in which the body's immune system attacks healthy tissue. Some other phenomena are connected in the tree, such as Alzheimer's, Parkinson's and Huntington's, three neurodegenerative diseases on the right hand side. Alternatively, a branch in the top left hand side mentions various pathways related to diabetes, including the pathway for beta-Alanine metabolism (which is used in treatment of diabetes \cite{buckley1996glp}).
 
@@ -1291,11 +1308,11 @@ The resultant tree is shown in Figure~\ref{fig:pathway-tree}. Interestingly, the
 
 \chapter{Conclusion}
 
-The original goal of this project was to implement the training process for a Correlated Topic Model, augmented with topic-word membership priors. The extension goal was to implement the drug-pathway activation inference algorithm, test the model on real-world data and compare it with the results of LDA.
+The original goal of this project was to implement the training process for a Correlated Topic Model, augmented with topic-word membership priors.
 
-As a result, I have a working implementation of the CTM that can perform full training and inference on the real-world dataset in about 8-9 hours (3 times faster than LDA). I also derived and implemented the inference algorithm for the distribution of topics in a document (pathways in a drug), which allowed to perform better testing. The model was tested on multiple randomly generated datasets with characteristics similar to those of the real-world datasets. While the actual model parameter recovery is poor because the enforcement of density on the generated document-topic distributions $\theta$ breaks the assumptions of CTM, the model still can infer $\theta$ extremely well.
+As a result, I have a working implementation of the CTM, including its training and drug-pathway (document-topic) distribution inference process. I also designed multiple evaluation methods that can be used to test topic models on drug-pathway relationship prediction problems. The model was first tested on multiple toy datasets with characteristics similar to those of the real-world datasets. While the actual model parameter recovery is poor because the enforcement of density on the generated document-topic distributions $\theta$ breaks the assumptions of CTM, the model still can infer $\theta$ extremely well.
 
-On the real-world KEGG/CMap dataset, the CTM does have predictive power, but it is outperformed by LDA. However, I proposed multiple augmentations to CTM that result in a performance improvement. First of all, exponentiating the preprocessed gene expression values instead of discarding the sign results in more information available to the model, improving its predictions. Secondly, only performing one expectation-maximisation iteration during the CTM training results in a comparable performance to the full-convergence CTM. Overall, these improvements allow to predict drug-pathway distributions slightly better than LDA in a fraction of required time (about 2 hours).
+Secondly, the model was tested on the real-world KEGG/CMap dataset, performing the full training and inference in about 8-9 hours (3 times faster than LDA). While CTM does have predictive power, it is outperformed by LDA. However, I proposed multiple augmentations to CTM that result in a performance improvement. First of all, exponentiating the preprocessed gene expression values instead of discarding the sign results in more information available to the model, improving its predictions. Secondly, only performing one expectation-maximisation iteration during the CTM training results in a comparable performance to the full-convergence CTM. Overall, these improvements allow to predict drug-pathway distributions slightly better than LDA in a fraction of required time (about 2 hours).
 
 I also established that while the outputs from the topic models can be used as inputs to a generic classifier to predict the anatomical main class of a drug, they don't improve on using the raw gene expression data directly.
 
