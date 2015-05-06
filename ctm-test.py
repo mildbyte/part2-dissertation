@@ -212,32 +212,31 @@ def atc(thetas):
     atc = pd.read_csv(diss_data_root + "ATC_codes_and_drug_names.csv")
     atc_dict = atc.set_index('DrugName')['ATC code'].to_dict()
     
-    drug_names_in_atc = [d for d in drug_names if d in atc_dict]
-    drug_labels = [atc_dict[d] for d in drug_names_in_atc]
-    filtered_thetas = np.array([t for t, d in zip(thetas, drug_names) if d in drug_names_in_atc])
+    drug_labels = [atc_dict[d] for d in drug_names if d in atc_dict]
+    filtered_thetas = np.array([t for t, d in zip(thetas, drug_names) if d in atc_dict])
     
     #Turn the letter labels into indices
-    
     sorted_labels = sorted(set(drug_labels))
     label_map = {l: i for i, l in enumerate(sorted_labels)}
-    
     drug_labels = np.array([label_map[l] for l in drug_labels])
+    
+    #Keep only the majority classes (A, C, J, N)
+    relevant_ind = [i for i, l in enumerate(drug_labels) if l in {0, 2, 6, 9}]
+    drug_labels = drug_labels[relevant_ind]
+    filtered_thetas = filtered_thetas[relevant_ind]
 
-    #Create the classifier (100 trees, 8 threads) and cross-validate
-    forest = RandomForestClassifier(n_estimators=100, n_jobs=8)
-    samples = cross_validation.cross_val_score(forest, filtered_thetas, drug_labels, cv=10)
-    print "%.3f, %.3f" % (np.mean(samples), np.std(samples))
+    #Create the classifier (100 trees, 8 threads), cross-validate 10 times
+    #(vectors are shuffled every time) and return all resultant accuracies
+    samples = []
+    for _ in xrange(10):
+        forest = RandomForestClassifier(n_estimators=100, n_jobs=8)
+        samples.extend(cross_validation.cross_val_score(forest, filtered_thetas, drug_labels, cv=10))
+    
+    return samples
     
     #nb: gmrf gets 0.172, 0.029
     
     
-#TODO: try the CDF/heatmap/side evaluation on the simulated data
-#writeup the simulated study
-#send the random thetas
-#run exp() with the disease dataset
-#try normalizing the logs to 0..inf
-#density/performance on simulated
-
 if __name__ == "__main__":
     drug_prune = 1
     gene_prune = 1

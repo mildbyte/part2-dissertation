@@ -67,9 +67,6 @@ def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, m
         #Can pass previous v_params to speed up convergence
         params = pool.map(VIWorker(m_params), zip(corpus, word_counts, params))
 #        params = map(VIWorker(m_params), zip(corpus, word_counts, params))
-
-#        for i, d, c in zip(xrange(len(corpus)), corpus, word_counts):
-#            params[i] = variational_inference(d, c, m_params, params[i])
         
         old_l_bound = sum([likelihood_bound(p, m_params, d, c, sum(c)) for (p, d, c) in zip(params, corpus, word_counts)])
         print "Old bound: %.2f" % old_l_bound
@@ -88,20 +85,7 @@ def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, m
             beta += np.multiply(count, exp_phi.T)
         
         beta /= np.sum(beta, axis=1)[:, np.newaxis]
-#        
-#        beta = np.zeros(m_params.beta.shape)
-#        for d in xrange(len(corpus)):
-#            for w in xrange(len(corpus[d])):
-#                word = corpus[d][w]
-#                count = word_counts[d][w]
-#                for i in xrange(len(beta)):
-#                    beta[i, word] += count * params[d].phi[w, i]
-#        
-#        for i in xrange(len(beta)):
-#            beta[i] /= np.sum(beta[i])
-        
-        
-        
+
         m_params = Model(mu, sigma, beta)
         iteration += 1
 
@@ -110,10 +94,10 @@ def expectation_maximization(corpus, word_counts, no_pathways, pathway_priors, m
         delta = abs((new_l_bound - old_l_bound)/old_l_bound)
         print "New bound: %.2f, difference: %.6f" % (new_l_bound, delta)
         
-        if (delta < 2e-5 or iteration >= max_iterations):
+        if (delta < 1e-5 or iteration >= max_iterations):
             break
     
     pool.close()
-        
+
     m_params.beta[beta_zeros] = 0
     return m_params, params

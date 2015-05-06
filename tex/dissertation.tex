@@ -109,8 +109,6 @@ The aim of this project is to implement a version of a statistical model called 
 
 One important item used in biology to investigate gene activity is called a DNA microarray. A DNA microarray, in essence, is an array of DNA strands. These strands can be treated with various drugs or other compounds, which causes the gene expression process (during which the DNA is converted to proteins) to start. The intensity of gene expression can be measured using gene expression profiling.
 
-TODO: picture of a microarray
-
 The result of such an experiment is a ratio of the level of expression of the gene treated with the drug to the untreated gene expression data. This data can be used for multiple purposes, including, for example, predicting the effects of drugs on the human body.
 
 There are tens of thousands of human genes, which makes the data very high-dimensional (known as the curse of dimensionality). To combat this, researchers mostly investigate phenomena in biology using the idea of biological pathways: essentially, series of actions that are all linked to each other that result in a certain activity in a cell. Genes and gene expression are grouped into such pathways, thus providing researchers with an easier way to study various phenomena.
@@ -769,7 +767,9 @@ At every iteration, the model outputs a likelihood bound that it assigns to the 
 
 The difference between bounds is large enough for it to be difficult to see the general shape of the likelihood bound curve. Figure~\ref{fig:sim-likelihood-bounds-k-20} plots the sample likelihood bound curve for one of the toy datasets. The training essentially follows a power law: most of the progress happens in the first few iterations.
 
-Overall, the model achieves great performance on the prediction of the distributions of topics the document was generated with. It would hence be reasonable to assume that if the model predicts the topic distribution for a document consistently well, it will also be able to recover the model parameters the corpus was generated with, since this is what the model relies on for its predictions. However, this is not exactly the case: the model's ability to recover the parameters ($\mu, \Sigma, \beta$) degrades quickly beyond that of random guessing as the number of topics increases. The reasons for this will be discussed further.
+In general, the model's performance on all tasks degrades as the number of topics increases, which is expected: the number of parameters the model has to infer grows as $\mathcal{O}(K^2)$, since the covariance matrix $\Sigma$ is $K \times K$--dimensional, whereas the number of documents the model is trained on stays the same.
+
+Overall, the model achieves great performance on the prediction of the distributions of topics the document was generated with. It would hence be reasonable to assume that if the model will also be able to recover the model parameters the corpus was generated with, since this is what the model relies on for its predictions. However, this is not exactly the case: the model's ability to recover the parameters ($\mu, \Sigma, \beta$) degrades quickly beyond that of random guessing as the number of topics increases. The reasons for this will be discussed further.
 
 In addition, since the output of every iteration of training are only the refined model parameters and even after convergence these model parameters are far away from the real parameters, it could be the case that further iterations do not improve the quality of prediction of the topic distributions. Hence, the performance of 1-iteration CTM is also investigated in attempts to see whether the lengthy CTM training process can be shortened.
 
@@ -1117,6 +1117,18 @@ Since CTM takes into account the correlations between pathways, it could be the 
 \label{fig:ctd-ctm-lda-scatter}
 \end{figure}
 
+\begin{figure}[!htb]
+\includegraphics[width=\textwidth]{ctd-ctm-lda-ctmexp-bar.eps}
+\caption{Number of drugs on which the models get a higher rho-normalised log score at every density level}
+\label{fig:ctd-ctm-lda-bar}
+\end{figure}
+
+\begin{figure}[!htb]
+\includegraphics[width=\textwidth]{ctd-ctm-lda-ctmexp-bar-10.eps}
+\caption{Number of drugs on which the models get a higher rho-normalised log score at every density level (drugs affecting up to 20 pathways)}
+\label{fig:ctd-ctm-lda-bar-10}
+\end{figure}
+
 \begin{table}
 \begin{tabu}{| l | l | l |}
 \hline
@@ -1133,20 +1145,20 @@ CTM with exponentiation & -0.186 & $3.60 \times 10^{-5}$ \\
 
 Table~\ref{tab:ctm-density-correlation} shows the Pearson's r score and the 2-tailed p-value, calculated by \texttt{SciPy}'s function \texttt{scipy.stats.pearsonr}. The p-value is defined as ``the probability of an uncorrelated system producing datasets that have a Pearson correlation at least as extreme as the one computed from these datasets" and so using this value, we can establish that there is a significant negative correlation between the performance of CTM with exponentiation and the drug density. This is because CTM-exp seems to have improved the worst outliers of CTM at low density levels.
 
-\begin{table}
-\begin{tabu}{| l | l | l |}
-\hline
-Criterion & Number of drugs & Mean density \\
-\hline
-CTM-exp outperforms LDA & 284 (57.7\%) & 0.148 \\
-LDA outperforms CTM-exp & 208 (42.3\%) & 0.154 \\
-\hline
-\end{tabu}
-\caption{Characterisation of drugs on which the models outperform each other}
-\label{tab:ctm-lda-outperform}
-\end{table}
+%\begin{table}
+%\begin{tabu}{| l | l | l |}
+%\hline
+%Criterion & Number of drugs & Mean density \\
+%\hline
+%CTM-exp outperforms LDA & 284 (57.7\%) & 0.148 \\
+%LDA outperforms CTM-exp & 208 (42.3\%) & 0.154 \\
+%\hline
+%\end{tabu}
+%\caption{Characterisation of drugs on which the models outperform each other}
+%\label{tab:ctm-lda-outperform}
+%\end{table}
 
-Table~\ref{tab:ctm-lda-outperform} further shows that CTM does not win on higher-density drugs: the average density of drugs on which CTM with exponentiation achieves a higher score than LDA is slightly smaller than of those where LDA beats CTM.
+Figures~\ref{fig:ctd-ctm-lda-bar}~and~\ref{fig:ctd-ctm-lda-bar-10} group all drugs in CTD by the number of pathways they affect and show, for each level, the number of drugs on which the models outperform each other. While CTM has rather poor performance, CTM with exponentiation outperforms the other two models on the majority of drugs (57.7\%) and really shines on low-density drugs.
 
 \subsection{ATC classification}
 
@@ -1164,7 +1176,7 @@ There are a total of 14 anatomical main groups, defining the type of the system 
 
 A Python package called \texttt{scikit-learn} \cite{scikit-learn} that's deeply integrated with the \texttt{NumPy}/\texttt{SciPy} stack offers multiple classifiers and evaluation tools. Since implementing a Random Forests classifier was not an aim of this project, I gladly used those (Figure~\ref{fig:atc-python}). I only considered the 4 majority classes (A, C, J and N) that had approximately equal numbers of drugs in them, since RF has poor performance on imbalanced data.
 
-I performed 10-fold cross-validation on the classifier: split the $\theta_d$--label pairs into 10 sets, train the model on 9 of those and calculate the score reported by the model on the final set (for the Random Forest classifier, it's the fraction of correctly assigned classes). This is repeated another 9 times, each time with a different subset being held out from training. This allows to evaluate the model on more data than a single cross-validation cycle and also enhances the precision of the estimate. In addition, the cross-validation is performed 10 times, shuffling the label and feature vectors each time, which increases the number of samples.
+I performed 10-fold cross-validation on the classifier: split the $\theta_d$--label pairs into 10 sets, train the model on 9 of those and calculate the score reported by the model on the final set (for the Random Forests classifier, it's the fraction of correctly assigned classes). This is repeated another 9 times, each time with a different subset being held out from training. This allows to evaluate the model on more data than a single cross-validation cycle and also enhances the precision of the estimate. In addition, the cross-validation is performed 10 times, shuffling the label and feature vectors each time, which increases the number of samples.
 
 \begin{figure}
 \begin{Verbatim}[fontsize=\scriptsize]
@@ -1222,8 +1234,6 @@ def atc(thetas):
 \end{figure}
 
 Figure~\ref{fig:atc-boxplot} shows the so-called box plot of the precisions of Random Forests on the ATC dataset, with the red line showing the median, the box showing the first and third quartiles (covering all but the lowest and the highest 25\% of all observations) and the whiskers show the 1st and the 99th percentiles. While the performance of the topic models is comparable and slightly better than using random vectors as features, Random Forests works better on raw gene expression data.
-
-Interestingly, from an information-theoretic perspective, if there is no information in the feature vectors, the best score a classifier can get is $2^{-H}$ where $H$ is the entropy of the distribution of labels: $1.38$ bits in the case of the four majority ATC anatomical main groups, giving the average probability of guessing the right label of about $0.383$.
 
 \subsection{Visualising the resultant similarity matrices}
 Since the document (or drug) similarity matrix (\ref{eq:document_similarity_matrix}) is not affected by the topic identifiability, I decided to perform clustering on the matrix to identify some common groups of drugs and reference them to the actual descriptions of those drugs.
@@ -1312,7 +1322,7 @@ The original goal of this project was to implement the training process for a Co
 
 As a result, I have a working implementation of the CTM, including its training and drug-pathway (document-topic) distribution inference process. I also designed multiple evaluation methods that can be used to test topic models on drug-pathway relationship prediction problems. The model was first tested on multiple toy datasets with characteristics similar to those of the real-world datasets. While the actual model parameter recovery is poor because the enforcement of density on the generated document-topic distributions $\theta$ breaks the assumptions of CTM, the model still can infer $\theta$ extremely well.
 
-Secondly, the model was tested on the real-world KEGG/CMap dataset, performing the full training and inference in about 8-9 hours (3 times faster than LDA). While CTM does have predictive power, it is outperformed by LDA. However, I proposed multiple augmentations to CTM that result in a performance improvement. First of all, exponentiating the preprocessed gene expression values instead of discarding the sign results in more information available to the model, improving its predictions. Secondly, only performing one expectation-maximisation iteration during the CTM training results in a comparable performance to the full-convergence CTM. Overall, these improvements allow to predict drug-pathway distributions slightly better than LDA in a fraction of required time (about 2 hours).
+Secondly, the model was tested on the real-world KEGG/CMap dataset, performing the full training and inference in about 8-9 hours (3 times faster than LDA). While CTM does have predictive power, it is outperformed by LDA. However, I proposed multiple augmentations to CTM that result in a performance improvement. First of all, exponentiating the preprocessed gene expression values instead of discarding the sign results in more information available to the model, improving its predictions. Secondly, only performing one expectation-maximisation iteration during the CTM training results in a comparable performance to the full-convergence CTM. Overall, these improvements allow to predict drug-pathway distributions slightly better than LDA (especially on low-density drugs affecting few pathways) in a fraction of required time (about 2 hours).
 
 I also established that while the outputs from the topic models can be used as inputs to a generic classifier to predict the anatomical main class of a drug, they don't improve on using the raw gene expression data directly.
 
