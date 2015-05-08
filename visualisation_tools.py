@@ -39,18 +39,14 @@ def generate_mst_graph(C, labels=None, node_colours=None):
         Vnew.add(min_v[1])
         
     if node_colours is not None:
-        cmap = get_cmap('gist_ncar')
+        cmap = get_cmap('Accent')
         G.node_attr['style'] = 'filled'
         G.node_attr['fontcolor'] = 'white'
         for l, c in zip(labels, node_colours):
             if l in G.nodes():
                 n = G.get_node(l)
                 n.attr['fillcolor']="%f,%f,%f" % cmap(c)[:3]
-
-    
-#    degree = G.degree()
-#    G.delete_nodes_from([n for i, n in enumerate (G.nodes()) if degree[i] == 0])
-
+                
     return G
 
 def connected_subgraph(G, node, max_depth=3):
@@ -81,7 +77,7 @@ def connected_subgraph(G, node, max_depth=3):
     return G2
 
 def generate_cluster_graph(mcl_result, labels=None, node_colours=None):
-    cmap = get_cmap('gist_ncar')
+    cmap = get_cmap('Accent')
     
     K = mcl_result.shape[0]
     if labels is None:

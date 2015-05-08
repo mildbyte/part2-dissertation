@@ -972,8 +972,6 @@ To perform a quick sanity check for the results, I took the cosine similarities 
 
 \subsection{CTD}
 
-TODO: What is CTD?
-
 The CTD dataset is a catalogue of drugs that lists which pathway each one of those affects. Not all pathways and not all drugs used in the KEGG/CMap dataset are mentioned in the CTD, so the final drug-pathway prediction matrices output by LDA and CTM had to be filtered down to the shape of CTD: 495 drugs (thus simply dropping the relevant rows) and 193 pathways (removing the columns and renormalising). The density of the resultant $\theta$ is 0.1231.
 
 The drug-pathway distributions predicted by the models are then rank-transformed.
@@ -1249,8 +1247,6 @@ The size of the $\mathit{inflation}$ parameter (the exponent on every element of
 
 Since all drugs have multiple common pathways and hence similarity values close to 1, I first preprocessed the drug-pathway distributions and removed top 10 most expressed pathways from consideration. Despite that, the process gave few resultant clusters unless the $\mathit{inflation}$ parameter was large.
 
-TODO: drug clusterings have miscoloured ATC
-
 Figures~\ref{fig:drug-cluster-2}~and~\ref{fig:drug-cluster-3} show the resultant graphs where each drug was also coloured as per its ATC class.
 
 To visualise the matrix of correlations between pathways, I used a method from finance for visualisation of correlations between stocks \cite{doi:10.1007/s100510050929}. First, all correlations between pathways are transformed such that pathways with greater correlations get assigned a lower value: $d_{i,j} = \sqrt{2(1 - C_{i, j})}$. Then, Prim's algorithm \cite{doi:10.1007/BF01386390} is used to build a minimum spanning tree on this graph, which allows to explore the hierarchical relationships between pathways.
@@ -1260,7 +1256,7 @@ The resultant tree is shown in Figure~\ref{fig:pathway-tree}. Interestingly, the
 \begin{landscape}
 	\begin{figure}[!htb]
 		\includegraphics[height=\textwidth]{drug-cluster-2.eps}
-		\caption{Markov clustering of the drug similarity matrix with $\mathit{expansion}=2, \mathit{inflation}=30$, each drug colour-coded as per its ATC anatomical class}
+		\caption{Markov clustering of the drug similarity matrix with $\mathit{expansion}=2, \mathit{inflation}=40$, each drug colour-coded as per its ATC anatomical class (4 majority classes only)}
 		\label{fig:drug-cluster-2}
 	\end{figure}
 	
@@ -1269,7 +1265,7 @@ The resultant tree is shown in Figure~\ref{fig:pathway-tree}. Interestingly, the
 \begin{landscape}
 	\begin{figure}[!htb]
 		\includegraphics[height=\textwidth]{drug-cluster-3.eps}
-		\caption{Markov clustering of the drug similarity matrix with $\mathit{expansion}=2, \mathit{inflation}=55$, each drug colour-coded as per its ATC anatomical class}
+		\caption{Markov clustering of the drug similarity matrix with $\mathit{expansion}=2, \mathit{inflation}=55$, each drug colour-coded as per its ATC anatomical class (4 majority classes only)}
 		\label{fig:drug-cluster-3}
 	\end{figure}
 	
@@ -1330,11 +1326,11 @@ I also established that while the outputs from the topic models can be used as i
 
 There are multiple things I didn't have time to investigate in this project.
 
-The first one is the mysterious phenomenon on Figure~\ref{fig:ctd-side-plots} whereby all topic models consistently predict low expression levels for pathways that are in CTD. I remain convinced that this is not a problem with my plotting (since the plot for the reference dataset does form a monotonically decreasing curve) or the implementation of CTM (since LDA has the same problem).
-
-TODO: testing with various theta/beta density levels (better parameter recovery for sparse theta/beta)
-
-TODO: fixing prior enforcement (some sort of smoothing?)
+\begin{itemize}[noitemsep]
+\item The mysterious phenomenon on Figure~\ref{fig:ctd-side-plots} whereby all topic models consistently predict low expression levels for pathways that are in CTD. I remain convinced that this is not a problem with my plotting (since the plot for the reference dataset does form a monotonically decreasing curve) or the implementation of CTM (since LDA has the same problem).
+\item While for really high densities of $\theta$ and $\beta$, the parameter recovery using the permutation method (Equation~\ref{eq:beta_similarity matrix}) was much better (since in that case the model was following the assumptions of the original CTM), I didn't thoroughtly investigate how the performance changes with the densities: evaluation only focused on datasets of similar parameters to the real-world one.
+\item The fact that the 1-iteration CTM managed to get essentially the same performance as the full-convergence CTM implies that the global model parameters didn't play a large role in the final predictions. However, visualisations of the covariance matrix (Figure~\ref{fig:pathway-tree}) show that it did successfully capture some real-life phenomena. Perhaps by improving the quality of the parameter recovery the predictions of CTM could be improved as well.
+\end{itemize}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
