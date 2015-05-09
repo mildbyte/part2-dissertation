@@ -29,9 +29,6 @@
 
 \begin{document}
 
-\bibliographystyle{plain}
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Title
 
@@ -62,7 +59,7 @@ Name:               & \bf Artjoms I\v{s}kovs                       \\
 College:            & \bf Trinity College                     \\
 Project Title:     & \bf Predicting drug-pathway interactions using \\ & \bf the Correlated Topic Model\\
 Examination:        & \bf Computer Science Tripos -- Part II, July 2015  \\
-Word Count:         & \bf ??\\
+Word Count:         & \bf 11760\\
 Project Originator: & N.~Pratanwanich                    \\
 Supervisor:         & N.~Pratanwanich                    \\ 
 \end{tabular}
@@ -72,6 +69,7 @@ Supervisor:         & N.~Pratanwanich                    \\
 Implement the Correlated Topic Model for the problem of inferring pathways from drug gene expression data. Find a way to enforce gene-pathway membership priors so that the recovered topic structure can be related to the real data.
 
 \section*{Work Completed}
+CTM training processs with prior enforcement was implemented and inference of the pathway distribution for a new document was designed and implemented. Multiple evaluation methods were designed and the model was tested on synthetic (toy) and real-world datasets.
 
 \section*{Special Difficulties}
 None
@@ -85,10 +83,10 @@ unaided except as may be specified below, and that the dissertation does not con
 extent for a comparable purpose.
 
 \bigskip
-\leftline{Signed [signature]}
+\leftline{Signed }
 
 \medskip
-\leftline{Date [date]}
+\leftline{Date }
 
 \tableofcontents
 
@@ -150,6 +148,8 @@ I decided to use Python to implement the training and inference process for the 
 The unsuitability of Python for scientific computing is fixed by \texttt{NumPy}\cite{DBLP:journals/corr/abs-1102-1523}, a linear algebra library that allows fast matrix operations in native code (using either routines provided by \texttt{NumPy} or more advanced numerical libraries that support the Basic Linear Algebra Subsystem (BLAS) API, such as ATLAS or OpenBLAS). In addition, \texttt{NumPy} integrates well with \texttt{SciPy}, a scientific computing library that provides useful routines, for example, for working with probability distributions or numerical optimisation. \texttt{matplotlib} can produce publication-quality vector plots.
 
 All of these libraries are provided by Anaconda, a Python distribution that includes ``over 195 of the most popular Python packages for science, math, engineering, data analysis". In addition, it comes with Spyder, a Python IDE, and IPython, an advanced Python shell. I hence used this distribution for my development.
+
+The other part of the toolchain I used was version control: the project (including the Python source code that implements the model and the source for this dissertation) was stored in a Git repository that was regularly pushed to GitHub and my Desktop Services filespace. The generated toy datasets were compressed and backed up to Dropbox. I did not make backups of the actual real-world dataset (since it was available publicly) or the training/inference results (for the real-world dataset, they take about 6GB and could be regenerated in less than a day by retraining the model, which is deterministic).
 
 A major part of this project is learning the theory of Bayesian Networks (which LDA and CTM are) and how inference in them is performed. In addition, I had to familiarise myself with how machine learning models can be evaluated. This involved reading, among other things, the resources mentioned in my proposal: 
 
@@ -294,8 +294,6 @@ Table~\ref{tab:ctm-variables} defines the variables that will be used throughout
 
 \subsection{Deriving the posterior distribution}
 
-We aim to find the model parameters that maximise the likelihood bound on the whole corpus. In other words, what are the model parameters that we need to set so that the corpus we're inspecting is the most likely one?
-
 First of all, given a document and the global model parameters, consider the distribution of the possible distributions of topics and the topic assignments:
 
 \begin{equation}
@@ -333,7 +331,7 @@ The final expression, as it appears in Blei's paper, is
 \frac{p(\eta | \mu, \Sigma) \prod\limits_{n=1}^N p(w_n | z_n, \beta) p(z_n | \eta)}{\int p(\eta | \mu, \Sigma)  \prod\limits_{n=1}^N \sum\limits_{z_n=1}^K p(z_n | \eta) p(w_n | z_n, \beta) d\eta}
 \end{equation}
 
-There are two problems with this expression's denominator (the marginal probability of the document). First, it contains a summation over $K$ possible values of the topic of the nth word in the document, $z_n$, which is inside a product over the $N$ words in the document, thus the integrand will contain $K^N$ terms: intractable with the sizes of the data used in this project. Worse even, the distributions $p(z_n | \eta)$ and $p(\eta | \mu, \Sigma)$ are not conjugate to each other, hence the integral over $\eta$ cannot be computed analytically.
+The marginal probability of the document (the denominator) contains a summation over $K$ possible values of the topic of the nth word in the document, $z_n$, which is inside a product over the $N$ words in the document, thus the integrand will contain $K^N$ terms: intractable with the sizes of the data used in this project. Worse even, the distributions $p(z_n | \eta)$ and $p(\eta | \mu, \Sigma)$ are not conjugate to each other, hence the integral over $\eta$ cannot be computed analytically \cite{fink1997compendium}.
 
 \subsection{Using variational methods to approximate the likelihood bound}
 
@@ -406,7 +404,7 @@ dL/d\lambda & = -\Sigma^{-1}(\lambda - \mu) + \sum\limits_{n=1}^N\phi_{n, 1:K} -
 dL/d\nu^2 & = -\mathit{diag}(\Sigma^{-1})/2 - \frac{N}{2\zeta}e^{\lambda + \nu^2/2} + \frac{1}{2\nu^2}
 \end{align}
 
-and with the constraint that $\nu_2 > 0$.
+and with the constraint that $\nu^2 > 0$.
 
 Blei's paper suggests using the conjugate gradient algorithm to optimise $\lambda$ and Newton's method for each coordinate of $\nu^2$, however, I found that I got better performance (both in number of calls to the objective function and the speed of the model) when using the limited-memory Broyden-Fletcher-Goldfarb-Shanno algorithm with box constraints (L-BFGS-B)\cite{doi:10.1137/0916069} to optimise for the whole vector $\nu^2$. I didn't write my own implementations of the conjugate gradient or the L-BFGS-B algorithm: they were available as a part of \texttt{SciPy}. The objective functions passed to the optimisers are simply the negated (since the routines find the minimum) likelihood bounds with just the relevant terms (dependent on $\lambda$ or $\nu^2$, respectively).
 
@@ -651,13 +649,13 @@ The parameters are then compared to the reference using the normalized root-mean
 
 where $I$ is the inferred parameter, $R$ is the reference parameter and $D$ is the size of the matrix/vector.
 
-In addition, there exists a measure of correlation on the rank-transformed data called the Spearman's rank correlation coefficient, which expresses how monotone is the relationship between the two variables. Unlike the Pearson's coefficient which only measures the amount of linear dependence between the variables, it is sensitive to more types of dependencies and might be able to uncover the relationship between the inferred and the reference variables. It's defined as 
-
-\begin{equation}
-\rho  = 1 - \frac{6\sum d^2_i}{n ( n^2-1)}
-\end{equation}
-
-First, the variables $x_i$ and $y_i$ have to be rank-transformed (each value replaced with its rank in the sorted vector). Then, $d_i = x_i - y_i$ is the difference between ranks. Thus, the correlations between the inferred and reference $\mu$, rows of the correlation matrix $C$ and each topic-word distribution in $\beta$ can be compared.
+%In addition, there exists a measure of correlation on the rank-transformed data called the Spearman's rank correlation coefficient, which expresses how monotone is the relationship between the two variables. Unlike the Pearson's coefficient which only measures the amount of linear dependence between the variables, it is sensitive to more types of dependencies and might be able to uncover the relationship between the inferred and the reference variables. It's defined as 
+%
+%\begin{equation}
+%\rho  = 1 - \frac{6\sum d^2_i}{n ( n^2-1)}
+%\end{equation}
+%
+%First, the variables $x_i$ and $y_i$ have to be rank-transformed (each value replaced with its rank in the sorted vector). Then, $d_i = x_i - y_i$ is the difference between ranks. Thus, the correlations between the inferred and reference $\mu$, rows of the correlation matrix $C$ and each topic-word distribution in $\beta$ can be compared.
 
 \subsection{Rank recovery}
 
@@ -699,7 +697,7 @@ M_d = \log\left(\frac{\sum\limits_{p \in \mathit{ref}_d}{\theta_{d, p}}}{\rho_d}
 
 This value will be referred as the rho-normalised log score further in the analysis.
 
-In addition, it might be possible to calculate the Spearman's rank correlation coefficient between each document-topic distribution in the inferred and the reference $\theta$: each pathway in the reference $\theta$ is ranked $0$ (top rank) if it's affected by the drug and $1$ if it isn't. The inferred $\theta$ is transformed as previously discussed. Since the reference ranks are now tied, some tie-breaking methods for the Spearman's rho will have to be used.
+%In addition, it might be possible to calculate the Spearman's rank correlation coefficient between each document-topic distribution in the inferred and the reference $\theta$: each pathway in the reference $\theta$ is ranked $0$ (top rank) if it's affected by the drug and $1$ if it isn't. The inferred $\theta$ is transformed as previously discussed. Since the reference ranks are now tied, some tie-breaking methods for the Spearman's rho will have to be used.
 
 There are many more ways the model can be evaluated, but these essentially cover all aspects of the model: for evaluation on synthetic datasets, the recovery of the parameters a dataset was generated with and recovery of document-topic distributions; and for evaluation on the real-world dataset against LDA, ``rank recovery" (where only a Boolean matrix of document-topic memberships is available).
 
@@ -835,35 +833,35 @@ For example, consider two drawn $\theta_1 = (\theta_{1,1}, \theta_{1,2}, \theta_
 
 Figure~\ref{fig:sim-sigmadensity-musigma} shows that as topics become more correlated, the recovery performance for $\mu$ dramatically improves, whereas the recovery of $\Sigma$ itself becomes worse. However, the recovery performance of $\beta$ doesn't significantly change with the correlation density (Figure~\ref{fig:sim-sigmadensity-beta}).
 
-\begin{table}
-\begin{tabular}{| l | l | l | l | l | l | l |}
-\hline
-Dataset & $\mu$ & $\mu$ mean p-val & $\Sigma$ mean & $\Sigma$ mean p-val & $\beta$ mean & $\beta$ mean p-val\\
-\hline
-1 & -0.515 & 0.128 & 0.407 & 0.305 & 1.00 & 0.000 \\
-2 & -0.057 & 0.811 & 0.200 & 0.400 & 0.944 & 0.000 \\
-3 & 0.095 & 0.513 & 0.104 & 0.460 & 0.796 & 0.000 \\
-4 & 0.093 & 0.357 & 0.034 & 0.559 & 0.841 & 0.000 \\
-5 & -0.073 & 0.265 & 0.060 & 0.374 & 0.872 & 0.000 \\
-6 & -0.776 & $5.80 \times 10 ^ {-5}$ & 0.100 & $5.55 \times 10^{-17}$ & 0.999 & 0.000 \\
-7 & -0.523 & 0.018 & 0.297 & 0.233 & 1.00 & 0.000 \\
-8 & -0.182 & 0.443 & 0.197 & 0.392 & 1.00 & 0.000 \\
-9 & -0.150 & 0.527 & 0.123 & 0.570 & 1.00 & 0.000 \\
-\hline
-\end{tabular}
-\caption{Spearman rank correlations between the inferred and the reference parameters on all datasets}
-\label{tab:sim-spearman-params}
-\end{table}
-
-Table~\ref{tab:sim-spearman-params} shows mean Spearman rho scores for various parameters, calculated by \texttt{SciPy}'s function \texttt{scipy.stats.spearmanr}. It also includes the mean p-value assigned to each vector, defined as ``the probability of an uncorrelated system producing datasets that have a Spearman correlation at least as extreme as the one computed from these datasets". The findings here are slightly different from the previous analyses.
-
-First of all, dataset 6 (with the covariance matrix $\Sigma$ being the identity matrix) has very significant rank correlations between the inferred and the reference parameters, although the mean topic assignment $\mu$ is negatively correlated with the reference.
-
-Secondly, while the mean correlations between each row (topic-word distribution) of $\beta$ decrease with the number of topics (first 5 datasets), this performance still can't be replicated by random guessing: the calculated mean p-values were all below $10^{-100}$. However, one thing that should be mentioned is that the calculated p-values were not assuming the topic-word membership priors, which would definitely increase them.
-
-Overall, this analysis confirms poor recovery of $\Sigma$ and $\mu$ but claims that the recovery of $\beta$ is very good.
-
-Curiously, since the number of topics for datasets 6-9 is 20, we should expect that the performance on those datasets should in some aspects be comparable to that on dataset 2. While this is true for $\theta$ and $\mu$ (mean cosine similarity of 0.999 and RMSE of about 1.0, respectively), it is not the case for the recovery of $\beta$ and $\Sigma$. This could be because the methods of generation of $\Sigma$ I'm using are different for these two classes of datasets: for the first 4 datasets, the resultant topic proportions are much more varied than for the last 4. Thus the CTM needs more documents to manage this variance, but the number of documents available to each model is fixed.
+%\begin{table}
+%\begin{tabular}{| l | l | l | l | l | l | l |}
+%\hline
+%Dataset & $\mu$ & $\mu$ mean p-val & $\Sigma$ mean & $\Sigma$ mean p-val & $\beta$ mean & $\beta$ mean p-val\\
+%\hline
+%1 & -0.515 & 0.128 & 0.407 & 0.305 & 1.00 & 0.000 \\
+%2 & -0.057 & 0.811 & 0.200 & 0.400 & 0.944 & 0.000 \\
+%3 & 0.095 & 0.513 & 0.104 & 0.460 & 0.796 & 0.000 \\
+%4 & 0.093 & 0.357 & 0.034 & 0.559 & 0.841 & 0.000 \\
+%5 & -0.073 & 0.265 & 0.060 & 0.374 & 0.872 & 0.000 \\
+%6 & -0.776 & $5.80 \times 10 ^ {-5}$ & 0.100 & $5.55 \times 10^{-17}$ & 0.999 & 0.000 \\
+%7 & -0.523 & 0.018 & 0.297 & 0.233 & 1.00 & 0.000 \\
+%8 & -0.182 & 0.443 & 0.197 & 0.392 & 1.00 & 0.000 \\
+%9 & -0.150 & 0.527 & 0.123 & 0.570 & 1.00 & 0.000 \\
+%\hline
+%\end{tabular}
+%\caption{Spearman rank correlations between the inferred and the reference parameters on all datasets}
+%\label{tab:sim-spearman-params}
+%\end{table}
+%
+%Table~\ref{tab:sim-spearman-params} shows mean Spearman rho scores for various parameters, calculated by \texttt{SciPy}'s function \texttt{scipy.stats.spearmanr}. It also includes the mean p-value assigned to each vector, defined as ``the probability of an uncorrelated system producing datasets that have a Spearman correlation at least as extreme as the one computed from these datasets". The findings here are slightly different from the previous analyses.
+%
+%First of all, dataset 6 (with the covariance matrix $\Sigma$ being the identity matrix) has very significant rank correlations between the inferred and the reference parameters, although the mean topic assignment $\mu$ is negatively correlated with the reference.
+%
+%Secondly, while the mean correlations between each row (topic-word distribution) of $\beta$ decrease with the number of topics (first 5 datasets), this performance still can't be replicated by random guessing: the calculated mean p-values were all below $10^{-100}$. However, one thing that should be mentioned is that the calculated p-values were not assuming the topic-word membership priors, which would definitely increase them.
+%
+%Overall, this analysis confirms poor recovery of $\Sigma$ and $\mu$ but claims that the recovery of $\beta$ is very good.
+%
+%Curiously, since the number of topics for datasets 6-9 is 20, we should expect that the performance on those datasets should in some aspects be comparable to that on dataset 2. While this is true for $\theta$ and $\mu$ (mean cosine similarity of 0.999 and RMSE of about 1.0, respectively), it is not the case for the recovery of $\beta$ and $\Sigma$. This could be because the methods of generation of $\Sigma$ I'm using are different for these two classes of datasets: for the first 4 datasets, the resultant topic proportions are much more varied than for the last 4. Thus the CTM needs more documents to manage this variance, but the number of documents available to each model is fixed.
 
 \subsection{Rank recovery}
 
@@ -901,27 +899,27 @@ Figure~\ref{fig:sim-average-rho} shows the mean score the model achieved on ever
 
 Figure~\ref{fig:sim-sigmadensity-rho} shows how the mean score changes as the topics become more correlated. It appears the performance of CTM does increase with topic correlations in this case, but the variance in performance between different drugs is too large to draw a meaningful conclusion here.
 
-\begin{table}
-\begin{tabular}{| l | l | l | l |}
-\hline
-Dataset & $\theta$ mean & $\theta$ SD & $\theta$ mean p-value \\
-\hline
-1 & 0.597 & 0.111 & 0.086\\
-2 & 0.547 & 0.138 & 0.037 \\
-3 & 0.549 & 0.103 & 0.002 \\
-4 & 0.560 & 0.073 & $8.35 \times 10^{-6}$\\
-5 & 0.567 & 0.046 & $4.09 \times 10^{-14}$\\
-6 & 0.550 & 0.135 & 0.035 \\
-7 & 0.554 & 0.140 & 0.035 \\
-8 & 0.548 & 0.133 & 0.035\\
-9 & 0.529 & 0.132 & 0.044\\
-\hline
-\end{tabular}
-\caption{Spearman rank correlations between each inferred and reference document-topic distribution $\theta$}
-\label{tab:sim-spearman-theta}
-\end{table}
-
-Table~\ref{tab:sim-spearman-theta} shows the mean Spearman rank correlations between each inferred and reference $\theta$ and their standard deviation, as well as the p-values. While the Spearman coefficient does show a positive correlation between the inferred and the reference vectors, it can't distinguish between the performance of CTM on various datasets.
+%\begin{table}
+%\begin{tabular}{| l | l | l | l |}
+%\hline
+%Dataset & $\theta$ mean & $\theta$ SD & $\theta$ mean p-value \\
+%\hline
+%1 & 0.597 & 0.111 & 0.086\\
+%2 & 0.547 & 0.138 & 0.037 \\
+%3 & 0.549 & 0.103 & 0.002 \\
+%4 & 0.560 & 0.073 & $8.35 \times 10^{-6}$\\
+%5 & 0.567 & 0.046 & $4.09 \times 10^{-14}$\\
+%6 & 0.550 & 0.135 & 0.035 \\
+%7 & 0.554 & 0.140 & 0.035 \\
+%8 & 0.548 & 0.133 & 0.035\\
+%9 & 0.529 & 0.132 & 0.044\\
+%\hline
+%\end{tabular}
+%\caption{Spearman rank correlations between each inferred and reference document-topic distribution $\theta$}
+%\label{tab:sim-spearman-theta}
+%\end{table}
+%
+%Table~\ref{tab:sim-spearman-theta} shows the mean Spearman rank correlations between each inferred and reference $\theta$ and their standard deviation, as well as the p-values. While the Spearman coefficient does show a positive correlation between the inferred and the reference vectors, it can't distinguish between the performance of CTM on various datasets.
 
 \subsection{Conclusion}
 
@@ -1073,21 +1071,21 @@ Random & -0.008 & 0.000 & 0.124 \\
 \end{table}
 
 CTM with exponentiation is the only method that achieved a positive mean score, since its performance distribution has a heavy right tail: about 10\% of its predictions achieved a score greater than 1.
-
-\begin{table}
-\begin{tabular}{| l | l | l |}
-\hline
-Model & Spearman rho (mean) & Spearman rho (SD) \\
-\hline
-CTM & -0.066 & 0.102\\
-LDA & -0.026 & 0.094\\
-CTM with exponentiation & -0.064 & 0.118 \\
-Random & $7.65 \times 10^{-5}$ & 0.070 \\
-\hline
-\end{tabular}
-\caption{Mean Spearman rank correlation between the inferred and the reference $\theta$}
-\label{tab:ctd-spearman}
-\end{table}
+%
+%\begin{table}
+%\begin{tabular}{| l | l | l |}
+%\hline
+%Model & Spearman rho (mean) & Spearman rho (SD) \\
+%\hline
+%CTM & -0.066 & 0.102\\
+%LDA & -0.026 & 0.094\\
+%CTM with exponentiation & -0.064 & 0.118 \\
+%Random & $7.65 \times 10^{-5}$ & 0.070 \\
+%\hline
+%\end{tabular}
+%\caption{Mean Spearman rank correlation between the inferred and the reference $\theta$}
+%\label{tab:ctd-spearman}
+%\end{table}
 
 \subsubsection{1-iteration CTM}
 
@@ -1233,25 +1231,36 @@ def atc(thetas):
 
 Figure~\ref{fig:atc-boxplot} shows the so-called box plot of the precisions of Random Forests on the ATC dataset, with the red line showing the median, the box showing the first and third quartiles (covering all but the lowest and the highest 25\% of all observations) and the whiskers show the 1st and the 99th percentiles. While the performance of the topic models is comparable and slightly better than using random vectors as features, Random Forests works better on raw gene expression data.
 
-\subsection{Visualising the resultant similarity matrices}
-Since the document (or drug) similarity matrix (\ref{eq:document_similarity_matrix}) is not affected by the topic identifiability, I decided to perform clustering on the matrix to identify some common groups of drugs and reference them to the actual descriptions of those drugs.
-I used the Markov Clustering Algorithm (MCL)  \cite{Dongen:2000:CAG:868986}, a simple method that's based on the insight that a document similarity matrix, when normalised, forms a Markov chain. If one simulates multiple ``random walkers" on this chain and slowly starts weakening the links between the elements of the chain, each of them will eventually end up roaming around the final clusters. This is encoded in Algorithm~\ref{markov-clustering}.
+\chapter{Conclusion}
 
-\input{markov_clustering}
+The original goal of this project was to implement the training process for a Correlated Topic Model, augmented with topic-word membership priors.
 
-The algorithm consists of repeatedly performing expansion and inflation on the transition matrix: in the expansion step, we exponentiate every element of the matrix (thus weakening the links between different elements) and in the inflation step, we exponentiate the matrix itself (thus turning it into an $\mathit{inflation}$-step transition matrix and simulating the ``random walkers").
+As a result, I have a working implementation of the CTM, including its training and drug-pathway (document-topic) distribution inference process. I also designed multiple evaluation methods that can be used to test topic models on drug-pathway relationship prediction problems. The model was first tested on multiple toy datasets with characteristics similar to those of the real-world datasets. While the actual model parameter recovery is poor because the enforcement of density on the generated document-topic distributions $\theta$ breaks the assumptions of CTM, the model still can infer $\theta$ extremely well.
 
-This process is guaranteed to converge on most graphs and the result can be interpreted as follows: if $M_{i,j} > 0$, then $j$ is a member of the cluster whose main ``attractor" is $i$. This value will usually be 1, meaning each element can only be a member of one cluster, but in case of some symmetric graphs it can be a fraction.
+Secondly, the model was tested on the real-world KEGG/CMap dataset, performing the full training and inference in about 8-9 hours (3 times faster than LDA). While CTM does have predictive power, it is outperformed by LDA. However, I proposed multiple augmentations to CTM that result in a performance improvement. First of all, exponentiating the preprocessed gene expression values instead of discarding the sign results in more information available to the model, improving its predictions. Secondly, only performing one expectation-maximisation iteration during the CTM training results in a comparable performance to the full-convergence CTM. Overall, these improvements allow to predict drug-pathway distributions slightly better than LDA (especially on low-density drugs affecting few pathways) in a fraction of required time (about 2 hours).
 
-The size of the $\mathit{inflation}$ parameter (the exponent on every element of the matrix) controls the granularity of the clusters.
+I also established that while the outputs from the topic models can be used as inputs to a generic classifier to predict the anatomical main class of a drug, they don't improve on using the raw gene expression data directly.
 
-Since all drugs have multiple common pathways and hence similarity values close to 1, I first preprocessed the drug-pathway distributions and removed top 10 most expressed pathways from consideration. Despite that, the process gave few resultant clusters unless the $\mathit{inflation}$ parameter was large.
+\section{Future work/improvements}
 
-Figures~\ref{fig:drug-cluster-2}~and~\ref{fig:drug-cluster-3} show the resultant graphs where each drug was also coloured as per its ATC class.
+There are multiple things I didn't have time to investigate in this project.
 
-To visualise the matrix of correlations between pathways, I used a method from finance for visualisation of correlations between stocks \cite{doi:10.1007/s100510050929}. First, all correlations between pathways are transformed such that pathways with greater correlations get assigned a lower value: $d_{i,j} = \sqrt{2(1 - C_{i, j})}$. Then, Prim's algorithm \cite{doi:10.1007/BF01386390} is used to build a minimum spanning tree on this graph, which allows to explore the hierarchical relationships between pathways.
+\begin{itemize}[noitemsep]
+\item The mysterious phenomenon on Figure~\ref{fig:ctd-side-plots} whereby all topic models consistently predict low expression levels for pathways that are in CTD. I remain convinced that this is not a problem with my plotting (since the plot for the reference dataset does form a monotonically decreasing curve) or the implementation of CTM (since LDA has the same problem).
+\item While for really high densities of $\theta$ and $\beta$, the parameter recovery using the permutation method (Equation~\ref{eq:beta_similarity matrix}) was much better (since in that case the model was following the assumptions of the original CTM), I didn't thoroughtly investigate how the performance changes with the densities: evaluation only focused on datasets of similar parameters to the real-world one.
+\item The fact that the 1-iteration CTM managed to get essentially the same performance as the full-convergence CTM implies that the global model parameters didn't play a large role in the final predictions. However, visualisations of the covariance matrix (Figure~\ref{fig:pathway-tree}) show that it did successfully capture some real-life phenomena. Perhaps by improving the quality of the parameter recovery the predictions of CTM could be improved as well.
+\end{itemize}
 
-The resultant tree is shown in Figure~\ref{fig:pathway-tree}. Interestingly, the root of the tree (middle) became the pathway for lupus, an autoimmune disease in which the body's immune system attacks healthy tissue. Some other phenomena are connected in the tree, such as Alzheimer's, Parkinson's and Huntington's, three neurodegenerative diseases on the right hand side. Alternatively, a branch in the top left hand side mentions various pathways related to diabetes, including the pathway for beta-Alanine metabolism (which is used in treatment of diabetes \cite{buckley1996glp}).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% the bibliography
+\bibliographystyle{unsrt}
+\addcontentsline{toc}{chapter}{Bibliography}
+\bibliography{bibliography}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% the appendices
+\appendix
 
 \begin{landscape}
 	\begin{figure}[!htb]
@@ -1311,36 +1320,26 @@ The resultant tree is shown in Figure~\ref{fig:pathway-tree}. Interestingly, the
 	
 \end{landscape}
 
+\chapter{Visualising the correlation matrices}
 
-\chapter{Conclusion}
+Since the document (or drug) similarity matrix (\ref{eq:document_similarity_matrix}) is not affected by the topic identifiability, I decided to perform clustering on the matrix to identify some common groups of drugs and reference them to the actual descriptions of those drugs.
+I used the Markov Clustering Algorithm (MCL)  \cite{Dongen:2000:CAG:868986}, a simple method that's based on the insight that a document similarity matrix, when normalised, forms a Markov chain. If one simulates multiple ``random walkers" on this chain and slowly starts weakening the links between the elements of the chain, each of them will eventually end up roaming around the final clusters. This is encoded in Algorithm~\ref{markov-clustering}.
 
-The original goal of this project was to implement the training process for a Correlated Topic Model, augmented with topic-word membership priors.
+\input{markov_clustering}
 
-As a result, I have a working implementation of the CTM, including its training and drug-pathway (document-topic) distribution inference process. I also designed multiple evaluation methods that can be used to test topic models on drug-pathway relationship prediction problems. The model was first tested on multiple toy datasets with characteristics similar to those of the real-world datasets. While the actual model parameter recovery is poor because the enforcement of density on the generated document-topic distributions $\theta$ breaks the assumptions of CTM, the model still can infer $\theta$ extremely well.
+The algorithm consists of repeatedly performing expansion and inflation on the transition matrix: in the expansion step, we exponentiate every element of the matrix (thus weakening the links between different elements) and in the inflation step, we exponentiate the matrix itself (thus turning it into an $\mathit{inflation}$-step transition matrix and simulating the ``random walkers").
 
-Secondly, the model was tested on the real-world KEGG/CMap dataset, performing the full training and inference in about 8-9 hours (3 times faster than LDA). While CTM does have predictive power, it is outperformed by LDA. However, I proposed multiple augmentations to CTM that result in a performance improvement. First of all, exponentiating the preprocessed gene expression values instead of discarding the sign results in more information available to the model, improving its predictions. Secondly, only performing one expectation-maximisation iteration during the CTM training results in a comparable performance to the full-convergence CTM. Overall, these improvements allow to predict drug-pathway distributions slightly better than LDA (especially on low-density drugs affecting few pathways) in a fraction of required time (about 2 hours).
+This process is guaranteed to converge on most graphs and the result can be interpreted as follows: if $M_{i,j} > 0$, then $j$ is a member of the cluster whose main ``attractor" is $i$. This value will usually be 1, meaning each element can only be a member of one cluster, but in case of some symmetric graphs it can be a fraction.
 
-I also established that while the outputs from the topic models can be used as inputs to a generic classifier to predict the anatomical main class of a drug, they don't improve on using the raw gene expression data directly.
+The size of the $\mathit{inflation}$ parameter (the exponent on every element of the matrix) controls the granularity of the clusters.
 
-\section{Future work/improvements}
+Since all drugs have multiple common pathways and hence similarity values close to 1, I first preprocessed the drug-pathway distributions and removed top 10 most expressed pathways from consideration. Despite that, the process gave few resultant clusters unless the $\mathit{inflation}$ parameter was large.
 
-There are multiple things I didn't have time to investigate in this project.
+Figures~\ref{fig:drug-cluster-2}~and~\ref{fig:drug-cluster-3} show the resultant graphs where each drug was also coloured as per its ATC class.
 
-\begin{itemize}[noitemsep]
-\item The mysterious phenomenon on Figure~\ref{fig:ctd-side-plots} whereby all topic models consistently predict low expression levels for pathways that are in CTD. I remain convinced that this is not a problem with my plotting (since the plot for the reference dataset does form a monotonically decreasing curve) or the implementation of CTM (since LDA has the same problem).
-\item While for really high densities of $\theta$ and $\beta$, the parameter recovery using the permutation method (Equation~\ref{eq:beta_similarity matrix}) was much better (since in that case the model was following the assumptions of the original CTM), I didn't thoroughtly investigate how the performance changes with the densities: evaluation only focused on datasets of similar parameters to the real-world one.
-\item The fact that the 1-iteration CTM managed to get essentially the same performance as the full-convergence CTM implies that the global model parameters didn't play a large role in the final predictions. However, visualisations of the covariance matrix (Figure~\ref{fig:pathway-tree}) show that it did successfully capture some real-life phenomena. Perhaps by improving the quality of the parameter recovery the predictions of CTM could be improved as well.
-\end{itemize}
+To visualise the matrix of correlations between pathways, I used a method from finance for visualisation of correlations between stocks \cite{doi:10.1007/s100510050929}. First, all correlations between pathways are transformed such that pathways with greater correlations get assigned a lower value: $d_{i,j} = \sqrt{2(1 - C_{i, j})}$. Then, Prim's algorithm \cite{doi:10.1007/BF01386390} is used to build a minimum spanning tree on this graph, which allows to explore the hierarchical relationships between pathways.
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% the bibliography
-\addcontentsline{toc}{chapter}{Bibliography}
-\bibliography{bibliography}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% the appendices
-\appendix
+The resultant tree is shown in Figure~\ref{fig:pathway-tree}. Interestingly, the root of the tree (middle) became the pathway for lupus, an autoimmune disease in which the body's immune system attacks healthy tissue. Some other phenomena are connected in the tree, such as Alzheimer's, Parkinson's and Huntington's, three neurodegenerative diseases on the right hand side. Alternatively, a branch in the top left hand side mentions various pathways related to diabetes, including the pathway for beta-Alanine metabolism (which is used in treatment of diabetes \cite{buckley1996glp}).
 
 \chapter{Project Proposal}
 
