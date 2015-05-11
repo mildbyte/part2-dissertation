@@ -59,7 +59,7 @@ Name:               & \bf Artjoms I\v{s}kovs                       \\
 College:            & \bf Trinity College                     \\
 Project Title:     & \bf Predicting drug-pathway interactions using \\ & \bf the Correlated Topic Model\\
 Examination:        & \bf Computer Science Tripos -- Part II, July 2015  \\
-Word Count:         & \bf 11760\\
+Word Count:         & \bf 11816\\
 Project Originator: & N.~Pratanwanich                    \\
 Supervisor:         & N.~Pratanwanich                    \\ 
 \end{tabular}
@@ -259,6 +259,8 @@ and the normalisation function $f$ is defined as
 f(\eta_d) = \frac{e^{\eta_d}}{\sum\limits_i e^{\eta_{d, i}}}
 \end{equation}
 
+This small change, however, will make the training process of the model not as straightforward as that of LDA and the next chapter will delve into exactly why.
+
 \chapter{Implementation}
 
 This chapter sets up the notation used throughout the whole dissertation and goes from deriving the formulae for training of and inference in the Correlated Topic Model to turning these formulae into actual algorithms and then to the practical concerns related to implementing the algorithms. Finally, I design multiple evaluation methods for the Model.
@@ -325,7 +327,7 @@ p(w | \beta, \mu, \Sigma) & = \int p(w | \eta, \beta) p(\eta | \mu, \Sigma) d\et
 
 In this expansion, we first integrate over all possible distributions of topics $\eta$, then the integrand is expanded to be a product over all words in the document and then, finally, we integrate over all possible topic assignments (since the integral is discrete, it turns into a sum). As in the previous derivation, due to the independence assumptions, we liberally add and remove the variables we are conditioning on to simplify the expression.
 
-The final expression, as it appears in Blei's paper, is
+The final expression, as it appears in Blei and Lafferty's paper, is
 
 \begin{equation}
 \frac{p(\eta | \mu, \Sigma) \prod\limits_{n=1}^N p(w_n | z_n, \beta) p(z_n | \eta)}{\int p(\eta | \mu, \Sigma)  \prod\limits_{n=1}^N \sum\limits_{z_n=1}^K p(z_n | \eta) p(w_n | z_n, \beta) d\eta}
@@ -335,7 +337,7 @@ The marginal probability of the document (the denominator) contains a summation 
 
 \subsection{Using variational methods to approximate the likelihood bound}
 
-To solve this problem, Blei uses variational methods, which involve approximating the posterior distribution with a simpler one, called the variational distribution. The parameters of the distribution are fit to the true posterior (by minimizing the Kullback-Leibner divergence) and the variational distribution is used as a substitute for the posterior.
+To solve this problem, Blei and Lafferty use variational methods, which involve approximating the posterior distribution with a simpler one, called the variational distribution. The parameters of the distribution are fit to the true posterior (by minimizing the Kullback-Leibner divergence) and the variational distribution is used as a substitute for the posterior.
 
 The definition of the distribution is
 
@@ -406,7 +408,7 @@ dL/d\nu^2 & = -\mathit{diag}(\Sigma^{-1})/2 - \frac{N}{2\zeta}e^{\lambda + \nu^2
 
 and with the constraint that $\nu^2 > 0$.
 
-Blei's paper suggests using the conjugate gradient algorithm to optimise $\lambda$ and Newton's method for each coordinate of $\nu^2$, however, I found that I got better performance (both in number of calls to the objective function and the speed of the model) when using the limited-memory Broyden-Fletcher-Goldfarb-Shanno algorithm with box constraints (L-BFGS-B)\cite{doi:10.1137/0916069} to optimise for the whole vector $\nu^2$. I didn't write my own implementations of the conjugate gradient or the L-BFGS-B algorithm: they were available as a part of \texttt{SciPy}. The objective functions passed to the optimisers are simply the negated (since the routines find the minimum) likelihood bounds with just the relevant terms (dependent on $\lambda$ or $\nu^2$, respectively).
+The original paper suggests using the conjugate gradient algorithm to optimise $\lambda$ and Newton's method for each coordinate of $\nu^2$, however, I found that I got better performance (both in number of calls to the objective function and the speed of the model) when using the limited-memory Broyden-Fletcher-Goldfarb-Shanno algorithm with box constraints (L-BFGS-B)\cite{doi:10.1137/0916069} to optimise for the whole vector $\nu^2$. I didn't write my own implementations of the conjugate gradient or the L-BFGS-B algorithm: they were available as a part of \texttt{SciPy}. The objective functions passed to the optimisers are simply the negated (since the routines find the minimum) likelihood bounds with just the relevant terms (dependent on $\lambda$ or $\nu^2$, respectively).
 
 In addition, the original paper recommends reoptimising $\zeta$ (the parameter introduced because of the Taylor expansion) after the optimisation with respect to every other parameter.
 
@@ -1239,7 +1241,7 @@ As a result, I have a working implementation of the CTM, including its training 
 
 Secondly, the model was tested on the real-world KEGG/CMap dataset, performing the full training and inference in about 8-9 hours (3 times faster than LDA). While CTM does have predictive power, it is outperformed by LDA. However, I proposed multiple augmentations to CTM that result in a performance improvement. First of all, exponentiating the preprocessed gene expression values instead of discarding the sign results in more information available to the model, improving its predictions. Secondly, only performing one expectation-maximisation iteration during the CTM training results in a comparable performance to the full-convergence CTM. Overall, these improvements allow to predict drug-pathway distributions slightly better than LDA (especially on low-density drugs affecting few pathways) in a fraction of required time (about 2 hours).
 
-I also established that while the outputs from the topic models can be used as inputs to a generic classifier to predict the anatomical main class of a drug, they don't improve on using the raw gene expression data directly.
+I also established that while the outputs from the topic models can be used as inputs to a generic classifier to predict the anatomical main class of a drug, they don't improve on using the raw gene expression data directly, perhaps because the dimensionality reduction that CTM essentially performs also discards information in the raw gene expression data that Random Forests can use.
 
 \section{Future work/improvements}
 
@@ -1247,7 +1249,7 @@ There are multiple things I didn't have time to investigate in this project.
 
 \begin{itemize}[noitemsep]
 \item The mysterious phenomenon on Figure~\ref{fig:ctd-side-plots} whereby all topic models consistently predict low expression levels for pathways that are in CTD. I remain convinced that this is not a problem with my plotting (since the plot for the reference dataset does form a monotonically decreasing curve) or the implementation of CTM (since LDA has the same problem).
-\item While for really high densities of $\theta$ and $\beta$, the parameter recovery using the permutation method (Equation~\ref{eq:beta_similarity matrix}) was much better (since in that case the model was following the assumptions of the original CTM), I didn't thoroughtly investigate how the performance changes with the densities: evaluation only focused on datasets of similar parameters to the real-world one.
+\item While for really high densities of $\theta$ and $\beta$, the parameter recovery using the permutation method (Equation~\ref{eq:beta_similarity matrix}) was much better (since in that case the model was following the assumptions of the original CTM), I didn't thoroughly investigate how the performance changes with the densities: evaluation only focused on datasets of similar parameters to the real-world one.
 \item The fact that the 1-iteration CTM managed to get essentially the same performance as the full-convergence CTM implies that the global model parameters didn't play a large role in the final predictions. However, visualisations of the covariance matrix (Figure~\ref{fig:pathway-tree}) show that it did successfully capture some real-life phenomena. Perhaps by improving the quality of the parameter recovery the predictions of CTM could be improved as well.
 \end{itemize}
 
