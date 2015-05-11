@@ -1262,6 +1262,28 @@ There are multiple things I didn't have time to investigate in this project.
 % the appendices
 \appendix
 
+\chapter{Visualising the correlation matrices}
+
+Since the document (or drug) similarity matrix (\ref{eq:document_similarity_matrix}) is not affected by the topic identifiability, I decided to perform clustering on the matrix to identify some common groups of drugs and reference them to the actual descriptions of those drugs.
+I used the Markov Clustering Algorithm (MCL)  \cite{Dongen:2000:CAG:868986}, a simple method that's based on the insight that a document similarity matrix, when normalised, forms a Markov chain. If one simulates multiple ``random walkers" on this chain and slowly starts weakening the links between the elements of the chain, each of them will eventually end up roaming around the final clusters. This is encoded in Algorithm~\ref{markov-clustering}.
+
+\input{markov_clustering}
+
+The algorithm consists of repeatedly performing expansion and inflation on the transition matrix: in the expansion step, we exponentiate every element of the matrix (thus weakening the links between different elements) and in the inflation step, we exponentiate the matrix itself (thus turning it into an $\mathit{inflation}$-step transition matrix and simulating the ``random walkers").
+
+This process is guaranteed to converge on most graphs and the result can be interpreted as follows: if $M_{i,j} > 0$, then $j$ is a member of the cluster whose main ``attractor" is $i$. This value will usually be 1, meaning each element can only be a member of one cluster, but in case of some symmetric graphs it can be a fraction.
+
+The size of the $\mathit{inflation}$ parameter (the exponent on every element of the matrix) controls the granularity of the clusters.
+
+Since all drugs have multiple common pathways and hence similarity values close to 1, I first preprocessed the drug-pathway distributions and removed top 10 most expressed pathways from consideration. Despite that, the process gave few resultant clusters unless the $\mathit{inflation}$ parameter was large.
+
+Figures~\ref{fig:drug-cluster-2}~and~\ref{fig:drug-cluster-3} show the resultant graphs where each drug was also coloured as per its ATC class.
+
+To visualise the matrix of correlations between pathways, I used a method from finance for visualisation of correlations between stocks \cite{doi:10.1007/s100510050929}. First, all correlations between pathways are transformed such that pathways with greater correlations get assigned a lower value: $d_{i,j} = \sqrt{2(1 - C_{i, j})}$. Then, Prim's algorithm \cite{doi:10.1007/BF01386390} is used to build a minimum spanning tree on this graph, which allows to explore the hierarchical relationships between pathways.
+
+The resultant tree is shown in Figure~\ref{fig:pathway-tree}. Interestingly, the root of the tree (middle) became the pathway for lupus, an autoimmune disease in which the body's immune system attacks healthy tissue. Some other phenomena are connected in the tree, such as Alzheimer's, Parkinson's and Huntington's, three neurodegenerative diseases on the right hand side. Alternatively, a branch in the top left hand side mentions various pathways related to diabetes, including the pathway for beta-Alanine metabolism (which is used in treatment of diabetes \cite{buckley1996glp}).
+
+
 \begin{landscape}
 	\begin{figure}[!htb]
 		\includegraphics[height=\textwidth]{drug-cluster-2.eps}
@@ -1319,27 +1341,6 @@ There are multiple things I didn't have time to investigate in this project.
 	\end{figure}
 	
 \end{landscape}
-
-\chapter{Visualising the correlation matrices}
-
-Since the document (or drug) similarity matrix (\ref{eq:document_similarity_matrix}) is not affected by the topic identifiability, I decided to perform clustering on the matrix to identify some common groups of drugs and reference them to the actual descriptions of those drugs.
-I used the Markov Clustering Algorithm (MCL)  \cite{Dongen:2000:CAG:868986}, a simple method that's based on the insight that a document similarity matrix, when normalised, forms a Markov chain. If one simulates multiple ``random walkers" on this chain and slowly starts weakening the links between the elements of the chain, each of them will eventually end up roaming around the final clusters. This is encoded in Algorithm~\ref{markov-clustering}.
-
-\input{markov_clustering}
-
-The algorithm consists of repeatedly performing expansion and inflation on the transition matrix: in the expansion step, we exponentiate every element of the matrix (thus weakening the links between different elements) and in the inflation step, we exponentiate the matrix itself (thus turning it into an $\mathit{inflation}$-step transition matrix and simulating the ``random walkers").
-
-This process is guaranteed to converge on most graphs and the result can be interpreted as follows: if $M_{i,j} > 0$, then $j$ is a member of the cluster whose main ``attractor" is $i$. This value will usually be 1, meaning each element can only be a member of one cluster, but in case of some symmetric graphs it can be a fraction.
-
-The size of the $\mathit{inflation}$ parameter (the exponent on every element of the matrix) controls the granularity of the clusters.
-
-Since all drugs have multiple common pathways and hence similarity values close to 1, I first preprocessed the drug-pathway distributions and removed top 10 most expressed pathways from consideration. Despite that, the process gave few resultant clusters unless the $\mathit{inflation}$ parameter was large.
-
-Figures~\ref{fig:drug-cluster-2}~and~\ref{fig:drug-cluster-3} show the resultant graphs where each drug was also coloured as per its ATC class.
-
-To visualise the matrix of correlations between pathways, I used a method from finance for visualisation of correlations between stocks \cite{doi:10.1007/s100510050929}. First, all correlations between pathways are transformed such that pathways with greater correlations get assigned a lower value: $d_{i,j} = \sqrt{2(1 - C_{i, j})}$. Then, Prim's algorithm \cite{doi:10.1007/BF01386390} is used to build a minimum spanning tree on this graph, which allows to explore the hierarchical relationships between pathways.
-
-The resultant tree is shown in Figure~\ref{fig:pathway-tree}. Interestingly, the root of the tree (middle) became the pathway for lupus, an autoimmune disease in which the body's immune system attacks healthy tissue. Some other phenomena are connected in the tree, such as Alzheimer's, Parkinson's and Huntington's, three neurodegenerative diseases on the right hand side. Alternatively, a branch in the top left hand side mentions various pathways related to diabetes, including the pathway for beta-Alanine metabolism (which is used in treatment of diabetes \cite{buckley1996glp}).
 
 \chapter{Project Proposal}
 
