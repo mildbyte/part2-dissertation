@@ -59,7 +59,7 @@ Name:               & \bf Artjoms I\v{s}kovs                       \\
 College:            & \bf Trinity College                     \\
 Project Title:     & \bf Predicting drug-pathway interactions using \\ & \bf the Correlated Topic Model\\
 Examination:        & \bf Computer Science Tripos -- Part II, July 2015  \\
-Word Count:         & \bf 11816\\
+Word Count:         & \bf 11882\\
 Project Originator: & N.~Pratanwanich                    \\
 Supervisor:         & N.~Pratanwanich                    \\ 
 \end{tabular}
@@ -92,8 +92,8 @@ extent for a comparable purpose.
 
 \listoffigures
 
-\newpage
-\section*{Acknowledgements}
+%\newpage
+%\section*{Acknowledgements}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -954,7 +954,7 @@ I was not comfortable with this method since it involved discarding information 
 
 The parameters of the training dataset are:
 \begin{itemize}[noitemsep]
-\item 3041 gene
+\item 3041 genes
 \item 236 pathways
 \item 1169 drugs
 \item Density of $\beta$: 0.0138
@@ -1251,6 +1251,7 @@ There are multiple things I didn't have time to investigate in this project.
 \item The mysterious phenomenon on Figure~\ref{fig:ctd-side-plots} whereby all topic models consistently predict low expression levels for pathways that are in CTD. I remain convinced that this is not a problem with my plotting (since the plot for the reference dataset does form a monotonically decreasing curve) or the implementation of CTM (since LDA has the same problem).
 \item While for really high densities of $\theta$ and $\beta$, the parameter recovery using the permutation method (Equation~\ref{eq:beta_similarity matrix}) was much better (since in that case the model was following the assumptions of the original CTM), I didn't thoroughly investigate how the performance changes with the densities: evaluation only focused on datasets of similar parameters to the real-world one.
 \item The fact that the 1-iteration CTM managed to get essentially the same performance as the full-convergence CTM implies that the global model parameters didn't play a large role in the final predictions. However, visualisations of the covariance matrix (Figure~\ref{fig:pathway-tree}) show that it did successfully capture some real-life phenomena. Perhaps by improving the quality of the parameter recovery the predictions of CTM could be improved as well.
+\item While the CTM shines on low-density drugs, another method called Gaussian Markov Random Field \cite{C4MB00014E} works better on high-density drugs. If it's possible to infer the density of a drug (how many pathways if affects) from its gene expression data, these two classifiers could be combined to create a boosted classifier that would choose the most suitable classifier for inference for a given drug gene expression profile.
 \end{itemize}
 
 
