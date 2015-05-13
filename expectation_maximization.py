@@ -1,15 +1,8 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Sun Dec  7 18:02:06 2014
-
-@author: mildbyte
-"""
 
 import numpy as np
 from variational_inference import variational_inference, likelihood_bound
-from math_utils import cor_mat
 from multiprocessing import Pool
-import functools
 
 def dsm_rmse(inf, ref):
     return np.sqrt(np.sum(np.square(inf-ref)) / ref.size) / (np.max(ref) - np.min(ref))

@@ -1,17 +1,10 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Sun Dec  7 17:56:02 2014
-
-@author: mildbyte
-"""
 
 import numpy as np
 import scipy.stats
 from variational_inference import variational_inference
-from expectation_maximization import expectation_maximization
 from inference import expected_theta
 from collections import Counter
-import random
      
 def exp_normalise(eta):
     return np.exp(eta) / np.sum(np.exp(eta))
@@ -100,38 +93,3 @@ def normalize_mu_sigma(mu, sigma):
     n_samples = 10000
     samples = np.array([exp_normalise(s) for s in np.random.multivariate_normal(mu, sigma, n_samples)])
     return (np.mean(samples, axis=0), np.cov(samples.T))
-    
-def validation(doc_words, doc_counts, doc_thetas, voc_len, K):
-    corpus = zip(doc_words, doc_counts, doc_thetas)
-    np.random.shuffle(corpus)
-    
-    split = int(len(corpus)*0.8)
-    train_data = corpus[:split]
-    test_data = corpus[split:]
-    
-    (train_words, train_counts, train_thetas) = zip(*train_data)
-
-    priors = [np.random.uniform(0, 1, voc_len) for _ in xrange(K)]
-    priors = np.array([p / sum(p) for p in priors])
-    
-    ps = list(expectation_maximization(train_words, train_counts, K, priors))
-    m_params = ps[-1][0]
-    
-    (test_words, test_counts, test_thetas) = zip(*test_data)
-    priors = [np.random.uniform(0, 1, voc_len) for _ in xrange(K)]
-    priors = np.array([p / sum(p) for p in priors])
-        
-    train_inf_thetas = np.array([expected_theta(variational_inference(d, c, m_params), m_params, d, c) for (d, c) in zip(train_words, train_counts)])
-    test_inf_thetas = np.array([expected_theta(variational_inference(d, c, m_params), m_params, d, c) for (d, c) in zip(test_words, test_counts)])
-    
-    test_reference = document_similarity_matrix(test_thetas)
-    test_inferred = document_similarity_matrix(test_inf_thetas)
-    
-    train_reference = document_similarity_matrix(train_thetas)
-    train_inferred = document_similarity_matrix(train_inf_thetas)
-    
-    
-    print "Reference-inferred RMSE on the train set: %f" % dsm_rmse(train_inferred, train_reference)
-    
-    print "Reference-inferred RMSE on the test set: %f" % dsm_rmse(test_inferred, test_reference)
-    

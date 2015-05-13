@@ -1,9 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Mon Apr 06 21:36:46 2015
-
-@author: mildbyte
-"""
 
 import pygraphviz
 import matplotlib.pyplot as plt
