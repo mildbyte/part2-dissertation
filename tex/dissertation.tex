@@ -59,7 +59,7 @@ Name:               & \bf Artjoms I\v{s}kovs                       \\
 College:            & \bf Trinity College                     \\
 Project Title:     & \bf Predicting drug-pathway interactions using \\ & \bf the Correlated Topic Model\\
 Examination:        & \bf Computer Science Tripos -- Part II, July 2015  \\
-Word Count:         & \bf 11882\\
+Word Count:         & \bf 11884\\
 Project Originator: & N.~Pratanwanich                    \\
 Supervisor:         & N.~Pratanwanich                    \\ 
 \end{tabular}
@@ -69,7 +69,7 @@ Supervisor:         & N.~Pratanwanich                    \\
 Implement the Correlated Topic Model for the problem of inferring pathways from drug gene expression data. Find a way to enforce gene-pathway membership priors so that the recovered topic structure can be related to the real data.
 
 \section*{Work Completed}
-CTM training processs with prior enforcement was implemented and inference of the pathway distribution for a new document was designed and implemented. Multiple evaluation methods were designed and the model was tested on synthetic (toy) and real-world datasets.
+CTM training process with prior enforcement was implemented and inference of the pathway distribution for a new document was designed and implemented. Multiple evaluation methods were designed and the model was tested on synthetic (toy) and real-world datasets.
 
 \section*{Special Difficulties}
 None
@@ -171,9 +171,10 @@ In my project proposal, I claimed that adding the enforcement of topic-word memb
 
 I also reuse the preprocessed gene expression microarray data that was used in the LDA paper \cite{Pratanwanich2014}. This is done so that I spend less time on parts of the project not as relevant to Computer Science and so that the outputs from LDA and CTM can be compared.
 
-\section{Introduction to graphical probabilistic models, CTM and LDA}
+\section{Introduction to graphical models, CTM and LDA}
 
 \begin{figure}
+\centering
 \begin{tikzpicture}
 
 \node (theta) at (0,0) [circle, draw] {$\theta$};
@@ -199,6 +200,7 @@ I also reuse the preprocessed gene expression microarray data that was used in t
 \end{figure}
 
 \begin{figure}
+\centering
 \begin{tikzpicture}
  
 \node (theta) at (0,0) [circle, draw] {$\theta$};
@@ -255,7 +257,7 @@ The CTM (Figure~\ref{fig:plate-ctm}) has one difference from LDA: instead of ass
 
 and the normalisation function $f$ is defined as 
 
-\begin{equation}
+\begin{equation}\label{eq:normf}
 f(\eta_d) = \frac{e^{\eta_d}}{\sum\limits_i e^{\eta_{d, i}}}
 \end{equation}
 
@@ -265,11 +267,12 @@ This small change, however, will make the training process of the model not as s
 
 This chapter sets up the notation used throughout the whole dissertation and goes from deriving the formulae for training of and inference in the Correlated Topic Model to turning these formulae into actual algorithms and then to the practical concerns related to implementing the algorithms. Finally, I design multiple evaluation methods for the Model.
 
-The training process was mostly derived from Blei's original paper, however I provide some additions here so that the derivation is easier to understand, reconstructing the complete ``route" from the early idea to the final program. The derivation of the inference process is mine, however I used Blei's CTM implementation in C to verify my method.
+The training process was mostly derived from Blei and Lafferty's original paper \cite{2007}, however I provide some additions here so that the derivation is easier to understand, reconstructing the complete ``route" from the early idea to the final program. The derivation of the inference process is mine, however I used Blei's CTM implementation in C to verify my method.
 
 \section{Training of the Correlated Topic Model}
 
 \begin{table}
+\centering
 \begin{tabular}{| l | l |}
 \hline
 Variable & Description \\
@@ -284,7 +287,7 @@ $\mu$ & Mean of the normal distribution of topics in the corpus \\
 $\Sigma$ & Covariance matrix of the normal distribution of topics in the corpus \\
 $\beta$ & $K \times V$ dimensional matrix of topic-word distributions \\
 $\eta$ & Drawn unnormalised topic distribution for a certain document \\
-$\theta$ & Normalised topic distribution for a certain document: $\theta = f(\eta)$ \\
+$\theta$ & Normalised topic distribution for a certain document (\ref{eq:normf}): $\theta = f(\eta)$ \\
 $z$ & Drawn topic assignments for each word in the document \\
 \hline
 \end{tabular}
@@ -1020,6 +1023,7 @@ Closer inspection, however, reveals that the three models rank a pathway named `
 
 
 \begin{table}
+	\centering
 	\begin{tabular}{| l | l | l |}
 		\hline
 		Model & MAP before exclusion & MAP after exclusion \\
@@ -1058,6 +1062,7 @@ Figure~\ref{fig:ctd-rho-cdf} shows the CDF plots (fraction of scores below a giv
 \end{figure}
 
 \begin{table}
+\centering
 \begin{tabular}{| l | l | l | l |}
 \hline
 Model & Mean & Median & Standard deviation\\
@@ -1128,6 +1133,7 @@ Since CTM takes into account the correlations between pathways, it could be the 
 \end{figure}
 
 \begin{table}
+\centering
 \begin{tabu}{| l | l | l |}
 \hline
 Model & Pearson's r & Two-sided p-value \\
@@ -1289,6 +1295,7 @@ The resultant tree is shown in Figure~\ref{fig:pathway-tree}. Interestingly, the
 
 \begin{landscape}
 	\begin{figure}[!htb]
+		\centering
 		\includegraphics[height=\textwidth]{drug-cluster-2.eps}
 		\caption{Markov clustering of the drug similarity matrix with $\mathit{expansion}=2, \mathit{inflation}=40$, each drug colour-coded as per its ATC anatomical class (4 majority classes only)}
 		\label{fig:drug-cluster-2}
@@ -1298,6 +1305,7 @@ The resultant tree is shown in Figure~\ref{fig:pathway-tree}. Interestingly, the
 
 \begin{landscape}
 	\begin{figure}[!htb]
+		\centering
 		\includegraphics[height=\textwidth]{drug-cluster-3.eps}
 		\caption{Markov clustering of the drug similarity matrix with $\mathit{expansion}=2, \mathit{inflation}=55$, each drug colour-coded as per its ATC anatomical class (4 majority classes only)}
 		\label{fig:drug-cluster-3}
@@ -1308,6 +1316,7 @@ The resultant tree is shown in Figure~\ref{fig:pathway-tree}. Interestingly, the
 \begin{landscape}
 	
 	\begin{figure}[!htb]
+		\centering
 		\includegraphics[height=\textwidth]{drug-tree.eps}
 		\caption{Minimum spanning tree constructed from the drug similarity matrix}
 		\label{fig:drug-tree}
@@ -1338,6 +1347,7 @@ The resultant tree is shown in Figure~\ref{fig:pathway-tree}. Interestingly, the
 \begin{landscape}
 	
 	\begin{figure}[!htb]
+		\centering
 		\includegraphics[height=\textwidth]{pathway-tree.eps}
 		\caption{Minimum spanning tree constructed from the pathway correlation matrix}
 		\label{fig:pathway-tree}
