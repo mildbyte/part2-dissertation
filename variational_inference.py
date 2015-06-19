@@ -35,7 +35,7 @@ def f_dlambda(lambd, v_params, m_params, doc, counts, N):
     term1 = -m_params.inv_sigma.dot(lambda_mu)
     term3 = ne.evaluate("N * exp(lambd + 0.5 * nu_sq - log(zeta))")
     return ne.evaluate("-(term1 + ws_phi - term3)")
-        #shift zeta inside to make exp overflow happen less often
+    #shift zeta inside to make exp overflow happen less often
 
 """The objective function used to optimize the likelihood bound with respect to lambda.
    Same as the negated likelihood bound with only lambda-dependent terms."""
@@ -137,7 +137,6 @@ def variational_inference(doc, counts, m_params, initial_v_params=None, max_iter
         v_params.zeta = maximize_zeta(v_params)
         
         #Maximize wrt lambda
-   #     v_params.lambd = scipy.optimize.fmin_cg(f_lambda, v_params.lambd, f_dlambda, args=(v_params, m_params, doc, counts))
         opt_result = scipy.optimize.minimize(f_lambda, v_params.lambd, method='CG', jac=f_dlambda, args=(v_params, m_params, doc, counts, N))
         v_params.lambd = opt_result.x 
         

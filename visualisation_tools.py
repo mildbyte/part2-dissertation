@@ -44,33 +44,6 @@ def generate_mst_graph(C, labels=None, node_colours=None):
                 
     return G
 
-def connected_subgraph(G, node, max_depth=3):
-    nodes = set([node])
-    depth = 0
-    
-    G2 = pygraphviz.AGraph('graph G {}')
-    G2.node_attr['shape'] = 'box'
-    G2.graph_attr['splines'] = 'spline'
-    G2.graph_attr['overlap'] = 'prism'    
-    
-    while True:
-        depth += 1
-        if depth == max_depth:
-            break
-        
-        newnodes = set(nodes)
-        for n in nodes:
-            for e in G.iteredges(n):
-                G2.add_edge(e, attr=e.attr)
-            newnodes.update(G.iterneighbors(n))
-        
-        if newnodes == nodes:
-            break           
-        
-        nodes = newnodes
-    
-    return G2
-
 def generate_cluster_graph(mcl_result, labels=None, node_colours=None):
     cmap = get_cmap('Accent')
     
@@ -121,9 +94,6 @@ def generate_graph(corr, threshold=0.1, sigma_labels=None):
 
     return G
 
-def plot_correlations(G):
-    G.draw(path="pathways.png", prog='sfdp', args='-Gdpi=200')
-
 def plot_cdf(arr):
     counts, edges = np.histogram(arr, normed=True, bins=1000)
     cdf = np.cumsum(counts)
@@ -165,7 +135,7 @@ def calc_heatmap(thetas, eval_data):
     return img
     
 def plot_heatmap(thetas, eval_data):
-    imshow(1 - calc_heatmap(thetas, eval_data), cmap="Greys_r", interpolation='nearest')
+    plt.imshow(1 - calc_heatmap(thetas, eval_data), cmap="Greys_r", interpolation='nearest')
 
 #Performs Markov clustering on the similarity matrix
 def mcl(M, expansion, inflation):
